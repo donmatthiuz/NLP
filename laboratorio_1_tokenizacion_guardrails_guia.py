@@ -2,19 +2,17 @@
 CC3103 - Procesamiento de Lenguaje Natural
 Laboratorio 1: Tokenizacion y Guardrails para LLMs
 
-Entrega: Cordero, Mathew
+Este archivo sirve como guia practica para complementar la presentacion de
+Semana 1 y 2. Incluye ejemplos, funciones base y ejercicios marcados con TODO.
 
-Pipeline de procesamiento de texto:
-    Texto de entrada
-      -> normalizacion basica
-      -> deteccion de datos sensibles
-      -> accion de guardrail
-      -> tokenizacion
-      -> estadisticas
-      -> salida final
+Objetivos:
+- Comparar diferentes formas de tokenizar texto.
+- Calcular estadisticas basicas de texto.
+- Detectar datos sensibles usando expresiones regulares.
+- Aplicar acciones simples de guardrail: ALLOW, WARN, REDACT o BLOCK.
 
 Ejecutar:
-    python laboratorio_1_cordero_mathew.py
+    python laboratorio_1_tokenizacion_guardrails_guia.py
 """
 
 from collections import Counter
@@ -24,23 +22,14 @@ import re
 # -----------------------------------------------------------------------------
 # 1. Textos De Prueba
 # -----------------------------------------------------------------------------
-# Todos los datos (correos, telefonos, DPI, tokens) son simulados.
 
 TEXTOS_DE_PRUEBA = [
-    # Contiene un correo electronico simulado.
-    "Hola!!! necesito ayuda con mi cuenta :( mi correo es ana.lopez@example.com",
-    # Contiene un telefono simulado.
+    "Hola!!! necesito ayuda con mi cuenta :( mi correo es ana.lopez@uvg.edu.gt",
+    "El modelo GPT-4.1 respondio: 'No tengo suficiente contexto.'",
     "Mi numero es +502 5555-1234 y mi sitio es https://uvg.edu.gt",
-    # Contiene una URL (sin otros datos sensibles) -> deberia dar WARN.
-    "La documentacion esta en https://docs.example.com/nlp, revisenla antes de la clase.",
-    # Contiene una palabra sensible (secret word) -> deberia dar BLOCK.
-    "Mi password temporal es Cambiar123, no lo compartan con nadie.",
-    # Contiene un DPI simulado.
-    "Mi DPI simulado es 1234 56789 0101 para el tramite de la universidad.",
-    # Texto neutro, sin hallazgos -> deberia dar ALLOW.
+    "API_KEY=abc123-super-secreta no deberia compartirse con ningun modelo.",
+    "anticonstitucionalmente, NLP, #IA, www.example.com/manual.pdf",
     "El codigo del curso es CC3103 y la clase inicia a las 17:20.",
-    # Texto con API_KEY simulada (secret word) -> BLOCK.
-    "API_KEY=abc123-simulada no deberia compartirse con ningun modelo.",
 ]
 
 
@@ -53,8 +42,17 @@ def normalizar_espacios(texto):
     return re.sub(r"\s+", " ", texto).strip()
 
 
+def normalizar_minusculas(texto):
+    """Convierte texto a minusculas.
+
+    Nota: no siempre conviene hacer esto. Por ejemplo, Apple y apple pueden
+    significar cosas distintas.
+    """
+    return texto.lower()
+
+
 # -----------------------------------------------------------------------------
-# 3. Tokenizacion
+# 3. Tokenizacion Clasica
 # -----------------------------------------------------------------------------
 
 def tokenizar_por_espacios(texto):
@@ -70,14 +68,15 @@ def tokenizar_por_espacios(texto):
 def tokenizar_con_regex_basico(texto):
     """Tokenizacion usando Regex para capturar palabras y numeros.
 
-    Limitacion: puede destruir estructuras como correos, telefonos y URLs,
-    ya que las separa en sus partes (usuario, dominio, numeros sueltos, etc).
+    Limitacion: puede destruir estructuras como correos, telefonos y URLs.
     """
     return re.findall(r"\b\w+\b", texto.lower())
 
 
 def tokenizar_con_regex_mixto(texto):
-    """Tokenizacion mixta que intenta conservar:
+    """Tokenizacion un poco mas cuidadosa.
+
+    Este patron intenta conservar:
     - Correos electronicos
     - URLs
     - Palabras
@@ -123,15 +122,8 @@ PATRONES_SENSIBLES = {
     "URL": r"https?://\S+|www\.\S+",
     "PHONE": r"\+?\d[\d\s\-]{7,}\d",
     "SECRET_WORD": r"(?i)\b(password|contrasena|contraseña|clave|secret|token|api_key|apikey)\b",
-    # DPI (Guatemala): 13 digitos, agrupados 4-5-4, con espacios o guiones opcionales.
-    "DPI": r"\b\d{4}[\s\-]?\d{5}[\s\-]?\d{4}\b",
     "LONG_NUMBER": r"\b\d{8,}\b",
 }
-
-# Orden en que se evaluan los patrones al detectar y redactar. Se coloca DPI
-# antes que PHONE y LONG_NUMBER para que un DPI no sea "capturado" primero por
-# un patron mas generico.
-ORDEN_PATRONES = ["SECRET_WORD", "EMAIL", "URL", "DPI", "PHONE", "LONG_NUMBER"]
 
 
 def detectar_datos_sensibles(texto):
@@ -140,24 +132,18 @@ def detectar_datos_sensibles(texto):
     Retorna una lista de diccionarios con tipo y valor detectado.
     """
     hallazgos = []
-    rangos_ocupados = []
 
-    def se_traslapa(inicio, fin):
-        return any(inicio < fin_o and fin > inicio_o for inicio_o, fin_o in rangos_ocupados)
+    for tipo, patron in PATRONES_SENSIBLES.items():
+        coincidencias = re.findall(patron, texto)
 
-    for tipo in ORDEN_PATRONES:
-        patron = PATRONES_SENSIBLES[tipo]
-        for coincidencia in re.finditer(patron, texto):
-            if se_traslapa(coincidencia.start(), coincidencia.end()):
-                # Ya fue detectado por un patron mas especifico (p. ej. DPI
-                # antes que LONG_NUMBER). Evita hallazgos duplicados.
-                continue
+        for coincidencia in coincidencias:
+            # re.findall puede devolver tuplas si el patron tiene grupos.
+            if isinstance(coincidencia, tuple):
+                coincidencia = " ".join(filter(None, coincidencia))
 
-            valor = coincidencia.group(0)
-            rangos_ocupados.append((coincidencia.start(), coincidencia.end()))
             hallazgos.append({
                 "tipo": tipo,
-                "valor": valor,
+                "valor": coincidencia,
             })
 
     return hallazgos
@@ -170,46 +156,36 @@ def detectar_datos_sensibles(texto):
 def decidir_accion(hallazgos):
     """Decide que accion tomar segun los datos detectados.
 
-    Politica:
-    - Si hay SECRET_WORD -> BLOCK.
-    - Si hay EMAIL, PHONE, DPI o LONG_NUMBER -> REDACT.
-    - Si solo hay URL -> WARN.
-    - Si no hay hallazgos -> ALLOW.
+    Politica simple:
+    - Si hay secretos, bloquear.
+    - Si hay email, telefono, URL o numero largo, redactar.
+    - Si no hay hallazgos, permitir.
     """
     tipos = {hallazgo["tipo"] for hallazgo in hallazgos}
 
     if "SECRET_WORD" in tipos:
         return "BLOCK"
 
-    if tipos.intersection({"EMAIL", "PHONE", "DPI", "LONG_NUMBER"}):
+    if tipos.intersection({"EMAIL", "PHONE", "URL", "LONG_NUMBER"}):
         return "REDACT"
-
-    if "URL" in tipos:
-        return "WARN"
 
     return "ALLOW"
 
 
 def redactar_texto(texto):
-    """Reemplaza datos sensibles por etiquetas seguras.
-
-    Nota: no se redacta SECRET_WORD porque los textos que la contienen se
-    bloquean (BLOCK) antes de llegar a esta funcion.
-    """
+    """Reemplaza datos sensibles por etiquetas seguras."""
     texto_seguro = texto
 
     reemplazos = {
         "EMAIL": "[EMAIL_REDACTED]",
+        "URL": "[URL_REDACTED]",
         "PHONE": "[PHONE_REDACTED]",
-        "DPI": "[DPI_REDACTED]",
         "LONG_NUMBER": "[NUMBER_REDACTED]",
     }
 
-    # DPI debe redactarse antes que PHONE y LONG_NUMBER para que sus digitos
-    # no sean reemplazados primero por un patron mas generico.
-    for tipo in ["DPI", "EMAIL", "PHONE", "LONG_NUMBER"]:
+    for tipo, reemplazo in reemplazos.items():
         patron = PATRONES_SENSIBLES[tipo]
-        texto_seguro = re.sub(patron, reemplazos[tipo], texto_seguro)
+        texto_seguro = re.sub(patron, reemplazo, texto_seguro)
 
     return texto_seguro
 
@@ -238,17 +214,13 @@ def aplicar_guardrail(texto):
 # -----------------------------------------------------------------------------
 
 def procesar_texto(texto):
-    """Ejecuta el pipeline completo para un texto.
-
-    Texto -> normalizacion -> deteccion -> guardrail -> tokenizacion -> stats
-    """
+    """Ejecuta el pipeline completo para un texto."""
     texto_normalizado = normalizar_espacios(texto)
     resultado_guardrail = aplicar_guardrail(texto_normalizado)
 
     texto_para_tokenizar = resultado_guardrail["texto_seguro"]
 
     if texto_para_tokenizar is None:
-        # BLOCK: no se tokeniza ni se calculan estadisticas del contenido.
         tokens = []
         estadisticas = None
     else:
@@ -265,7 +237,7 @@ def procesar_texto(texto):
 
 
 def imprimir_resultado_pipeline(resultado, indice):
-    """Imprime el resultado completo del pipeline para un texto."""
+    """Imprime el resultado completo del pipeline."""
     print("=" * 80)
     print(f"TEXTO {indice}")
     print("=" * 80)
@@ -305,12 +277,12 @@ def imprimir_resultado_pipeline(resultado, indice):
 
 
 # -----------------------------------------------------------------------------
-# 8. Demos
+# 8. Demos Para Clase
 # -----------------------------------------------------------------------------
 
 def demo_comparar_tokenizadores():
-    """Compara las tres formas de tokenizar el mismo texto."""
-    texto = "Mi numero es +502 5555-1234 y mi correo es ana@example.com"
+    """Compara tres formas de tokenizar el mismo texto."""
+    texto = "Mi numero es +502 5555-1234 y mi correo es ana@uvg.edu.gt"
 
     print("=" * 80)
     print("DEMO: COMPARACION DE TOKENIZADORES")
@@ -342,7 +314,65 @@ def demo_guardrails():
 
 
 # -----------------------------------------------------------------------------
-# 9. Programa Principal
+# 9. Ejercicios Para Estudiantes
+# -----------------------------------------------------------------------------
+
+def ejercicio_1_agregar_textos():
+    """TODO para estudiantes.
+
+    Agreguen 3 textos nuevos a TEXTOS_DE_PRUEBA:
+    - Uno con un correo simulado.
+    - Uno con un telefono simulado.
+    - Uno con una instruccion sospechosa, por ejemplo una clave o token.
+    """
+    pass
+
+
+def ejercicio_2_mejorar_regex_dpi():
+    """TODO para estudiantes.
+
+    Agreguen un patron llamado DPI al diccionario PATRONES_SENSIBLES.
+
+    Pista:
+    - En Guatemala, un DPI suele tener 13 digitos.
+    - Puede aparecer con espacios o guiones.
+
+    Ejemplos que podrian detectar:
+    - 1234567890101
+    - 1234 56789 0101
+    - 1234-56789-0101
+    """
+    pass
+
+
+def ejercicio_3_accion_warn():
+    """TODO para estudiantes.
+
+    Modifiquen decidir_accion para usar WARN.
+
+    Politica sugerida:
+    - SECRET_WORD -> BLOCK
+    - EMAIL o PHONE -> REDACT
+    - URL -> WARN
+    - Sin hallazgos -> ALLOW
+    """
+    pass
+
+
+def ejercicio_4_reflexion():
+    """Preguntas para responder en el informe.
+
+    1. Que falsos positivos encontraron?
+    2. Que falsos negativos encontraron?
+    3. Que informacion se pierde al redactar datos sensibles?
+    4. Regex seria suficiente para proteger informacion de una empresa real?
+    5. Que otra capa de seguridad agregarian?
+    """
+    pass
+
+
+# -----------------------------------------------------------------------------
+# 10. Programa Principal
 # -----------------------------------------------------------------------------
 
 def main():
@@ -352,6 +382,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
