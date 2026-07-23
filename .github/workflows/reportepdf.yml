@@ -13,35 +13,49 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
-      # 2. Verificar si existe Reporte.ipynb
-      - name: Verificar existencia de Reporte.ipynb
+      # 2. Verificar si existe Reporte.ipynb y/o Reporte.md
+      - name: Verificar existencia de Reporte.ipynb / Reporte.md
         id: check_reporte
         run: |
           if [ -f "Reporte.ipynb" ]; then
-            echo "existe=true" >> $GITHUB_OUTPUT
+            echo "existe_ipynb=true" >> $GITHUB_OUTPUT
           else
-            echo "existe=false" >> $GITHUB_OUTPUT
+            echo "existe_ipynb=false" >> $GITHUB_OUTPUT
             echo "ℹ️ No existe Reporte.ipynb, se omite el proceso"
           fi
 
-      # 3. Instalar dependencias (solo si existe)
+          if [ -f "Reporte.md" ]; then
+            echo "existe_md=true" >> $GITHUB_OUTPUT
+          else
+            echo "existe_md=false" >> $GITHUB_OUTPUT
+            echo "ℹ️ No existe Reporte.md, se omite el proceso"
+          fi
+
+      # 3. Instalar dependencias (solo si existe alguno de los dos)
       - name: Instalar dependencias
-        if: steps.check_reporte.outputs.existe == 'true'
+        if: steps.check_reporte.outputs.existe_ipynb == 'true' || steps.check_reporte.outputs.existe_md == 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y pandoc texlive-xetex texlive-fonts-recommended texlive-plain-generic
           pip install nbconvert
 
-      # 4. Convertir a PDF (solo si existe)
-      - name: Convertir a PDF
-        if: steps.check_reporte.outputs.existe == 'true'
+      # 4. Convertir Reporte.ipynb a PDF (solo si existe)
+      - name: Convertir notebook a PDF
+        if: steps.check_reporte.outputs.existe_ipynb == 'true'
         run: |
           echo "📄 Convirtiendo Reporte.ipynb a PDF..."
           jupyter nbconvert --to pdf Reporte.ipynb
 
-      # 5. Commit y push (solo si existe)
+      # 5. Convertir Reporte.md a PDF (solo si existe)
+      - name: Convertir Markdown a PDF
+        if: steps.check_reporte.outputs.existe_md == 'true'
+        run: |
+          echo "📄 Convirtiendo Reporte.md a PDF..."
+          pandoc Reporte.md -o Reporte.pdf --pdf-engine=xelatex -V geometry:margin=1in
+
+      # 6. Commit y push (solo si se genero algun PDF)
       - name: Commit y push
-        if: steps.check_reporte.outputs.existe == 'true'
+        if: steps.check_reporte.outputs.existe_ipynb == 'true' || steps.check_reporte.outputs.existe_md == 'true'
         env:
           TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
