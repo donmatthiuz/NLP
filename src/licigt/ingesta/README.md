@@ -47,6 +47,18 @@ PYTHONPATH=src python -m licigt.ingesta.automatic --nog 12362662 \
 
 El paquete debe contener una liberación del NOG solicitado y los enlaces públicos a los PDF. Esta opción evita depender del HTML de la ficha, pero la descarga de cada PDF sigue requiriendo acceso al portal. El publicador OCDS registra concursos desde 2020; para NOG anteriores se conserva la carga manual. Se limita cada ficha a 5 MB, cada PDF a 50 MB y cada NOG a 30 enlaces. El conector no usa sesión, no supera captchas ni elude controles de acceso. Si el portal devuelve HTTP 403 o 429, informa el bloqueo y detiene la descarga; se puede usar la carga manual de PDF autorizado.
 
+### Descarga con verificación humana en Firefox
+
+Si GUATECOMPRAS presenta un desafío de Cloudflare, inicia la interfaz local con Firefox instalado:
+
+```bash
+PYTHONPATH=src venv/bin/python -m licigt.ingesta.local_browser --data-dir data/ingesta --port 8765
+```
+
+Se abre `http://127.0.0.1:8765/` en una ventana de Firefox controlada por Selenium. Escribe el NOG, abre la ficha del concurso en la pestaña nueva y **resuelve tú el desafío**. Regresa a la pestaña local y pulsa **Descargar e ingerir PDF**. El programa utiliza esa misma sesión de Firefox para descargar los documentos; guarda los originales y los manifiestos en `data/ingesta`. Si la ficha no contiene título, entidad o fecha legibles, rellena esos campos antes de pulsar Descargar. El servidor escucha solo en `127.0.0.1` y guarda la sesión del navegador en un perfil temporal; al terminar con `Ctrl+C`, se cierra Firefox y se elimina ese perfil.
+
+Este flujo requiere el navegador visible y acceso a internet desde esa máquina. La verificación la realiza una persona en el sitio oficial; el programa no resuelve desafíos automáticamente. Algunos enlaces del portal pueden no ser PDF directos o pueden depender de una sesión adicional; aparecen en la lista de omitidos para revisión.
+
 Para MinIO, configurar `LICIGT_MINIO_ENDPOINT`, `LICIGT_MINIO_BUCKET`, `LICIGT_MINIO_ACCESS_KEY`, `LICIGT_MINIO_SECRET_KEY` y opcionalmente `LICIGT_MINIO_SECURE=true`. El bucket debe existir y tener versionado habilitado. Cada documento se escribe con una clave única, sin sobrescribir originales; el administrador puede añadir Object Lock si requiere impedir también su eliminación.
 
 ## Entrega al rol 2

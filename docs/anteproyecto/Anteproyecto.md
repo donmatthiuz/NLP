@@ -2,300 +2,489 @@
 
 ## 1. Información general
 
-**Título:** LiciGT: sistema inteligente para analizar licitaciones públicas en Guatemala mediante RAG.
+**Título:** LiciGT: sistema inteligente para analizar documentos de licitaciones del Instituto Guatemalteco de Seguridad Social mediante RAG.
+
+**Fecha de actualización:** 14 de noviembre de 2026.
 
 **Integrantes:**
 
-- Edwin Jose
-- Gustavo Cruz
-- Josue Say — 22801
-- Mathew Cordero — 22982
+| Nombre | Carnet |
+|---|---|
+| Edwin Jose | Por completar |
+| Gustavo Cruz | Por completar |
+| Josue Say | 22801 |
+| Mathew Cordero | 22982 |
 
-**Dominio:** análisis de bases, términos de referencia, anexos y aclaraciones de licitaciones públicas.
+**Dominio:** análisis documental de licitaciones del Instituto Guatemalteco de Seguridad Social (IGSS), con énfasis inicial en adquisiciones de medicamentos y requisitos administrativos, legales, técnicos y financieros para preparar ofertas.
 
-**Usuario primario:** analistas de licitaciones de empresas guatemaltecas proveedoras del Estado.
+**Cliente objetivo:** empresas que participan o desean participar como proveedoras del IGSS. El segmento inicial comprende distribuidoras, droguerías y empresas farmacéuticas cuyos equipos preparan ofertas de medicamentos. Una ampliación posterior podrá atender proveedores de insumos, equipo médico y servicios, previa incorporación y evaluación de documentos de esas categorías.
 
-**Problema y propuesta de valor:** revisar manualmente documentos extensos y sus modificaciones consume tiempo y puede dejar requisitos sin detectar. LiciGT permitirá cargar los PDF de una licitación y consultar requisitos, documentos obligatorios y fechas límite; cada respuesta y elemento de la lista de verificación mostrará su fuente y página.
+**Usuario primario:** analista de licitaciones o encargado de preparar ofertas dentro de una empresa proveedora del IGSS.
 
-**Fuentes previstas:** bases de licitación, términos de referencia, anexos y aclaraciones publicados en [GUATECOMPRAS](https://www.guatecompras.gt/), además de la normativa disponible en su [repositorio de legislación](https://www.guatecompras.gt/info/legislacion.aspx). Se verificará la versión vigente de cada documento antes de usarla.
+**Fuente documental principal:** sección [Proveedores del IGSS](https://www.igssgt.org/proveedores/) y archivos oficiales de licitaciones alojados en el sitio institucional. El proyecto utilizará carga manual de PDF obtenidos de esa fuente; su funcionamiento no dependerá de una conexión o extracción desde Guatecompras.
 
-**Posible comprador:** empresas proveedoras registradas en GUATECOMPRAS, como constructoras, distribuidoras y consultoras. Una suscripción mensual es una opción comercial futura; pagos y suscripciones quedan fuera del MVP.
+**Problema y propuesta de valor:** el analista debe localizar y relacionar requisitos dispersos entre bases, especificaciones, cronogramas y anexos del IGSS. LiciGT facilitará consultas sobre esos documentos y generará listas de verificación con referencias al documento, versión y página. En las adquisiciones de medicamentos, permitirá consultar condiciones documentales asociadas a códigos IGSS, presentaciones, concentraciones y demás especificaciones que aparezcan expresamente en el expediente.
 
-**Demostración de valor:** comparar el tiempo de revisión, la cobertura de requisitos y la validez de las citas de LiciGT frente a una revisión manual, además de contrastar el RAG básico y el mejorado sobre el mismo banco de pruebas.
+**Posible comprador:** la gerencia comercial o administrativa de una empresa proveedora del IGSS. Una suscripción por empresa es una posibilidad comercial futura; el MVP se centrará en validar la utilidad del sistema. No se presupone un contrato, patrocinio o adopción por parte del IGSS.
 
-**Riesgo principal y mitigación:** una respuesta incorrecta, una cita inválida o una modificación omitida puede inducir una oferta incompleta. El sistema conservará versiones, validará citas, se abstendrá sin evidencia y escalará contradicciones o casos de alto impacto a revisión humana.
+**Demostración de valor:** comparar el tiempo de identificación de requisitos, su cobertura y la validez de las citas frente a una revisión manual; contrastar un RAG básico y una versión mejorada utilizando el mismo corpus y banco de preguntas.
 
-## 2. Resumen Ejecutivo
+**Riesgo principal:** generar una lista incompleta o interpretar incorrectamente una condición del concurso. Se mitigará mediante trazabilidad, control de versiones, advertencias de cobertura documental, abstención sin evidencia y revisión humana de contradicciones o resultados de alto impacto.
 
-Las empresas guatemaltecas que participan en licitaciones públicas deben revisar y verificar requisitos distribuidos entre bases, anexos, especificaciones, aclaraciones y modificaciones publicadas en GUATECOMPRAS, cuyo incumplimiento puede ocasionar el rechazo de sus ofertas. Para atender esta problemática, se propone desarrollar LiciGT, un sistema basado en RAG que permita analizar documentos de licitación, identificar requisitos obligatorios, comparar modificaciones y generar listas de verificación con referencias a las fuentes originales. El sistema estará dirigido al personal responsable de preparar ofertas en empresas proveedoras del Estado, especialmente pequeñas y medianas empresas, con el propósito de evaluar si esta tecnología reduce el tiempo de revisión y las omisiones documentales, manteniendo precisión, trazabilidad y seguridad frente a instrucciones maliciosas presentes en los documentos.
+## 2. Resumen ejecutivo
+
+Las empresas que participan en licitaciones del IGSS necesitan revisar documentos que reúnen condiciones administrativas, legales, financieras y técnicas, además de cronogramas y anexos. En el segmento farmacéutico, esta revisión exige relacionar los documentos de la oferta con el medicamento solicitado, su código institucional y las características especificadas para cada evento. Los documentos consultados del IGSS muestran esta estructura y distinguen requisitos fundamentales, no fundamentales y condiciones de presentación de ofertas [2, 3].
+
+Se propone desarrollar LiciGT, un sistema de generación aumentada por recuperación (RAG) que permita cargar PDF oficiales obtenidos del portal de proveedores del IGSS, realizar consultas en lenguaje natural y generar listas de verificación respaldadas por citas. La primera evaluación se enfocará en licitaciones de medicamentos, para mantener un contexto de uso delimitado y construir respuestas de referencia verificables.
+
+El sistema conservará los archivos originales, extraerá contenido por página, recuperará fragmentos del evento seleccionado y validará las referencias de cada respuesta. Cuando se disponga de aclaraciones o modificaciones oficiales, permitirá compararlas con los documentos anteriores. Si el conjunto cargado es incompleto, lo indicará expresamente y limitará sus conclusiones a la evidencia disponible.
+
+El valor esperado consiste en apoyar al personal de las empresas proveedoras durante la preparación y revisión documental de sus ofertas. La evaluación determinará si el prototipo reduce el tiempo de revisión y las omisiones sin perder precisión, trazabilidad ni aislamiento entre empresas. Los resultados se presentarán como evidencia exploratoria del corpus evaluado.
 
 ## 3. Problema
 
 ### Situación actual
 
-Actualmente, las empresas que participan en licitaciones públicas de Guatemala deben revisar diferentes documentos publicados en GUATECOMPRAS para identificar los requisitos y condiciones necesarios para presentar sus ofertas. 
+El portal de proveedores del IGSS publica eventos y archivos descargables organizados por año [1]. Los expedientes revisados incluyen bases, especificaciones generales y técnicas, disposiciones especiales y anexos [2, 3]. Un analista debe recorrer estas secciones para identificar qué documentos preparar, qué condiciones verificar y qué fechas atender.
+
+En las licitaciones de medicamentos, el equipo de la empresa también debe identificar el producto solicitado y relacionar su código IGSS, presentación y demás especificaciones con los requisitos documentales del evento. Las condiciones deben extraerse del documento correspondiente: no puede suponerse que dos concursos con una estructura similar exijan exactamente lo mismo.
 
 ### Dolor o limitación
 
-La principal dificultad es identificar y verificar todos los requisitos de una licitación, debido a que la información está distribuida en varios documentos que pueden contener aclaraciones o modificaciones. 
+La dificultad central es consolidar información distribuida en varias páginas y documentos para obtener una lista de requisitos clara y verificable. La presencia de tablas, referencias entre numerales, formatos anexos y eventuales modificaciones aumenta el trabajo de lectura y contraste.
+
+Las principales situaciones que abordará el proyecto son:
+
+- Localizar requisitos de participación y documentos que debe contener la oferta.
+- Distinguir requisitos fundamentales y no fundamentales cuando el expediente establezca esa clasificación.
+- Relacionar el código y la descripción del producto con las condiciones solicitadas.
+- Identificar fechas, horarios, lugares y plazos documentados.
+- Comparar cambios entre una base y una modificación oficial disponible.
+- Reconocer cuándo un archivo es solo una convocatoria o cuándo falta documentación para contestar.
 
 ### Impacto
 
-Esta dificultad puede aumentar el tiempo y los recursos necesarios para preparar ofertas, además de generar omisiones que podrían provocar su rechazo y la pérdida de oportunidades comerciales.
+Las omisiones o interpretaciones incorrectas pueden producir retrabajo, una oferta incompleta o el incumplimiento de condiciones de participación. El tiempo y la frecuencia de estos problemas deberán medirse durante el proyecto; no se presupone una tasa de error ni un ahorro previamente demostrado.
 
 ### Pregunta principal del sistema
 
-¿Cómo facilitar la identificación y verificación de los requisitos de una licitación pública mediante el análisis de sus documentos?
+¿Cómo facilitar la identificación y verificación de los requisitos documentales de las licitaciones del IGSS mediante el análisis de sus PDF oficiales y respuestas respaldadas por evidencia?
 
-## 4. Usuario Y Contexto
+## 4. Cliente, usuario y contexto
 
-LiciGT está dirigido a empresas guatemaltecas proveedoras del Estado, especialmente pequeñas y medianas empresas. Su usuario principal será el personal encargado de analizar las bases de licitación y preparar las ofertas. El sistema se utilizará durante la revisión de documentos y la verificación de requisitos antes de presentar una propuesta.
+### Descripción del cliente
 
- 
+El cliente objetivo es una empresa que comercializa medicamentos y prepara ofertas para procesos de adquisición del IGSS. Su equipo debe coordinar información comercial, administrativa y técnica para reunir los documentos exigidos por cada concurso. En empresas con equipos pequeños, una misma persona puede asumir varias de estas tareas.
 
-| Usuario | Necesidad | Permisos | Riesgo de error |
-| :---- | :---- | :---- | :---- |
-| *Analista de licitaciones o encargado de preparar ofertas de una empresa proveedora del Estado.* | *Identificar requisitos obligatorios, documentos solicitados, fechas límite y cambios distribuidos entre las bases, anexos y aclaraciones de una licitación.* | *Cargar y consultar documentos en el espacio de su empresa, realizar preguntas y generar listas de verificación. Sin acceso a documentos privados de otras empresas ni permisos para presentar ofertas en GUATECOMPRAS.* | *Una respuesta incorrecta o incompleta podría causar omisiones, incumplimiento de requisitos o vencimiento de plazos, lo que podría provocar el rechazo de la oferta.* |
+La necesidad que se busca atender es disponer de una herramienta que transforme los documentos del evento en información consultable y en una lista de verificación trazable. La disposición de estas empresas a utilizar o pagar por la solución deberá validarse mediante entrevistas o pruebas de uso; todavía no se presenta como un resultado del proyecto.
+
+El IGSS participa en este contexto como entidad convocante y fuente de los documentos. El producto se diseña inicialmente para el trabajo de preparación de ofertas de las empresas proveedoras.
+
+### Usuarios y permisos
+
+| Usuario | Necesidad | Permisos en el MVP | Riesgo de error |
+|---|---|---|---|
+| Analista de licitaciones de una empresa proveedora del IGSS | Identificar documentos, requisitos, fechas y cambios de un evento | Cargar PDF, consultar documentos y elaborar listas de verificación en su empresa | Omitir un requisito o utilizar una condición que no corresponde al evento |
+| Responsable técnico o regulatorio de la empresa | Revisar especificaciones y documentación técnica exigida para el producto | Consultar evidencia y revisar los ítems que le correspondan | Confundir códigos, concentraciones, presentaciones o documentos requeridos |
+| Supervisor comercial o administrativo | Revisar pendientes y organizar la preparación de la oferta | Consultar y revisar listas de verificación autorizadas | Interpretar una lista como garantía de aceptación o como expediente completo |
+
+### Contexto de uso
+
+1. El analista identifica una licitación en el portal de proveedores del IGSS.
+2. Descarga los PDF oficiales disponibles y registra su origen.
+3. Crea el evento en LiciGT, indicando modalidad, número institucional, año y unidad requirente cuando conste.
+4. Carga los archivos y revisa las alertas de legibilidad, duplicados y cobertura.
+5. Consulta requisitos y genera una lista de verificación con citas.
+6. Contrasta los resultados con los originales y marca el avance de preparación documental.
+7. Si obtiene una modificación oficial del mismo evento, la incorpora y revisa los cambios detectados.
+
+El sistema se utilizará para apoyar la revisión documental. No recibirá datos clínicos de pacientes ni realizará recomendaciones sobre tratamientos.
 
 ## 5. Objetivos
 
 ### Objetivo general
 
-*Desarrollar y evaluar un sistema basado en generación aumentada por recuperación (RAG) que facilite la identificación y verificación de requisitos de licitaciones públicas en Guatemala, mediante el análisis de sus documentos y la generación de respuestas y listas de verificación con referencias a las fuentes originales.*
+Desarrollar y evaluar un sistema basado en RAG que facilite la identificación y verificación de requisitos en documentos de licitaciones del IGSS, obtenidos de su portal institucional, mediante consultas y listas de verificación respaldadas por referencias al documento, página y versión.
 
 ### Objetivos específicos
 
-1. *Implementar un proceso de carga, extracción e indexación de documentos PDF de licitaciones que conserve metadatos de documento, versión y página para permitir la trazabilidad de la información recuperada.*  
-     
-2. *Desarrollar un módulo de consulta y generación de listas de verificación que identifique requisitos obligatorios, documentos solicitados, fechas límite y modificaciones, respaldando cada elemento con citas verificables e indicando cuándo no exista evidencia suficiente.*  
-     
-3. *Evaluar el sistema mediante un banco de pruebas con respuestas de referencia y casos sin respuesta o con instrucciones maliciosas, midiendo la precisión de la información, la validez de las citas, la abstención y el tiempo de revisión frente a una revisión manual.*  
-   
+1. Implementar un proceso de carga, extracción e indexación de PDF oficiales del IGSS que preserve el evento, tipo de documento, versión, URL de origen y página, con controles de calidad y cobertura documental.
+2. Desarrollar un módulo de consulta y generación de listas de verificación para identificar requisitos, documentos obligatorios, especificaciones y fechas del evento seleccionado, con citas verificables y abstención cuando falte evidencia.
+3. Incorporar una comparación entre bases y aclaraciones o modificaciones oficiales disponibles del mismo evento, mostrando ambas fuentes y señalando los conflictos que requieren revisión humana.
+4. Evaluar una línea base y una versión mejorada del RAG mediante al menos 20 casos de prueba, midiendo recuperación, cobertura, fidelidad, validez de citas, abstención, latencia y tiempo de revisión; añadir pruebas separadas de seguridad y permisos.
 
 ## 6. Alcance
 
 ### Incluye
 
-* Carga y procesamiento de documentos PDF de licitaciones públicas de Guatemala.  
-* Extracción, limpieza, segmentación e indexación de documentos con metadatos.  
-* Búsqueda semántica o híbrida mediante RAG.  
-* Consultas en lenguaje natural sobre requisitos, fechas y condiciones de participación.  
-* Identificación de requisitos obligatorios y generación de listas de verificación.  
-* Respuestas fundamentadas con referencias al documento, página y versión.  
-* Flujo agéntico para decidir entre consultar documentos, extraer requisitos o verificar información mediante herramientas.  
-* Validación de entradas, salidas y permisos de acceso.  
-* Protección y pruebas frente a prompt injection, alucinaciones y consultas sin evidencia.  
-* Evaluación de precisión, recuperación, latencia, costos y seguridad, comparando una versión básica con una mejorada.
+- Carga manual de PDF oficiales de licitaciones del IGSS obtenidos de su portal institucional.
+- Corpus inicial de licitaciones de medicamentos; incorporación de otras categorías únicamente si se dispone de documentos suficientes y se evalúan por separado.
+- Registro de modalidad, número de evento, año, unidad requirente y códigos de producto cuando estén documentados.
+- Extracción de texto y tablas por página, con OCR cuando sea necesario.
+- Detección de duplicados, páginas ilegibles y archivos que contienen únicamente una convocatoria.
+- Segmentación e indexación de documentos para recuperación semántica e híbrida.
+- Consultas sobre requisitos, documentos de la oferta, especificaciones y cronogramas.
+- Generación de listas de verificación con citas y estados de seguimiento.
+- Comparación de versiones y documentos modificatorios disponibles del mismo evento.
+- Flujo agéntico acotado para seleccionar herramientas de consulta, extracción y comparación.
+- Autenticación, permisos por empresa y evaluación de seguridad.
 
 ### No incluye
 
-* Presentación automática de ofertas en GUATECOMPRAS.  
-* Generación completa de propuestas económicas o técnicas.  
-* Garantía de aceptación o adjudicación de licitaciones.  
-* Sustitución de asesoría legal o revisión profesional.  
-* Modificación de documentos oficiales.  
-* Procesamiento de información confidencial sin autorización.  
-* Monitoreo automático de todas las licitaciones nacionales.  
-* Integraciones comerciales, pagos o suscripciones en la primera versión.
+- Extracción, monitoreo o integración automática con Guatecompras.
+- Presentación de ofertas, trámites o modificaciones en plataformas externas.
+- Seguimiento exhaustivo de todas las publicaciones del IGSS ni garantía de actualización en tiempo real.
+- Generación completa de propuestas técnicas o económicas y decisión automática de participar.
+- Certificación del cumplimiento de la empresa, autenticidad de sus documentos o aceptación de una oferta.
+- Sustitución de la revisión jurídica, regulatoria o técnica del proveedor.
+- Recomendaciones clínicas, equivalencias terapéuticas o evaluación de pacientes.
+- Procesamiento de expedientes internos confidenciales de empresas en esta primera versión; sí se protegerán las cuentas y listas de verificación de cada empresa.
+- Pagos, suscripciones e integraciones comerciales en el MVP.
 
 ### MVP
 
-Desarrollar un prototipo funcional de LiciGT que permita cargar documentos PDF de licitaciones públicas, procesarlos mediante un pipeline de NLP y consultar sus requisitos utilizando RAG. El sistema deberá identificar requisitos obligatorios, generar una lista de verificación y proporcionar respuestas respaldadas por fuentes verificables. Incorporará un flujo agéntico limitado para seleccionar entre búsqueda documental y validación de requisitos, además de controles básicos de seguridad frente a instrucciones maliciosas y respuestas sin evidencia.
+Un prototipo funcional que permita registrar un evento del IGSS, cargar sus PDF, consultar requisitos con citas y generar una lista de verificación editable. Mostrará qué documentos fueron incorporados y qué información falta. Incluirá comparación de versiones cuando exista un par documental adecuado, un flujo limitado de herramientas y pruebas de seguridad.
 
-**Hipótesis central:** Un sistema RAG especializado puede reducir el tiempo necesario para identificar requisitos de licitaciones públicas, manteniendo respuestas precisas y verificables.
+**Hipótesis central:** un RAG especializado en documentos de licitaciones del IGSS puede reducir el tiempo de identificación de requisitos para una empresa proveedora, manteniendo respuestas precisas y verificables.
 
-**Validación mínima:** Comparar un RAG básico con una versión mejorada, utilizando al menos 20 casos de prueba, y medir recuperación, precisión de respuestas, trazabilidad, latencia y resistencia a ataques de prompt injection.
+**Validación mínima:** ejecutar el mismo banco de al menos 20 casos sobre el RAG básico y el mejorado; conservar evidencia de sus resultados y una suite adicional de seguridad. El número de casos corresponde a preguntas o tareas de evaluación, no al número de licitaciones.
 
-## 7. Fuentes Y Gobernanza
+**Límite de cobertura:** las respuestas describirán lo contenido en los archivos cargados. La ausencia de una condición en esos archivos no demostrará que esa condición no exista en el expediente completo.
 
-| Fuente | Formato | Propietario | Actualización | Permiso | Sensibilidad |
-| :---- | :---- | :---- | :---- | :---- | :---- |
-| *Bases de licitación y términos de referencia publicados en GUATECOMPRAS.* | *PDF y documentos anexos.* | *Entidad pública convocante.* | *Al incorporar una licitación al sistema.* | *Lectura y consulta.* | *Pública.* |
-| *Anexos, aclaraciones y modificaciones de cada licitación.* | *PDF y otros archivos publicados.* | *Entidad pública convocante.* | *Al revisar nuevas publicaciones del concurso.* | *Lectura y consulta.* | *Pública.* |
-| *Ley de Contrataciones del Estado y su reglamento, disponibles en el repositorio de legislación de GUATECOMPRAS.* | *PDF o HTML.* | *Organismo emisor de cada norma.* | *Al verificar reformas o nuevas versiones oficiales.* | *Lectura y consulta.* | *Pública.* |
-| *Documentos internos cargados por las empresas, si se incluyen en el alcance.* | *PDF.* | *Empresa que carga los documentos.* | *Cada vez que un usuario autorizado carga una versión.* | *Acceso exclusivo de usuarios autorizados de la empresa.* | *Privada o confidencial.* |
+## 7. Fuentes y gobernanza
 
-**Cómo se conservarán versiones, metadatos y permisos**
+### Fuentes documentales
 
-**Versiones:** Se conservará cada documento original con un identificador único, su fecha de incorporación y una huella digital (*hash*) para detectar archivos duplicados o cambios. Las nuevas versiones se almacenarán sin sobrescribir las anteriores. Las aclaraciones y modificaciones se vincularán con la licitación correspondiente para permitir su comparación.
+| Fuente | Contenido y formato | Responsable de publicación | Uso en el proyecto | Condición de incorporación |
+|---|---|---|---|---|
+| Portal Proveedores del IGSS [1] | Fichas de eventos y enlaces a documentos | IGSS | Selección de eventos y registro de procedencia | Confirmar que el archivo pertenece al evento seleccionado |
+| Bases oficiales alojadas en el sitio del IGSS [2, 3] | PDF con bases, cronograma, especificaciones y disposiciones | IGSS y dependencia indicada en el documento | Fuente principal para preguntas y listas de verificación | Revisar legibilidad, páginas y tipo de documento |
+| Anexos y formularios en PDF del mismo evento | Secciones integradas o archivos independientes | IGSS | Identificar documentación y formatos requeridos | Vincular al evento y conservar su relación con las bases |
+| Aclaraciones y modificaciones oficiales disponibles en el sitio institucional | PDF | IGSS | Comparar cambios y responder preguntas temporales | Verificar evento, fecha y relación explícita con las bases |
+| Normativa oficial publicada en el sitio institucional, si se incorpora | PDF o HTML | Organismo emisor; IGSS como publicador o repositorio | Contexto normativo separado | Verificar texto, fecha y reformas antes de utilizarla como fuente autónoma |
 
-**Metadatos:** Cada documento registrará el Número de Operación GUATECOMPRAS (NOG), título, entidad convocante, tipo de documento, fecha de publicación, URL de origen, versión y fecha de carga. Cada fragmento utilizado por el sistema conservará también el identificador del documento y la página de origen para generar citas verificables.
+El corpus central se obtendrá de archivos alojados en el sitio del IGSS. Un enlace que redirija a otra plataforma no se contabilizará como documento disponible del corpus hasta obtener y validar sus bytes por una vía comprendida en el alcance. No se asume que todos los eventos tengan sus bases o modificaciones completas en el portal institucional.
 
-**Permisos:** El acceso requerirá autenticación y se limitará según el rol del usuario y la empresa a la que pertenece. Los documentos internos y sus fragmentos indexados solo podrán recuperarse por usuarios autorizados de esa empresa. El sistema registrará las cargas y consultas para facilitar la auditoría.
+El acceso público permite consultar los documentos. Antes de redistribuir un corpus descargable se revisarán las condiciones aplicables; no se atribuirá una licencia abierta por el solo hecho de que un archivo sea accesible. El banco académico conservará la procedencia y limitará los datos personales a lo necesario.
+
+### Documentos iniciales identificados
+
+| Evento institucional | Objeto | Código IGSS del producto | Extensión del PDF | Uso previsto |
+|---|---|---|---|---|
+| Licitación Pública DA No. 399-IGSS-2026 [2] | Multivitamínico prenatal con flúor, tableta o cápsula | 432 | 36 páginas | Extracción de requisitos, documentos, especificaciones, fechas y anexos |
+| Licitación Pública DA No. 363-IGSS-2026 [3] | Metimazol, tableta de 5 mg | 345 | 36 páginas | Recuperación por identificadores y diferenciación entre eventos similares |
+
+Estas son fuentes iniciales, no una afirmación de que se haya reunido el historial completo de ambos expedientes. Se propone ampliar el corpus a entre tres y cinco licitaciones con documentación suficiente, registrando los archivos efectivamente disponibles. Los documentos históricos podrán usarse para evaluación con su fecha claramente indicada.
+
+### Selección y control del corpus
+
+Cada evento tendrá un inventario que distinga bases, especificaciones, anexos y documentos modificatorios. Se excluirán como único soporte de un evento los avisos que solo remitan a bases ausentes. Un PDF que integre varias secciones se conservará como un único original y se etiquetará por sus secciones durante la extracción.
+
+Para las pruebas de comparación se buscará al menos un par auténtico de documentos del mismo evento. Si no se obtiene, las pruebas de vigencia quedarán pendientes; los ejemplos sintéticos podrán probar el componente de software, pero se reportarán aparte y no se presentarán como modificaciones oficiales.
+
+### Versiones y trazabilidad
+
+Cada archivo recibirá un `doc_id`, una huella SHA-256, una fecha de descarga y una versión de ingesta. Los originales se conservarán sin sobrescribirse. La versión interna de ingesta no se confundirá con el número de una modificación oficial.
+
+Se registrarán la fecha de publicación y la fecha del documento cuando puedan verificarse. La fecha de descarga no sustituirá a ninguna de ellas. Una fecha desconocida permanecerá sin dato. Se distinguirán versiones corregidas del mismo archivo, aclaraciones y documentos que modifican expresamente una cláusula.
+
+### Identificación de eventos
+
+La clave operativa será `evento_id`, un identificador interno único. Se asociará con la modalidad, número institucional del evento, año y dependencia que consten en la fuente. El número visible por sí solo no se utilizará como clave universal.
+
+El código IGSS identifica un producto dentro de los documentos y no reemplaza al identificador del evento. El NOG, si aparece en el PDF, podrá guardarse como referencia externa opcional; no será necesario para cargar documentos, filtrar búsquedas ni llamar herramientas. Las menciones originales a otras plataformas se conservarán fielmente en el texto de los documentos.
+
+### Permisos
+
+Las cargas, índices y listas de verificación se asociarán al espacio de la empresa que los utiliza. Para simplificar el MVP, incluso los PDF de origen público tendrán copias lógicas de trabajo dentro de cada empresa. El acceso requerirá autenticación y controles por `tenant_id` antes de recuperar fragmentos o abrir archivos. Los datos de prueba que representen empresas o usuarios serán ficticios.
 
 ## 8. Requisitos
 
 ### Funcionales
 
-1. **Carga y procesamiento de documentos:** el sistema permitirá cargar documentos PDF de una licitación, extraer su contenido e indexarlo, conservando la referencia al documento y la página de origen.
-2. **Consultas con evidencia:** el sistema permitirá realizar preguntas sobre requisitos, documentos obligatorios, fechas y condiciones de participación. Cada respuesta incluirá citas al documento y página correspondientes e indicará cuando no exista información suficiente para responder.
-3. **Lista de verificación:** el sistema generará una lista de requisitos y documentos obligatorios con sus citas, permitirá marcar su cumplimiento e identificará cambios entre las bases y las aclaraciones o modificaciones cargadas.
+1. **Registro y carga:** crear eventos del IGSS y cargar PDF, validando formato, procedencia declarada, duplicados y asociación al evento. Extraer contenido por página y señalar fallos de OCR o extracción.
+2. **Consulta con evidencia:** responder preguntas sobre requisitos, documentos, especificaciones y fechas del evento seleccionado. Mostrar documento, página, versión y texto de respaldo; abstenerse cuando no exista evidencia suficiente.
+3. **Lista de verificación:** organizar requisitos por categoría y, cuando la fuente lo establezca, por carácter fundamental o no fundamental. Cada ítem tendrá cita y estado: pendiente, preparado o revisado. Esos estados describirán el seguimiento del usuario, no una certificación automática.
+4. **Comparación documental:** contrastar bases y modificaciones del mismo evento, con referencias a ambas fuentes, alcance del cambio y alerta de contradicción o ambigüedad.
+5. **Cobertura y auditoría:** mostrar los documentos cargados, referencias a anexos ausentes, fechas no verificadas y última incorporación. Registrar cargas, consultas y resultados de validación sin exponer información innecesaria.
 
 ### No funcionales
 
-Las siguientes son **metas propuestas para el MVP**, que deberán comprobarse durante la evaluación:
+Las siguientes son metas propuestas que deberán medirse:
 
-1. **Tiempo de respuesta:** al menos el 95 % de las consultas deberá responderse en un máximo de 15 segundos, con los documentos previamente procesados e indexados.
-2. **Concurrencia:** el sistema deberá admitir al menos cinco usuarios realizando consultas simultáneamente, sin mezclar documentos, respuestas ni listas de verificación entre sus sesiones.
-3. **Seguridad y configuración:** las credenciales deberán almacenarse fuera del código fuente y el acceso a documentos deberá validarse en cada consulta según los permisos del usuario. La aplicación deberá poder desplegarse mediante un procedimiento documentado que especifique sus dependencias y variables de entorno.
+| Requisito | Meta o criterio |
+|---|---|
+| Tiempo de respuesta | P95 de hasta 15 segundos, con los documentos previamente indexados y el entorno de ejecución identificado |
+| Concurrencia | Al menos cinco usuarios simultáneos, sin mezcla de eventos, empresas o listas |
+| Trazabilidad | Toda afirmación documental publicada debe tener una referencia validada; los fallos se suprimen o producen abstención |
+| Seguridad | Permisos por empresa en cada recuperación y lectura; credenciales fuera del código; registros sanitizados |
+| Reproducibilidad | Corpus, configuración, versiones de modelos, dependencias y procedimiento de despliegue documentados |
+| Claridad | Interfaz y respuestas en español, con acceso al original y explicación explícita de límites de cobertura |
 
 ## 9. Arquitectura
 
-![Arquitectura general de LiciGT: ingesta, almacenamiento y consulta RAG](../arquitectura/arquitectura.jpeg)
+La arquitectura conservará dos flujos: ingesta de archivos oficiales del IGSS y consulta autenticada sobre los documentos ya procesados. La selección y descarga inicial será manual; las herramientas del modelo no navegarán por sitios externos.
 
-La arquitectura separa dos flujos. **Ingesta**, una vez por documento o versión: analista → registro y hash → extracción por página (texto, tablas y OCR cuando haga falta) → control de calidad → limpieza → segmentación → decisión de inyección en documento → metadatos y versión → índices léxico y vectorial. Si una página resulta ilegible o el documento está incompleto, se registra el fallo y se solicita revisión antes de indexarla como evidencia confiable. Los PDF originales se conservan en MinIO con versionado y protección contra sobrescritura para poder contrastar cualquier cita.
+### Flujo de ingesta
 
-**Consulta**, por pregunta: analista → autenticación y permisos → validación de entrada → enrutamiento de intención → herramienta acotada → recuperación híbrida filtrada por empresa y NOG → decisión sobre vigencia y suficiencia → generación estructurada → validación de esquema, citas y permisos → respuesta. Una consulta fuera de alcance, un ataque o la falta de evidencia conduce a abstención. Las contradicciones entre versiones y los resultados de alto impacto se envían a revisión humana.
+El analista registra un evento y carga sus PDF. El sistema valida el archivo y su relación con el evento, calcula SHA-256, conserva el original en MinIO y extrae texto y tablas por página. Si una página es ilegible, se marca para revisión. Después limpia el contenido, segmenta por estructura, registra metadatos y genera los índices léxico y vectorial.
 
-El estado compartido de cada consulta contendrá `tenant_id`, usuario, rol, NOG, intención, herramientas llamadas, identificadores de fragmentos recuperados y estado de validación. El modelo solo recibirá fragmentos autorizados y nunca decidirá por sí mismo los permisos. PostgreSQL con `pgvector` guardará documentos, fragmentos, versiones, índices y listas de verificación; las políticas de acceso por fila y los filtros por `tenant_id` y NOG se aplicarán antes de recuperar texto. El registro de herramientas limitará los parámetros y el número de llamadas. Una bitácora separada guardará trazas sanitizadas y el banco de evaluación permitirá repetir las pruebas.
+### Flujo de consulta
 
-La [asignación de roles y carpetas de trabajo](../roles/Asignacion_de_roles.md) distribuye la construcción de estos componentes entre cuatro integrantes y deja un espacio para que cada uno escriba su nombre.
+La aplicación autentica al usuario y valida su acceso al evento. El enrutador selecciona una ruta de consulta, extracción o comparación. La recuperación se filtra por empresa y evento antes de entregar evidencia al modelo. El sistema verifica suficiencia, relaciones entre versiones y citas; devuelve una respuesta fundamentada, una abstención o una respuesta que requiere revisión humana.
+
+```mermaid
+flowchart TD
+    A[Consulta autenticada] --> B{Permiso sobre el evento}
+    B -->|No| C[Acceso denegado]
+    B -->|Sí| D[Herramienta autorizada]
+    D --> E[Recuperación por empresa y evento]
+    E --> F{Evidencia suficiente}
+    F -->|No| G[Abstención]
+    F -->|Sí| H[Generación y validación de citas]
+    H --> I{Resultado validado}
+    I -->|Sí| J[Respuesta con fuentes]
+    I -->|Conflicto| K[Revisión humana]
+    I -->|Cita inválida| G
+```
+
+El estado compartido contendrá `tenant_id`, usuario, rol, `evento_id`, intención, herramientas ejecutadas, documentos consultados, fragmentos recuperados y resultados de validación. Los permisos serán resueltos por la aplicación, nunca por el modelo.
+
+PostgreSQL con `pgvector` almacenará eventos, documentos, fragmentos, versiones, vectores y listas de verificación. Se aplicarán políticas de seguridad por fila, filtros de aplicación y un rol de base de datos sin privilegios para eludir esas políticas. MinIO conservará los PDF originales con versionado y controles contra sobrescritura. La bitácora y los archivos del banco de pruebas permitirán repetir la evaluación.
 
 ### Componentes
 
-| Componente | Función | Entrada | Salida | Justificación |
-| :---- | :---- | :---- | :---- | :---- |
-| Interfaz y autenticación | Recibir cargas y consultas; asociar usuario, rol y empresa | PDF, NOG, pregunta o acción sobre checklist | Solicitud autenticada | Vincula cada operación con un responsable y su ámbito de acceso. |
-| Registro y almacenamiento original | Validar archivo, calcular SHA-256 y conservar el PDF en MinIO | PDF y metadatos de origen | `doc_id`, hash y objeto inmutable | Permite deduplicar y contrastar citas con el original. |
-| Extracción y control de calidad | Extraer texto y tablas por página; usar OCR si es necesario y marcar páginas ilegibles | PDF original | Texto por página, tablas y alertas | Evita indexar silenciosamente contenido incompleto. |
-| Limpieza y segmentación | Normalizar ruido sin alterar números, fechas ni códigos; dividir por cláusulas y tablas | Texto con páginas | Fragmentos con sección y páginas | Conserva la unidad semántica de los requisitos. |
-| Control de inyección documental | Marcar patrones de instrucciones ajenas al documento y aislar el texto como dato | Fragmentos extraídos | Fragmentos clasificados y alertas | Reduce el riesgo de que un PDF controle el flujo de consulta. |
-| Versionado e índices | Persistir metadatos, permisos, vectores y texto buscable en PostgreSQL con `pgvector` | Fragmentos, embeddings y NOG | Índices y relaciones de versión | Hace posible recuperar evidencia filtrada y comparar cambios. |
-| Enrutador y registro de herramientas | Clasificar la intención y permitir solo herramientas, parámetros y pasos autorizados | Pregunta y estado de consulta | Plan acotado y resultados de herramientas | Limita el flujo agéntico a tareas verificables. |
-| Recuperación y control de evidencia | Buscar, fusionar, reordenar y verificar vigencia y suficiencia | Consulta, empresa y NOG | Fragmentos candidatos con páginas y versión | Aporta evidencia antes de generar respuestas. |
-| Generación y validación | Producir el contrato JSON y comprobar esquema, citas, permisos y conflictos | Evidencia autorizada | Respuesta, abstención o solicitud de revisión | Impide publicar afirmaciones sin respaldo verificable. |
-| Auditoría y evaluación | Guardar eventos sin datos sensibles y ejecutar casos reproducibles | Eventos, preguntas y respuestas de referencia | Trazas y métricas | Permite diagnosticar fallas y comparar versiones. |
+| Componente | Función | Entrada y salida principal |
+|---|---|---|
+| Interfaz y autenticación | Gestionar usuarios, eventos y permisos | Usuario autenticado y solicitud asociada a empresa y evento |
+| Registro y almacenamiento | Validar PDF, calcular hash y preservar original | PDF y metadatos → `doc_id` y archivo versionado |
+| Extracción y calidad | Extraer texto, tablas y OCR por página | PDF → contenido y alertas de legibilidad |
+| Limpieza y segmentación | Conservar numerales, códigos, unidades y relaciones entre secciones | Contenido → fragmentos con páginas y sección |
+| Control de contenido no confiable | Aislar instrucciones presentes en documentos | Fragmentos → contenido tratado como datos y alertas |
+| Versionado e índices | Mantener referencias, permisos y relaciones documentales | Fragmentos → índices léxico y vectorial |
+| Enrutador y herramientas | Seleccionar acciones permitidas dentro del presupuesto de ejecución | Intención → ruta acotada |
+| Recuperación y evidencia | Buscar, combinar y reordenar resultados autorizados | Pregunta → fragmentos relevantes y estado de cobertura |
+| Generación y validación | Construir respuesta estructurada y verificar respaldo | Evidencia → respuesta, abstención o revisión |
+| Auditoría y evaluación | Guardar trazas sanitizadas y comparar variantes | Eventos de ejecución → métricas y reporte de errores |
 
-## 10. Recuperación Y RAG
+## 10. Recuperación y RAG
 
-* **Estrategia de chunking:**  
-  1. Línea base: ventana fija de 512 tokens con solapamiento de 50.  
-  2. Versión mejorada: corte por estructura. Primero se separa por títulos, numerales y cláusulas de las bases (por ejemplo “Artículo”, “Numeral”, “Anexo”). Los segmentos largos se dividen recursivamente en ventanas de aproximadamente 800 tokens con solapamiento de 120 (15 %), cortando en límites de párrafo u oración. Las tablas (listas de documentos, especificaciones técnicas) se extraen como Markdown y se indexan como chunks independientes. Un chunk nunca mezcla documentos distintos y conserva las páginas que abarca.  
-* **Metadatos:** cada fragmento guarda el siguiente esquema.
+### Segmentación
+
+**Línea base:** ventanas de hasta 120 tokens de contenido con solapamiento de 20, medidas con el tokenizer del modelo y conservando documento y páginas. La configuración publicada de MiniLM utiliza `max_seq_length=128`; se reservará espacio para tokens especiales y se verificará que ningún fragmento sea truncado silenciosamente.
+
+**Versión mejorada:** cortes por títulos, numerales y cláusulas, por ejemplo: bases, cronograma, documentos de la plica, requisitos fundamentales, especificaciones y anexos. Las secciones extensas se dividirán en ventanas de aproximadamente 800 tokens con solapamiento de 120, respetando límites de párrafo cuando sea posible.
+
+Las tablas se extraerán como texto estructurado o Markdown, repitiendo encabezados cuando se dividan. Se preservará la relación entre descripción, código, concentración, presentación, cantidad y unidad. Un fragmento no combinará archivos distintos. Las páginas del PDF y la numeración impresa se registrarán por separado cuando difieran.
+
+### Metadatos por fragmento
 
 | Campo | Descripción |
-| ----- | ----- |
-| `chunk_id`, `doc_id` | Identificadores únicos del fragmento y del documento |
-| `nog`, `titulo`, `entidad` | Número de Operación GUATECOMPRAS, título de la licitación y entidad convocante |
-| `tipo_documento` | bases, términos de referencia, anexo, aclaración, modificación, ley o reglamento |
-| `version`, `fecha_publicacion`, `hash_sha256`, `url_origen` | Versión, fecha de publicación, huella del archivo y URL de origen |
-| `pagina_inicio`, `pagina_fin`, `seccion` | Ubicación dentro del documento (numeral o título) |
-| `tipo_chunk` | texto o tabla |
-| `tenant_id`, `visibilidad` | Empresa propietaria y si es pública o privada, para el control de acceso |
+|---|---|
+| `chunk_id`, `doc_id` | Identificadores del fragmento y del original |
+| `tenant_id`, `evento_id` | Empresa autorizada y evento al que pertenece |
+| `numero_evento`, `anio`, `modalidad` | Identificación institucional y tipo de procedimiento |
+| `entidad`, `unidad_requirente` | IGSS y dependencia indicada en la fuente |
+| `codigos_producto_igss` | Códigos asociados al fragmento, si están presentes |
+| `nog_referencia` | NOG opcional presente en el documento; sin dependencia funcional |
+| `tipo_documento`, `tipo_chunk`, `seccion` | Base, anexo, convocatoria, aclaración, modificación o normativa; texto o tabla; numeral o título |
+| `version_ingesta`, `identificador_version_oficial` | Versión técnica y denominación oficial cuando exista |
+| `fecha_documento`, `fecha_publicacion`, `fecha_descarga` | Fechas diferenciadas; valores desconocidos permanecen nulos |
+| `hash_sha256`, `url_origen` | Huella y procedencia del original |
+| `pagina_inicio`, `pagina_fin`, `pagina_impresa` | Ubicación para citas y contraste visual |
+| `estado_calidad`, `relacion_documental` | Alertas de extracción y vínculo con documentos aclarados o modificados |
 
-* **Modelo de embeddings:**  
-  1. Línea base: `paraphrase-multilingual-MiniLM-L12-v2` (384 dimensiones).  
-  2. Versión mejorada: `BAAI/bge-m3` (1024 dimensiones, multilingüe, contexto de hasta 8192 tokens). Se eligió por su buen desempeño en español y porque se ejecuta localmente, de modo que los documentos no salen de la infraestructura.  
-* **Índice:** PostgreSQL con `pgvector`, índice HNSW (`m=16`, `ef_construction=64`) y distancia coseno. Cada variante de embeddings tendrá su propia columna o índice por usar dimensiones distintas. Para la parte léxica, una columna `tsvector` con configuración `spanish` e índice GIN. Se usa una sola base de datos para vectores, metadatos y permisos, lo que permite filtrar por `tenant_id` y `nog` dentro de la misma consulta.  
-* **Búsqueda:** los documentos del concurso se filtran por empresa y NOG. La normativa pública, si se incorpora al corpus, se consulta en un índice separado y con su versión explícita; no se presenta como si fuera una cláusula de la licitación.  
-  1. Línea base: solo semántica, top-5.  
-  2. Versión mejorada: híbrida. Se recuperan 20 candidatos semánticos y 20 léxicos mediante `tsvector` y `ts_rank_cd`, ambos ya filtrados por empresa y licitación. Se fusionan con Reciprocal Rank Fusion (`k = 60`) con pesos 0.6 para lo semántico y 0.4 para lo léxico. La parte léxica es importante porque las consultas incluyen términos exactos como “fianza de cumplimiento”, NOG, números de artículo y montos.  
-* **Reranking:** cross-encoder `BAAI/bge-reranker-v2-m3` sobre los 20 mejores candidatos fusionados, de los cuales se conservan 5. Si un numeral tiene versión original y una aclaración o modificación posterior, se muestran ambas y se marca el cambio para revisión; no se presume que toda aclaración sustituya automáticamente la base. Se aplica diversidad con MMR para reducir fragmentos casi idénticos.  
-* **Citas:** cada fragmento entra al contexto etiquetado con su `chunk_id`. El modelo debe devolver, para cada afirmación, el `chunk_id` y una cita textual breve. Un validador determinista comprueba que la cita aparece literalmente en el fragmento (normalizando espacios y mayúsculas) y que su documento, página y versión siguen autorizados. La interfaz la muestra como Documento · versión · página. Una coincidencia textual no demuestra por sí sola que la interpretación sea correcta; los casos ambiguos se marcan para revisión humana. Las afirmaciones sin cita válida se descartan o se regeneran una vez.  
-* **Abstención:** el sistema responde “No se encontró evidencia suficiente en los documentos cargados” cuando ocurre cualquiera de estos casos:  
-  1. el mejor puntaje del reranker, normalizado a una escala de 0 a 1, queda por debajo de un umbral τ calibrado con un subconjunto de desarrollo para equilibrar abstenciones correctas e indebidas;  
-  2. no hay ningún fragmento de la licitación consultada (NOG) entre los recuperados;  
-  3. el validador de citas no logra respaldar ninguna afirmación de la respuesta;  
-  4. se pregunta por una fecha o monto y ningún fragmento recuperado contiene un patrón de fecha o cantidad.
+### Embeddings e índices
 
+Se conservará como configuración inicial propuesta:
 
-## 11. Herramientas Y Agentes
+- **Línea base:** `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`, con vectores de 384 dimensiones.
+- **Variante mejorada:** `BAAI/bge-m3`, con vectores de 1024 dimensiones.
+- **Reranker propuesto:** `BAAI/bge-reranker-v2-m3`.
+- **Almacenamiento vectorial:** PostgreSQL con `pgvector`, índice HNSW y distancia coseno; parámetros iniciales `m=16` y `ef_construction=64`.
+- **Índice léxico:** `tsvector` con configuración en español e índice GIN. Los códigos y números de evento también se conservarán en campos exactos para evitar depender de su tokenización.
 
- 
+Las variantes con dimensiones distintas utilizarán columnas o índices separados. Los modelos de embeddings y reranking se ejecutarán localmente en la infraestructura del proyecto, si los recursos disponibles lo permiten. Las dimensiones, dependencias y consumo deberán comprobarse al implementar. El modelo generativo se seleccionará y documentará antes de la evaluación, registrando proveedor, versión y parámetros.
 
-| Herramienta | Propósito | Parámetros | Permisos | Validación |
-| ----- | ----- | ----- | ----- | ----- |
-| buscar\_documentos | Recuperación híbrida con reranking dentro de una licitación | query: str (≤500), nog: str, tipo\_documento?: enum, k: int (1–10) | Rol analista o lector; solo documentos de su empresa y públicos | Previa: esquema (pydantic), NOG numérico y existente. Posterior: todos los chunks pertenecen al tenant; el texto recuperado se trata como datos, no como instrucciones |
-| extraer\_requisitos | Listar requisitos obligatorios y documentos solicitados | nog: str, categoria?: enum (legal, técnico, financiero, administrativo) | Rol analista | Salida JSON con esquema fijo; cada requisito exige chunk\_id, página y cita textual verificada; los que no pasan se eliminan |
-| extraer\_fechas | Obtener fechas límite (ofertas, visita técnica, aclaraciones, apertura) | nog: str | Rol analista | Fechas en formato ISO con zona America/Guatemala; chequeo de coherencia (por ejemplo, la presentación es posterior a la publicación); cita obligatoria |
-| comparar\_versiones | Detectar cambios entre bases y aclaraciones o modificaciones | nog: str, doc\_base\_id: str, doc\_modif\_id: str | Rol analista | Ambos documentos del mismo NOG y del mismo tenant; la modificación debe ser posterior a la base; cada cambio cita ambas versiones |
-| verificar\_cita | Comprobar que una afirmación está sustentada por un fragmento | chunk\_id: str, cita: str | Interna del sistema | Coincidencia literal normalizada; devuelve valida o no\_valida y el motivo |
-| generar\_checklist | Consolidar requisitos y fechas verificados en una lista de verificación | nog: str, incluir\_modificaciones: bool | Rol analista; escribe solo en el espacio de su empresa | Solo incluye ítems con cita verificada; marca como “pendiente de revisión” los que tienen conflicto entre versiones |
+### Búsqueda y reordenamiento
 
-**Por qué cada herramienta es necesaria**
+1. Validar acceso y filtrar por `tenant_id` y `evento_id` antes de recuperar contenido.
+2. En la línea base, obtener los cinco fragmentos más próximos por búsqueda semántica.
+3. En la versión mejorada, recuperar hasta 20 candidatos semánticos y 20 léxicos, con apoyo de coincidencias exactas para evento, código y numeral.
+4. Fusionar mediante Reciprocal Rank Fusion con constante inicial 60 y pesos iniciales 0.6 para recuperación semántica y 0.4 para léxica.
+5. Aplicar el reranker a los 20 mejores candidatos y seleccionar hasta cinco, evitando redundancias sin retirar evidencia necesaria de versiones distintas.
+6. Comprobar suficiencia y posibles conflictos. Conservar tanto la cláusula base como el documento que la modifica cuando sean necesarios para responder.
 
-* buscar\_documentos es la base de todas las demás: sin recuperación filtrada y trazable no hay evidencia.  
-* extraer\_requisitos y extraer\_fechas están separadas porque tienen validaciones distintas. Los requisitos son texto con criterios de obligatoriedad, mientras que las fechas exigen formato, zona horaria y coherencia temporal, donde un error implica perder el plazo.  
-* comparar\_versiones cubre el dolor central del problema: los requisitos cambian entre las bases y las aclaraciones, y revisar eso a mano es lo que causa omisiones.  
-* verificar\_cita actúa como filtro de alucinaciones antes de mostrar nada al usuario.  
-* generar\_checklist produce el entregable final y solo usa información ya verificada por las otras herramientas.
+Los parámetros son puntos de partida y se ajustarán con un subconjunto de desarrollo. La normativa, si se incorpora, tendrá una colección o filtro separado para que una disposición general no se presente como cláusula específica de una licitación.
 
-**Orquestación y límites:** El enrutador seleccionará una de tres rutas: consulta documental, extracción o comparación. Permitirá como máximo tres llamadas de herramienta por pregunta y una regeneración si falla la validación. Las herramientas no podrán navegar a URLs arbitrarias, ejecutar comandos ni modificar documentos oficiales. `generar_checklist` solo escribirá en el espacio de la empresa autenticada. Si una herramienta falla, se devolverá una respuesta de error controlada o una abstención; no se inventará el resultado.
+### Citas y abstención
 
-**Contrato de salida:** Toda respuesta seguirá un esquema validado con `answer` (texto), `sources` (lista de `source`, `page`, `chunk_id` y versión), `abstained` (booleano), `tool_used` (nombre o `null`) y `needs_human_review` (booleano). Si `abstained` es verdadero, `answer` explicará que no hay evidencia suficiente; si hay versiones contradictorias, `needs_human_review` será verdadero y se mostrarán ambas fuentes.
+Cada afirmación se vinculará con uno o más `chunk_id` y una cita breve. Un validador comprobará existencia, permisos, pertenencia al evento, página y coincidencia del texto citado. Una cita literal válida no asegura una interpretación correcta; la fidelidad se revisará también mediante evaluación humana.
+
+La respuesta se abstendrá o limitará expresamente cuando:
+
+- No existan fragmentos autorizados del evento que respondan la pregunta.
+- Falte una base, anexo o modificación necesaria para la consulta.
+- La extracción sea ilegible en la sección requerida.
+- La evidencia no supere el umbral de relevancia calibrado en desarrollo.
+- No pueda verificarse el dato solicitado, como una fecha, monto, código o concentración.
+- Las citas no validen después de un único reintento de generación.
+
+El umbral del reranker se calibrará según su salida real; no se asumirá que sus puntajes son probabilidades. Encontrar un número o una fecha será una condición auxiliar, no una prueba suficiente de que corresponde a la pregunta.
+
+La interfaz mostrará: “La respuesta se basa en los documentos cargados del evento”. Si existen contradicciones, presentará las fuentes involucradas y solicitará revisión. No resolverá automáticamente la vigencia tomando solo el archivo con fecha más reciente.
+
+## 11. Herramientas y agentes
+
+| Herramienta | Propósito | Parámetros principales | Permisos y validación |
+|---|---|---|---|
+| `buscar_documentos` | Recuperar evidencia del evento | `query`, `evento_id`, `tipo_documento?`, `k` | Lectura autorizada; consulta de hasta 500 caracteres y `k` entre 1 y 10; filtro previo por empresa y evento |
+| `extraer_requisitos` | Identificar requisitos y documentación de la oferta | `evento_id`, `categoria?` | Rol analista; categorías administrativa, legal, técnica y financiera; cada ítem exige cita |
+| `extraer_fechas` | Extraer fechas, horarios y plazos documentados | `evento_id` | Verificar relación con la actividad; conservar texto original y zona horaria documentada; señalar supuestos |
+| `comparar_versiones` | Contrastar bases y documentos aclaratorios o modificatorios | `evento_id`, `doc_base_id`, `doc_cambio_id` | Mismo evento y empresa; verificar relación, fecha y alcance del cambio; citar ambas fuentes |
+| `verificar_cita` | Validar respaldo y autorización de una cita | `chunk_id`, `cita`, contexto autorizado | Herramienta interna determinista; existencia, página, versión, permisos y coincidencia textual |
+| `generar_checklist` | Consolidar requisitos verificados | `evento_id`, `incluir_modificaciones` | Rol analista; escritura solo en su empresa; ítems con cita y conflictos explícitos |
+
+`buscar_documentos` proporciona la evidencia de las demás funciones. La separación entre requisitos y fechas permite usar validaciones distintas. `comparar_versiones` aborda los cambios documentales; `verificar_cita` controla la correspondencia con el original; `generar_checklist` entrega una lista que el analista puede revisar y utilizar para organizar su trabajo.
+
+### Orquestación
+
+El enrutador seleccionará una de tres rutas: consulta documental, extracción o comparación. Tendrá un máximo de tres invocaciones de herramientas seleccionadas por el modelo por solicitud y una sola regeneración ante salida inválida. Las herramientas compuestas ejecutarán recuperación y validación internas de forma acotada y registrarán todas sus operaciones; la validación obligatoria no se omitirá por agotar el presupuesto del agente.
+
+Las herramientas no podrán navegar a URL arbitrarias, ejecutar comandos ni presentar ofertas. `generar_checklist` solo escribirá dentro del espacio de la empresa autenticada. Ante una falla, se devolverá un error controlado o una abstención.
+
+### Contrato de salida
+
+La respuesta estructurada conservará los campos `answer`, `sources`, `abstained`, `tool_used` y `needs_human_review`, y añadirá `evento_id`, `coverage_status` y `warnings`.
+
+- `sources`: lista de referencias con `doc_id`, `source`, `page`, `chunk_id`, versión y cita.
+- `coverage_status`: estado de cobertura respecto del inventario registrado, como `parcial` o `sin_faltantes_detectados`; este último no certifica que el expediente externo esté completo.
+- `warnings`: documentos ausentes, problemas de extracción, fechas desconocidas o conflictos relevantes.
+- `abstained`: verdadero cuando la evidencia no permita responder.
+- `needs_human_review`: verdadero ante contradicciones, interpretación ambigua o condiciones críticas que requieren confirmación.
+
+El estado de una lista de verificación será independiente del contrato de respuesta y mantendrá el usuario y momento de cada actualización.
 
 ## 12. Evaluación
 
-### Banco de pruebas
+### Corpus y banco de pruebas
 
-Se construirá un conjunto inicial de **20 casos**, siguiendo la distribución mínima del enunciado del curso: cinco preguntas directas, tres paráfrasis, tres consultas con identificadores exactos, tres preguntas compuestas, dos ambiguas, dos sin respuesta en el corpus y dos dependientes de la versión o fecha de publicación. Cada caso tendrá `id`, `question`, `expected_behavior`, `expected_sources`, `expected_pages`, `answerable` y `risk_level`. Las respuestas de referencia se anotarán a partir de PDF originales; una segunda revisión resolverá discrepancias de páginas, interpretación y vigencia.
+Se propone seleccionar entre tres y cinco licitaciones del IGSS con documentos suficientes, comenzando por las dos fuentes identificadas en la sección 7. Se buscará diversidad de productos, secciones y formatos. Como los dos documentos iniciales comparten estructura, se reportará la limitación de evaluar sobre plantillas semejantes y se evitará atribuir los resultados a todas las adquisiciones del IGSS.
 
-Las fuentes esperadas serán las bases, anexos, aclaraciones y modificaciones de licitaciones públicas incorporadas al corpus, con NOG, documento, versión y página. Los dos casos sin respuesta exigirán abstención. Los dos de vigencia exigirán identificar el documento posterior y, cuando corresponda, explicar el cambio sin ocultar la versión original. Se preparará además una **suite de seguridad separada de al menos ocho casos**, con inyección en pregunta y PDF, evasión entre empresas, solicitud de acción no permitida y alucinación forzada. Habrá casos de parámetros inválidos y fallo de herramienta. Cada prueba adversaria documentará amenaza, componente, conducta esperada, resultado observado y mitigación.
+El banco tendrá al menos 20 casos con la distribución prevista:
 
-La línea base y la versión mejorada se ejecutarán sobre los mismos documentos y preguntas, con versiones del corpus, modelos, parámetros y código fijadas. Se registrarán resultados por caso y errores, además de los promedios. La comparación con revisión manual se hará sobre una muestra de tareas cronometradas, con instrucciones iguales y verificación de cobertura; al ser una muestra pequeña, el resultado se presentará como evidencia exploratoria.
+| Tipo de caso | Cantidad mínima | Ejemplo de tarea |
+|---|---:|---|
+| Preguntas directas | 5 | Identificar un documento requerido, lugar de recepción o plazo expresamente señalado |
+| Paráfrasis | 3 | Consultar el mismo requisito con vocabulario distinto al del PDF |
+| Identificadores exactos | 3 | Recuperar información por número de evento, código IGSS o numeral |
+| Preguntas compuestas | 3 | Relacionar documentos exigidos y condiciones de presentación con varias citas |
+| Preguntas ambiguas | 2 | Pedir aclaración cuando “la fecha” o “el medicamento” admite varias interpretaciones |
+| Sin respuesta en el corpus | 2 | Abstenerse ante una condición o anexo que no está disponible |
+| Dependientes de versión o fecha | 2 | Identificar qué cambió entre documentos auténticos del mismo evento |
 
-### Métricas
+Cada caso registrará `id`, `evento_id`, `question`, `expected_behavior`, `expected_sources`, `expected_pages`, `answerable` y `risk_level`. Las respuestas de referencia se anotarán a partir de los PDF y se revisarán por una segunda persona. Se distinguirá el índice de página del archivo de su numeración impresa. La evidencia esperada se fijará mediante documento, página y pasaje, para poder mapearla a los diferentes fragmentos de cada estrategia de segmentación.
 
-Las metas siguientes son **criterios propuestos de aceptación del MVP**, no resultados ya obtenidos. Los umbrales de abstención y de reranking se calibrarán solo con un subconjunto de desarrollo; el conjunto final se reservará para la comparación.
+Si falta evidencia auténtica para los dos casos temporales, se documentará la brecha y no se declarará completada esa parte de la evaluación. Las pruebas sintéticas de cambios o ataques usarán copias identificadas, sin modificar los originales.
 
-| Métrica | Definición | Meta propuesta | Método de cálculo |
-| :---- | :---- | :---- | :---- |
-| Recall@5 | Porcentaje de preguntas respondibles cuya evidencia esperada aparece entre los cinco primeros fragmentos | ≥ 85 % | Casos con al menos un fragmento esperado en top-5 / casos respondibles. |
-| MRR@5 | Posición del primer fragmento relevante | ≥ 0.70 | Promedio de `1/rango` del primer acierto; cero si no aparece en top-5. |
-| Cobertura de requisitos | Requisitos esperados presentes en el checklist | ≥ 90 % | Requisitos correctos encontrados / requisitos de referencia. |
-| Fidelidad factual | Afirmaciones respaldadas por evidencia y correctamente interpretadas | ≥ 90 % | Afirmaciones correctas / afirmaciones evaluadas, con revisión humana de una muestra y desglose de errores. |
-| Validez de citas | Citas que corresponden al documento, página, versión y texto indicado | ≥ 95 % | Citas válidas / citas emitidas, verificadas automáticamente y auditadas manualmente. |
-| Abstención | Respuestas sin evidencia que se abstienen correctamente | 2 de 2 casos mínimos | Casos sin respuesta con `abstained=true` / casos sin respuesta; reportar también abstenciones indebidas. |
-| Latencia P95 | Tiempo desde la pregunta hasta la respuesta, con documentos ya indexados | ≤ 15 s | Percentil 95 de tiempos por consulta, con entorno y concurrencia registrados. |
-| Costo operativo | Recursos consumidos por consulta | Reportar, sin umbral previo | Tokens, llamadas al modelo, tiempo de CPU/GPU y costo estimado por 100 consultas. |
-| Resistencia a ataques | Pruebas adversarias bloqueadas sin fuga o acción indebida | 100 % en la suite inicial | Ataques bloqueados / ataques ejecutados; todo fallo se describe y corrige. |
-| Tiempo de revisión | Tiempo para completar una tarea de identificación de requisitos | Reducción exploratoria ≥ 25 % | Comparación de medianas de tareas manuales y asistidas, con cobertura verificada. |
+### Diseño de la comparación
+
+Ambas variantes responderán las mismas preguntas sobre versiones congeladas del corpus. Se utilizará un subconjunto de desarrollo separado para ajustar parámetros y umbrales. Cuando el tamaño lo permita, se reservará un evento distinto para evaluación; se evitará distribuir paráfrasis equivalentes entre ajuste y prueba. Se registrarán las versiones de código y modelos.
+
+La comparación manual utilizará los mismos documentos y tareas de identificación de requisitos. Se alternará el orden manual/asistido entre participantes o tareas equivalentes para reducir el efecto de aprendizaje. Se medirá tiempo junto con cobertura y errores; una respuesta más rápida pero incompleta no contará como mejora suficiente.
+
+### Métricas y metas propuestas
+
+| Métrica | Qué mide | Meta | Método |
+|---|---|---|---|
+| Hit@5 | Presencia de al menos un fragmento relevante entre los cinco recuperados | ≥ 85 % | Casos respondibles con un acierto en top-5 / casos respondibles |
+| MRR@5 | Posición del primer fragmento relevante | ≥ 0.70 | Promedio de `1/rango`, con cero cuando no hay acierto en top-5 |
+| Cobertura de requisitos | Requisitos correctos incluidos en la lista | ≥ 90 % | Requisitos de referencia encontrados / requisitos de referencia |
+| Fidelidad factual | Afirmaciones respaldadas e interpretadas correctamente | ≥ 90 % | Revisión humana de afirmaciones, con desglose de errores |
+| Validez de citas | Correspondencia entre afirmación, texto, documento, página y versión | ≥ 95 % | Validación automática y auditoría manual |
+| Abstención | Rechazo de preguntas sin evidencia | 2 de 2 casos mínimos | Reportar también abstenciones indebidas en preguntas respondibles |
+| Comparación temporal | Identificación correcta de cambios y sus fuentes | 2 de 2 casos mínimos | Comparación contra anotación humana de documentos auténticos |
+| Latencia P95 | Tiempo total por consulta con documentos indexados | ≤ 15 s | Ejecuciones suficientes y repetidas; registrar equipo y concurrencia |
+| Costo operativo | Recursos y llamadas por consulta | Reportar | Tokens, tiempo CPU/GPU y estimación por 100 consultas |
+| Resistencia a ataques | Bloqueo sin acceso o acción indebida | 100 % en la suite inicial | Resultado por ataque; no implica seguridad universal |
+| Tiempo de revisión | Duración de tareas documentales | Reducción exploratoria ≥ 25 % | Comparar medianas, cobertura y errores de tareas manuales y asistidas |
+
+Las métricas son objetivos, no resultados obtenidos. El tamaño del banco limita la generalización; se reportarán resultados por caso y análisis de fallas, además de promedios. Para estimar latencia bajo carga se ejecutarán consultas adicionales, sin tratarlas como nuevos casos independientes de calidad.
+
+### Suite de seguridad
+
+Se prepararán al menos ocho pruebas: inyección directa en la pregunta, inyección indirecta en una copia de PDF, acceso cruzado entre empresas, mezcla de eventos, acceso a un original sin permiso, solicitud de una acción externa no autorizada, fabricación de un requisito ausente y uso de una cita falsa. Se agregarán comprobaciones de parámetros inválidos y fallas de herramientas. Cada prueba tendrá amenaza, comportamiento esperado, resultado y mitigación.
 
 ## 13. Seguridad
 
-* **Prompt injection:** validar longitud y formato de la pregunta, distinguir instrucciones del sistema de texto recuperado, y tratar siempre los PDF y resultados de herramientas como datos no confiables. Marcar patrones sospechosos durante la ingesta y probar ataques directos e indirectos; los filtros por palabras son auxiliares, no la única defensa.
-* **Documentos no autorizados:** autenticar al usuario y aplicar permisos por empresa y NOG antes de toda búsqueda o lectura del PDF original. Usar políticas de acceso por fila en PostgreSQL con un rol de aplicación sin privilegio para eludirlas como segunda barrera, y comprobar que ninguna cita provenga de otro `tenant_id`.
-* **Información sensible:** el MVP utilizará documentos públicos o archivos internos expresamente autorizados. Los archivos privados se separarán por empresa; se enmascararán datos personales en registros y conjuntos de prueba cuando no sean necesarios. Las credenciales se mantendrán fuera del repositorio.
-* **Herramientas y acciones críticas:** registrar nombres, esquemas y límites de las herramientas; máximo tres llamadas por consulta. El sistema no presentará ofertas ni ejecutará cambios externos. Una contradicción, una fecha crítica dudosa o un cambio de alto impacto activará `needs_human_review`; la decisión final corresponderá al analista.
-* **Salidas inválidas:** validar el contrato JSON, la existencia y autorización de cada `chunk_id`, la coincidencia de las citas y el formato de fechas. Ante error, reintentar una sola vez o abstenerse. Una cita literal no reemplaza la revisión de interpretación jurídica o técnica.
-* **Registros de auditoría:** registrar usuario o identificador seudonimizado, empresa, NOG, fecha, herramienta, identificadores de fragmentos, resultado de validación y error. Evitar guardar preguntas completas, texto de documentos privados, credenciales o datos personales en logs de aplicación.
+- **Instrucciones maliciosas:** tratar el texto de documentos y resultados de herramientas como datos no confiables. Separar instrucciones del sistema, evidencia y solicitud del usuario. Los patrones sospechosos serán una señal auxiliar, no la única defensa.
+- **Permisos:** autenticar usuarios y validar la empresa y el evento antes de recuperar fragmentos, abrir PDF o modificar listas. Las políticas de seguridad por fila servirán como segunda barrera.
+- **Datos personales:** utilizar documentos públicos necesarios para la tarea y usuarios ficticios en las pruebas. Evitar reproducir datos personales innecesarios en registros y reportes.
+- **Integridad documental:** preservar originales, hashes y versiones. Las copias utilizadas para ataques o simulaciones se etiquetarán y mantendrán fuera del corpus oficial.
+- **Aislamiento del modelo:** permitir únicamente herramientas registradas, parámetros validados y rutas acotadas. El modelo no decidirá permisos ni tendrá capacidad de presentar ofertas o alterar documentos externos.
+- **Salida validada:** verificar esquema, citas, evento y autorización. Una fecha o requisito crítico ambiguo activará `needs_human_review`.
+- **Auditoría:** registrar usuario seudonimizado, empresa, evento, fecha, herramienta, fragmentos usados y resultado de validación. No registrar credenciales ni contenido privado innecesario.
 
 ## 14. Riesgos
 
-| Riesgo | Probabilidad | Impacto | Mitigación | Prueba |
-| :---- | :---- | :---- | :---- | :---- |
-| Omisión de requisito por OCR o extracción deficiente | Media | Alto | Control de páginas ilegibles, extracción de tablas y revisión del PDF original | PDF escaneados y tablas en el banco; medir cobertura de requisitos. |
-| Interpretación incorrecta de una cláusula pese a una cita literal | Media | Alto | Evidencia por afirmación, revisión humana para ambigüedad y advertencia de alcance | Auditoría manual de fidelidad y casos ambiguos. |
-| Uso de una versión desactualizada | Media | Alto | Conservar todas las versiones, vincular modificaciones y mostrar conflictos | Dos casos temporales mínimos y comparación de documentos. |
-| Acceso cruzado entre empresas | Baja | Alto | Filtro previo por empresa, políticas por fila y validación posterior de citas | Intentos de acceso con dos empresas y NOG compartido. |
-| Inyección de instrucciones desde un PDF | Media | Alto | Aislar contenido recuperado, limitar herramientas y validar salida | Suite de ataques directos e indirectos. |
-| Falta de evidencia o alucinación de fecha/monto | Media | Alto | Umbral de suficiencia, patrones de fecha/monto, abstención y revisión | Casos sin respuesta y solicitudes de datos inexistentes. |
-| Latencia o costo excesivo del reranking y generación | Media | Medio | Limitar candidatos, contexto, llamadas y reintentos; medir por etapa | Prueba de cinco usuarios concurrentes, P95 y costo por consulta. |
+| Riesgo | Probabilidad | Impacto | Mitigación | Prueba o evidencia |
+|---|---|---|---|---|
+| El portal institucional contiene solo una convocatoria o no publica todo el expediente | Alta | Alto | Inventario, selección de eventos con bases suficientes y advertencias de cobertura | Consultas que requieren un anexo ausente |
+| No se localiza un par auténtico de base y modificación en la fuente seleccionada | Media | Alto | Verificarlo en la primera fase y buscar otros eventos del IGSS; reportar pruebas pendientes | Evidencia de ambos archivos y relación documental |
+| Omisión por OCR o extracción de tablas | Media | Alto | Control de legibilidad, preservación de unidades y revisión del original | PDF escaneado, tablas y medición de cobertura |
+| Confusión entre eventos o entre código de producto y número de licitación | Media | Alto | `evento_id` único, metadatos separados y filtro obligatorio | Dos eventos de estructura semejante y preguntas por códigos |
+| Afirmación incorrecta pese a una cita literal | Media | Alto | Evidencia por afirmación, revisión de fidelidad y abstención ante ambigüedad | Preguntas compuestas y auditoría humana |
+| Uso de una condición anterior o afirmación injustificada de vigencia | Media | Alto | Relaciones entre documentos, fechas diferenciadas y alcance temporal explícito | Casos auténticos de cambios y conflictos |
+| Acceso cruzado entre empresas | Baja | Alto | Filtros previos, políticas por fila y comprobación posterior | Dos empresas con copias del mismo evento |
+| Inyección de instrucciones desde una pregunta o PDF | Media | Alto | Aislamiento de evidencia y herramientas limitadas | Suite adversaria separada |
+| Latencia o consumo excesivo | Media | Medio | Medición por etapa, límites de contexto y selección de modelos según recursos | Cinco usuarios concurrentes y registro de P95 |
+| Resultados poco representativos por corpus pequeño y similar | Alta | Medio | Diversificar eventos y reportar la limitación por categoría | Evaluación reservada por evento y desglose de errores |
 
-## 15. Plan De Trabajo
+## 15. Plan de trabajo
 
-Las semanas son **relativas al inicio de implementación** porque el enunciado consultado no fija aquí un calendario. Los nombres de quienes asumirán cada rol se escribirán en la [asignación de roles](../roles/Asignacion_de_roles.md).
+Las semanas son relativas al inicio de implementación. La asignación nominal de los cuatro roles se acordará entre los integrantes.
 
-| Fase | Actividad | Rol responsable | Entregable | Fecha relativa |
-| :---- | :---- | :---- | :---- | :---- |
-| Anteproyecto y corpus | Delimitar licitaciones, permisos, casos de uso y arquitectura; registrar versiones de fuentes | Roles 1 y 4 | Anteproyecto y manifiesto inicial del corpus | Semana 1 |
-| Línea base | Implementar carga, extracción, segmentación fija y RAG semántico básico | Roles 1 y 2 | Prototipo y resultados iniciales reproducibles | Semana 2 |
-| Mejora RAG | Incorporar segmentación estructural, índice léxico, fusión, reranking y citas | Rol 2, con apoyo del rol 1 | Pipeline mejorado y pruebas de recuperación | Semanas 3–4 |
-| Herramientas y flujo | Integrar router, herramientas limitadas, contrato JSON y checklist | Rol 3, con apoyo del rol 4 | Flujo funcional con respuestas estructuradas | Semana 4 |
-| Evaluación | Anotar 20 casos, comparar variantes y revisión manual; medir calidad, latencia y costo | Rol 4, con casos de todo el equipo | Dataset y reporte comparativo con errores | Semana 5 |
-| Seguridad | Probar inyección, permisos, abstención y fallos de herramientas; corregir hallazgos | Rol 4, con correcciones de cada módulo | Matriz de pruebas adversarias y mitigaciones | Semana 5 |
-| Demostración y defensa | Preparar ejecución en vivo, limitaciones, conclusiones y documentación final | Equipo completo | Informe, repositorio reproducible y presentación | Semana 6 |
+| Rol | Responsabilidad principal |
+|---|---|
+| Rol 1 | Corpus del IGSS, extracción, almacenamiento y metadatos |
+| Rol 2 | Recuperación, embeddings, índices y comparación de variantes |
+| Rol 3 | Interfaz, autenticación, herramientas y listas de verificación |
+| Rol 4 | Banco de evaluación, validación de citas, seguridad y reporte |
+
+| Fase | Actividades | Responsables | Entregable | Fecha relativa |
+|---|---|---|---|---|
+| Delimitación y corpus | Validar segmento de cliente, seleccionar eventos, registrar fuentes y comprobar disponibilidad de bases y modificaciones | Roles 1 y 4, con participación del equipo | Anteproyecto, inventario y diagnóstico de cobertura | Semana 1 |
+| Línea base | Implementar carga, extracción por página, identificadores, almacenamiento y RAG semántico | Roles 1 y 2 | Prototipo básico y primeros resultados | Semana 2 |
+| Mejora RAG | Incorporar segmentación por estructura, tablas, búsqueda híbrida, reranking y citas | Roles 1 y 2 | Pipeline mejorado y registro de configuración | Semanas 3–4 |
+| Flujo de usuario | Integrar autenticación, eventos, consultas, herramientas, advertencias y listas | Roles 3 y 4 | Flujo funcional y contrato de salida | Semana 4 |
+| Evaluación | Completar y revisar 20 casos; comparar variantes y tareas manuales/asistidas | Rol 4, con revisión de todo el equipo | Dataset, resultados y análisis de errores | Semana 5 |
+| Seguridad y ajustes | Ejecutar suite adversaria, pruebas de permisos y concurrencia; corregir hallazgos | Roles 3 y 4, con apoyo de roles 1 y 2 | Matriz de pruebas y correcciones verificadas | Semana 5 |
+| Demostración y defensa | Preparar ejecución reproducible, conclusiones y limitaciones | Equipo completo | Informe final, repositorio y presentación | Semana 6 |
+
+**Criterio de cierre de la primera fase:** disponer de documentos suficientes para demostrar consultas y listas con citas, conocer las brechas del corpus y determinar si existe soporte auténtico para la evaluación temporal. Las funcionalidades sin evidencia documental se reportarán como pendientes de validación.
 
 ## 16. Referencias
 
-* [Enunciado del Proyecto Final CC3103: Sistema NLP/RAG Agéntico Empresarial](../presentaciones/Proyecto%20Final%20CC3103_%20Sistema%20NLP_RAG%20Ag%C3%A9ntico%20Empresarial-1.pdf). Requisitos, estructura del banco de pruebas y contrato de salida.
-* [Diagrama de arquitectura de LiciGT](../arquitectura/arquitectura.jpeg). Flujos de ingesta, almacenamiento y consulta utilizados en este anteproyecto.
-* [GUATECOMPRAS](https://www.guatecompras.gt/). Portal de origen de los concursos y documentos públicos.
-* [GUATECOMPRAS: base legal y documentos relacionados](https://www.guatecompras.gt/info/legislacion.aspx). Repositorio de normativa que deberá verificarse por versión y fecha de vigencia.
-* [PostgreSQL: funciones de búsqueda de texto](https://www.postgresql.org/docs/current/functions-textsearch.html). Referencia de `tsvector` y `ts_rank_cd`.
-* [PostgreSQL: políticas de seguridad por fila](https://www.postgresql.org/docs/current/ddl-rowsecurity.html). Base del aislamiento entre empresas.
-* [pgvector: documentación del proyecto](https://github.com/pgvector/pgvector). Índices vectoriales y HNSW en PostgreSQL.
-* [Sentence Transformers: ficha de paraphrase-multilingual-MiniLM-L12-v2](https://huggingface.co/sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2). Modelo propuesto para la línea base.
-* [BAAI: ficha de BGE-M3](https://huggingface.co/BAAI/bge-m3). Modelo multilingüe propuesto para la versión mejorada.
-* [BAAI: ficha de bge-reranker-v2-m3](https://huggingface.co/BAAI/bge-reranker-v2-m3). Modelo de reranking propuesto.
-* [Repositorio del proyecto](https://github.com/donmatthiuz/NLP/tree/proyecto). Código y documentación de implementación.
+### Fuentes institucionales del corpus
+
+1. Instituto Guatemalteco de Seguridad Social. *Proveedores: eventos y convocatorias*. https://www.igssgt.org/proveedores/
+2. Instituto Guatemalteco de Seguridad Social, Departamento de Abastecimientos. (2026). *Documentos de Licitación Pública DA No. 399-IGSS-2026: adquisición del medicamento multivitamínico prenatal con flúor, tableta o cápsula*. https://www.igssgt.org/wp-content/uploads/2026/11/LICITACION-PUBLICA-DA-No.-399-IGSS-2026.pdf
+3. Instituto Guatemalteco de Seguridad Social, Departamento de Abastecimientos. (2026). *Documentos de Licitación Pública DA No. 363-IGSS-2026: adquisición del medicamento metimazol, tableta de 5 mg*. https://www.igssgt.org/wp-content/uploads/2026/11/LICITACION-PUBLICA-DA-No.-363-IGSS-2026.pdf
+
+Fuentes identificadas para el diseño del corpus el 14 de noviembre de 2026. La disponibilidad de cada archivo se comprobará al descargarlo y su copia se registrará con hash y fecha. La selección de estos documentos no certifica la integridad ni actualización de todo el expediente.
+
+### Referencias técnicas para la implementación propuesta
+
+- PostgreSQL. *Text Search Functions and Operators*. https://www.postgresql.org/docs/current/functions-textsearch.html
+- PostgreSQL. *Row Security Policies*. https://www.postgresql.org/docs/current/ddl-rowsecurity.html
+- pgvector. *Vector similarity search for Postgres*. https://github.com/pgvector/pgvector
+- Sentence Transformers. *paraphrase-multilingual-MiniLM-L12-v2*. https://huggingface.co/sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
+- BAAI. *BGE-M3*. https://huggingface.co/BAAI/bge-m3
+- BAAI. *bge-reranker-v2-m3*. https://huggingface.co/BAAI/bge-reranker-v2-m3
+
+### Documentación académica y del equipo
+
+- *Enunciado del Proyecto Final CC3103: Sistema NLP/RAG Agéntico Empresarial*. Referencia académica indicada en la versión original; el equipo verificará la correspondencia final con la rúbrica vigente del curso.
+- *Repositorio del proyecto LiciGT*, rama `proyecto`: https://github.com/donmatthiuz/NLP/tree/proyecto
+
+La implementación, el diagrama de arquitectura y la documentación del repositorio deberán reflejar el uso del portal del IGSS, `evento_id` como clave operativa y las limitaciones de cobertura definidas en este anteproyecto.
