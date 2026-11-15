@@ -75,6 +75,7 @@ class PortalEvent:
     codigo_igss: str | None
     fecha_publicacion: str | None
     pdf_url: str
+    pdf_urls: tuple[str, ...] = ()
 
 
 class _PortalRows(HTMLParser):
@@ -129,6 +130,7 @@ class _PortalRows(HTMLParser):
             unidad_requirente=" ".join(row["unit"]).strip() or None,
             codigo_igss=code.group(1) if code else None,
             fecha_publicacion=published, pdf_url=pdf_links[0],
+            pdf_urls=tuple(dict.fromkeys(pdf_links)),
         ))
 
 

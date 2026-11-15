@@ -42,7 +42,35 @@ PYTHONPATH=src python -m licigt.ingesta documento.pdf \
 
 Un mismo PDF y `document_key` dentro de un evento se deduplican por SHA-256. Si cambia el archivo, se crea una nueva `version_ingesta` y se conserva el original previo. Esa versión técnica no implica que una aclaración sustituya legalmente las bases. Los documentos modificatorios se guardan por separado y pueden señalar su `relacion_documental`.
 
-## Descarga opcional de un evento del IGSS
+## Descargar PDF sin iniciar la ingesta
+
+Desde la raíz del repositorio, este comando descarga los PDF oficiales de los dos eventos iniciales:
+
+```bash
+PYTHONPATH=src python -m licigt.ingesta.download \
+  --numero-evento 399-IGSS-2026 \
+  --numero-evento 363-IGSS-2026 \
+  --data-dir data/ingesta
+```
+
+Puedes repetir `--numero-evento` para otros eventos publicados en [Proveedores del IGSS](https://www.igssgt.org/proveedores/). Los archivos quedan en `data/ingesta/descargas_igss/<numero_evento>/<sha256>.pdf`, con un JSON contiguo que registra URL, fecha, código IGSS y hash. El comando descarga todos los enlaces PDF oficiales encontrados en la fila de cada evento, valida la cabecera PDF y el límite de 50 MB por archivo. Si el contenido cambia, conserva otra copia bajo su nuevo hash; si no cambia, indica `ya_existia`. Este paso no crea eventos, fragmentos ni índices.
+
+Para repetir la descarga del [corpus seleccionado](../../../docs/ingesta/Seleccion_del_corpus.md), que incluye eventos de 2023 y las bases de 222 no enlazadas en su ficha:
+
+```bash
+PYTHONPATH=src python -m licigt.ingesta.download \
+  --numero-evento 399-IGSS-2026 \
+  --numero-evento 363-IGSS-2026 \
+  --numero-evento 222-IGSS-2023 \
+  --numero-evento 327-IGSS-2023 \
+  --numero-evento 368-IGSS-2026 \
+  --pdf-adicional '222-IGSS-2023:bases:https://www.igssgt.org/wp-content/uploads/2026/10/222-IGSS-2023.pdf' \
+  --data-dir data/ingesta
+```
+
+El descargador consulta la vista del año correspondiente (`?y=2023` o `?y=2026`). En cada JSON, `fecha_ficha` conserva la fecha que muestra la fila del portal y `fecha_publicacion` queda sin dato mientras no se verifique una fecha propia del PDF; la fecha de la ficha de la modificación de 222 no se atribuye a sus bases.
+
+## Descargar e ingerir un evento del IGSS
 
 ```bash
 PYTHONPATH=src python -m licigt.ingesta.automatic \
