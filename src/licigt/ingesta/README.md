@@ -111,3 +111,5 @@ PYTHONPATH=src python -m unittest discover -s src/licigt/ingesta/tests -v
 ```
 
 Ver [asignación de roles](../../../docs/roles/Asignacion_de_roles.md#rol-1--ingesta-y-documentos).
+
+Los trabajos que faltan para cerrar este módulo están en [Pendientes del rol 1](../../../docs/ingesta/Pendientes_rol_1.md).
