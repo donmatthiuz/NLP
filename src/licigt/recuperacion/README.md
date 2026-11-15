@@ -2,23 +2,46 @@
 
 **Integrante:** ______________________________
 
-Aquí se implementarán embeddings, índices de PostgreSQL y `pgvector`, búsqueda léxica y vectorial, fusión, reranking y detección de evidencia insuficiente o versiones en conflicto.
+Este módulo importa el [paquete de ingesta](../../../entregables/recuperacion/README.md) a PostgreSQL con `pgvector` y devuelve evidencia autorizada de un evento, con puntajes y alertas. El diseño y los resultados están en [`docs/recuperacion`](../../../docs/recuperacion/Recuperacion.md).
 
-**Entrada:** [paquete de ingesta](../../../entregables/recuperacion/README.md) con `chunks.jsonl`, `inventario.json`, PDF originales, manifiestos y JSON de procedencia. El paquete versionable está en `entregables/recuperacion/empresa_demo.zip` (desde la raíz del repositorio). En consulta, recibe `evento_id` y contexto de acceso autenticado de la empresa.
+| Archivo | Qué hace |
+|---|---|
+| `schema.sql` | Crea las tablas `documentos` y `fragmentos`, el índice `tsvector` en español (GIN), los índices HNSW de coseno (384 y 1024 dimensiones) y la seguridad por fila con el rol `licigt_app`. |
+| `indice.py` | Valida el ZIP, genera las ventanas de 120 tokens de la línea base, calcula los embeddings e importa todo. La importación se puede repetir sin duplicar datos. |
+| `busqueda.py` | Contiene `buscar()` (variantes `base` y `mejorada`) y `comparar_versiones()`. |
+| `__main__.py` | CLI de desarrollo. |
 
-Para examinar la entrega: `unzip -l entregables/recuperacion/empresa_demo.zip`. Para extraerla desde la raíz del repositorio:
+## Uso
 
 ```bash
-mkdir -p data/recuperacion/entrada
-unzip entregables/recuperacion/empresa_demo.zip -d data/recuperacion/entrada
+docker compose up -d                       # Postgres + pgvector en 127.0.0.1:5432
+nix-shell                                  # NixOS; en otros sistemas: python3.12 -m venv .venv && pip install -r src/licigt/recuperacion/requirements.txt
+export PYTHONPATH=src
+python -m licigt.recuperacion importar     # usa entregables/recuperacion/empresa_demo.zip
+python -m licigt.recuperacion buscar --evento 222-IGSS-2023 "fecha de recepción de ofertas"
+python -m licigt.recuperacion buscar --evento 222-IGSS-2023 --variante base "fecha de recepción de ofertas"
+python -m licigt.recuperacion comparar --evento 222-IGSS-2023 "cronograma de actividades"
+python -m unittest discover -s src/licigt/recuperacion/tests -v
 ```
 
-Cada línea de `chunks.jsonl` trae `chunk_id`, `doc_id`, `tenant_id`, `evento_id`, tipo, versión, página, sección, texto, hash y URL. `inventario.json` identifica el original por `original_zip_path`, su SHA-256, estado y cobertura; `procedencia/<doc_id>.json` conserva el registro de descarga. Importar los fragmentos a PostgreSQL conservando esos identificadores; calcular `tsvector` y embeddings allí. No se debe asumir que `version_ingesta` indica vigencia legal: para 222 hay bases y una modificación oficial como documentos separados. Las páginas 3 y 4 de esa modificación requieren OCR o revisión y no aparecen como fragmentos.
+La conexión se configura con `LICIGT_DB_URL`. Por defecto usa la base de desarrollo de `docker-compose.yml`.
 
-Antes de consultar, aplicar en SQL los filtros de empresa y evento que entregue el rol 4 y respetar sus permisos de rol. El `tenant_id` dentro del paquete sirve para asociar datos; por sí solo no autoriza al usuario. La búsqueda devuelve solo fragmentos permitidos, con página, versión y puntaje para las citas del rol 3.
+## Contrato para el rol 3
 
-Para validar el paquete antes de importarlo: `python -m unittest discover -s src/licigt/recuperacion/tests -v` desde la raíz del repositorio.
+`buscar(ctx, evento_id, pregunta, variante="mejorada", k=5)` devuelve:
 
-**Salida para consulta:** fragmentos autorizados con puntaje, `chunk_id`, documento, página, versión y alertas de conflicto.
+```json
+{"evento_id": "...", "variante": "mejorada", "suficiente": true,
+ "fragmentos": [{"chunk_id": "...", "doc_id": "...", "tipo_documento": "bases", "version_ingesta": 1,
+                 "identificador_version_oficial": null, "pagina_inicio": 8, "pagina_fin": 8,
+                 "seccion": "2.2 CRONOGRAMA ...", "texto": "...", "url_origen": "https://...",
+                 "score": 0.91, "reranker": 0.91, "semantico": 0.62, "lexico": 0.4, "rrf": 0.016}],
+ "alertas": [{"tipo": "posible_conflicto", "doc_id": "...", "numerales_modificados": ["2.2", "2.7"],
+              "chunk_ids_afectados": ["..."]},
+             {"tipo": "cobertura_incompleta", "doc_id": "...", "paginas_no_indexadas": [3, 4]}]}
+```
 
-Ver [responsabilidades e integración](../../../docs/roles/Asignacion_de_roles.md#rol-2--recuperación-y-rag).
+- `ctx` es un `Contexto(tenant_id)` que entrega el rol 4 desde la sesión autenticada. El `tenant_id` del paquete no autoriza nada por sí solo.
+- Cada consulta filtra por empresa y evento en el `WHERE` y además activa la seguridad por fila (`SET LOCAL ROLE licigt_app`).
+- `suficiente=false` significa que la evidencia no supera el umbral, y en ese caso el rol 3 debe abstenerse.
+- Ante un `posible_conflicto`, se devuelven tanto la cláusula de las bases como la de la modificación. La búsqueda no decide cuál está vigente.
