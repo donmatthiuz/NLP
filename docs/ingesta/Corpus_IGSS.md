@@ -6,10 +6,12 @@ Los dos PDF se obtuvieron desde la [página Proveedores del IGSS](https://www.ig
 
 | Evento | PDF oficial | Código IGSS | `evento_id` | `doc_id` | SHA-256 | Páginas / fragmentos indexables |
 |---|---|---:|---|---|---|---:|
-| 399-IGSS-2026 | [Bases integradas](https://www.igssgt.org/wp-content/uploads/2026/11/LICITACION-PUBLICA-DA-No.-399-IGSS-2026.pdf) | 432 | `437a8435922652fbb78aea651114680e` | `4182413774fa4149a9a15f4ecd0ef466` | `1f9aa9fdf38e8ce7780a00f37b49a9edda4ec9ef9426a979b2962127ff740444` | 36 / 214 |
-| 363-IGSS-2026 | [Bases integradas](https://www.igssgt.org/wp-content/uploads/2026/11/LICITACION-PUBLICA-DA-No.-363-IGSS-2026.pdf) | 345 | `7008db8420d85f7c932817d7868eae8a` | `f1cb15bfe200440891134b14683dcadf` | `953eab12d975d203d1d4f27aed8e14c39581095d67ac91efbcda7a8934cb9426` | 36 / 212 |
+| 399-IGSS-2026 | [Bases integradas](https://www.igssgt.org/wp-content/uploads/2026/11/LICITACION-PUBLICA-DA-No.-399-IGSS-2026.pdf) | 432 | `437a8435922652fbb78aea651114680e` | `4182413774fa4149a9a15f4ecd0ef466` | `1f9aa9fdf38e8ce7780a00f37b49a9edda4ec9ef9426a979b2962127ff740444` | 36 / 211 |
+| 363-IGSS-2026 | [Bases integradas](https://www.igssgt.org/wp-content/uploads/2026/11/LICITACION-PUBLICA-DA-No.-363-IGSS-2026.pdf) | 345 | `7008db8420d85f7c932817d7868eae8a` | `f1cb15bfe200440891134b14683dcadf` | `953eab12d975d203d1d4f27aed8e14c39581095d67ac91efbcda7a8934cb9426` | 36 / 210 |
 
 En ambos casos, `fecha_publicacion` es `2026-11-13` según la ficha del portal, `fecha_descarga` es `2026-11-14` y `fecha_documento` quedó sin dato porque no se verificó una fecha propia del archivo. El estado de ingesta es `completo`: las 36 páginas de cada PDF fueron legibles y el número de evento aparece en el texto. Esto **no** confirma que esté reunido el expediente completo. Hasta este corte, el inventario registra solo el tipo `bases`; no hay un par de modificación oficial para probar comparación documental.
+
+Los manifiestos se regeneraron con la segmentación de la arquitectura vigente. El control de texto oculto no detectó capas adicionales ni patrones de inyección en estos dos PDF; este control es una señal auxiliar y no convierte el contenido recuperado en instrucciones confiables.
 
 ## Regenerar el corpus local
 

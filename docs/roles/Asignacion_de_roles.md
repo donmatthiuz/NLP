@@ -16,8 +16,9 @@ Esta distribución corresponde a los cuatro frentes de la [arquitectura actualiz
 1. Recibir PDF oficiales del IGSS y metadatos de empresa y evento (`tenant_id`, `evento_id`, número institucional, año, modalidad, tipo, fechas verificadas y URL); validar formato, asociación al evento, tamaño y hash SHA-256.
 2. Guardar el original en MinIO o almacén local de desarrollo sin sobrescribirlo; relacionar bases, anexos, aclaraciones y modificaciones sin confundir versión de ingesta con modificación oficial.
 3. Extraer texto y tablas por página, usar OCR cuando haga falta y señalar páginas ilegibles, convocatorias sin bases y expedientes incompletos.
-4. Limpiar y segmentar por títulos, numerales, cláusulas y tablas; conservar página del PDF, página impresa si se reconoce, sección, documento, versión y códigos IGSS en cada fragmento.
-5. Entregar al rol 2 fragmentos preparados para indexación y al rol 4 los eventos de carga y fallos de calidad.
+4. Limpiar y segmentar por títulos, numerales, cláusulas y tablas; repetir encabezados de tablas divididas y conservar página del PDF, página impresa si se reconoce, sección, documento, versión y códigos IGSS en cada fragmento.
+5. Señalar instrucciones incrustadas, incluso en texto oculto, sin tratar un resultado limpio como garantía de seguridad.
+6. Entregar al rol 2 fragmentos preparados para indexación y al rol 4 los eventos de carga y fallos de calidad.
 
 **Entrega verificable:** una carga reproducible que permita localizar en el PDF original la página de cualquier fragmento; una segunda versión debe conservar la primera.
 
@@ -37,9 +38,9 @@ Esta distribución corresponde a los cuatro frentes de la [arquitectura actualiz
 
 **Responsabilidades:**
 
-1. Construir el flujo de consulta: validar pregunta, clasificar intención y elegir entre búsqueda, extracción de requisitos, extracción de fechas y comparación de versiones.
-2. Implementar las herramientas acotadas y el límite de llamadas; generar la lista de verificación con requisitos y fechas respaldados por citas.
-3. Generar la respuesta estructurada con `answer`, `sources`, `abstained`, `tool_used` y `needs_human_review`.
+1. Construir el flujo de consulta: validar pregunta, clasificar intención y elegir entre tres herramientas de solo lectura: `buscar_documentos`, `extraer_requisitos` (incluye fechas) y `comparar_versiones`.
+2. Implementar las herramientas acotadas y el límite de llamadas; proponer la lista de verificación con requisitos y fechas respaldados por citas. La aplicación guarda cambios solo tras confirmación del usuario.
+3. Generar la respuesta estructurada con `answer`, `sources`, `abstained`, `tool_used`, `needs_human_review`, `evento_id`, `coverage_status` y `warnings`.
 4. Mostrar al analista la respuesta, las fuentes, la página y la versión; permitir marcar ítems de la lista y señalar contradicciones para revisión humana.
 5. Integrar los fragmentos del rol 2 y el contexto autenticado que entregue el rol 4; nunca aceptar un `tenant_id` proporcionado por el modelo o la pregunta.
 

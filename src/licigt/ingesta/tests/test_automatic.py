@@ -31,7 +31,9 @@ class AutomaticTests(unittest.TestCase):
 
     def test_download_reuses_manual_pipeline(self):
         page = Page(1, "DOCUMENTOS DE LICITACIÓN 399-IGSS-2026\nCÓDIGO IGSS 432", "text", "ok")
-        with tempfile.TemporaryDirectory() as temporary, patch("licigt.ingesta.pipeline.extract_pages", return_value=[page]):
+        with tempfile.TemporaryDirectory() as temporary, \
+                patch("licigt.ingesta.pipeline.extract_pages", return_value=[page]), \
+                patch("licigt.ingesta.pipeline.extract_hidden_text", return_value={}):
             service = IngestionService(Path(temporary))
             first = ingest_event("399-IGSS-2026", "empresa_demo", service, fetcher=FakeFetcher())
             second = ingest_event("399-IGSS-2026", "empresa_demo", service, fetcher=FakeFetcher())

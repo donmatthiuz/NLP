@@ -21,7 +21,7 @@ Los hashes, identificadores, fechas y resultados de extracción figuran en el [i
 
 ## Dependencias
 
-- Python 3.11 o posterior y `poppler-utils` (`pdfinfo`, `pdftotext`; `pdftoppm` para OCR).
+- Python 3.11 o posterior y `poppler-utils` (`pdfinfo`, `pdftotext`, `pdftohtml`; `pdftoppm` para OCR).
 - OCR opcional: Tesseract con idioma `spa`. Sin OCR, una página con poco texto queda marcada `incompleta`.
 - Almacenamiento local por defecto. Para MinIO: `pip install -r src/licigt/ingesta/requirements.txt` y configurar `LICIGT_MINIO_ENDPOINT`, `LICIGT_MINIO_BUCKET`, `LICIGT_MINIO_ACCESS_KEY`, `LICIGT_MINIO_SECRET_KEY` y, si aplica, `LICIGT_MINIO_SECURE`. El bucket debe existir y tener versionado habilitado.
 
@@ -56,9 +56,11 @@ El conector lee la fila del evento en el portal, registra número, año, modalid
 
 El registro está en `data/ingesta/igss_ingesta.sqlite3`, los originales en `data/ingesta/originales/igss/<tenant_id>/<evento_id>/` y los manifiestos en `data/ingesta/manifiestos_igss/<doc_id>.json`. El manifiesto conserva páginas extraídas, advertencias y `cobertura`. Cada fragmento incluye `tenant_id`, `evento_id`, número y año institucional, tipo, versión, fechas diferenciadas, URL, hash, página del PDF, página impresa cuando se puede reconocer y texto. `nog_referencia` no se usa para filtrar.
 
-El rol 2 debe indexar solo fragmentos con `indexable=true` y filtrar siempre por `tenant_id` y `evento_id`. Un archivo que parece solo convocatoria o cuyo número de evento no coincide con el declarado se marca `requiere_revision` y sus fragmentos no son indexables. Las páginas ilegibles se excluyen. El manifiesto no demuestra que el expediente esté completo: `cobertura.tipos_cargados` enumera solo los tipos efectivamente cargados.
+El rol 2 debe indexar solo fragmentos con `indexable=true` y filtrar siempre por `tenant_id`, `evento_id` y el rol autorizado. Un archivo que parece solo convocatoria o cuyo número de evento no coincide con el declarado se marca `requiere_revision` y sus fragmentos no son indexables. Las páginas ilegibles se excluyen. El manifiesto no demuestra que el expediente esté completo: `cobertura.tipos_cargados` enumera solo los tipos efectivamente cargados.
 
-La segmentación mejorada conserva secciones y tablas; los encabezados y pies repetidos se quitan **solo de los fragmentos**, no del texto original por página. Las ventanas largas usan 600 palabras con 90 de solapamiento como aproximación a 800/120 tokens. El rol 2 debe aplicar el tokenizer real del modelo para la línea base de 120 tokens y comprobar truncamiento. Para reconstruir fragmentos tras un cambio de segmentación sin alterar el original ni `doc_id`, existe `IngestionService.reprocess(doc_id)`.
+La segmentación mejorada conserva secciones y tablas; cuando divide una tabla larga, repite su encabezado y lo registra como `encabezado_tabla`. Los encabezados y pies de página repetidos se quitan **solo de los fragmentos**, no del texto original por página. Las ventanas largas usan 600 palabras con 90 de solapamiento como aproximación a 800/120 tokens. El rol 2 debe aplicar el tokenizer real del modelo para la línea base de 120 tokens y comprobar truncamiento. Para reconstruir fragmentos tras un cambio de segmentación sin alterar el original ni `doc_id`, existe `IngestionService.reprocess(doc_id)`.
+
+La carga compara la extracción normal de Poppler con la opción `-hidden` y registra en `security_scan` las páginas con texto oculto y las páginas con patrones de instrucciones ajenas al documento. Los fragmentos de una página sospechosa quedan fuera del índice y el documento requiere revisión. El patrón es una alerta auxiliar: **todos** los fragmentos se entregan como datos no confiables al rol 2, incluso cuando no se detectó nada. La API que exponga la carga debe resolver permisos de empresa, evento y rol antes de invocar este módulo; la CLI es una herramienta de desarrollo.
 
 ## Pruebas
 

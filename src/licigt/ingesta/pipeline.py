@@ -15,8 +15,9 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
+from xml.etree.ElementTree import ParseError
 
-from .pdf import Page, extract_pages
+from .pdf import Page, extract_hidden_text, extract_pages
 from .storage import store_from_environment
 
 KINDS = {"bases", "especificaciones", "anexo", "convocatoria", "aclaracion", "modificacion", "normativa"}
@@ -128,7 +129,10 @@ def _units(page: Page, previous_section: str) -> tuple[list[dict[str, Any]], str
         stripped = line.strip()
         if not stripped:
             flush()
-        elif HEADING.match(stripped):
+        elif HEADING.match(stripped) and (
+            re.match(r"^\d+(?:\.\d+)+[.)]?\s+|^\d+[.)]\s+", stripped)
+            or not (current and _table_like(current + [line]))
+        ):
             flush()
             section = stripped
             current.append(stripped)
@@ -177,6 +181,18 @@ def _without_repeated_margins(pages: list[Page]) -> list[Page]:
     return cleaned
 
 
+def _security_scan(pages: list[Page], hidden_text: dict[int, list[str]]) -> dict[str, Any]:
+    suspicious_hidden_pages = sorted(
+        number for number, lines in hidden_text.items() if SUSPICIOUS.search("\n".join(lines))
+    )
+    suspicious_pages = sorted(
+        {page.number for page in pages if SUSPICIOUS.search(page.text)} | set(suspicious_hidden_pages)
+    )
+    return {"hidden_text_pages": sorted(hidden_text),
+            "suspicious_hidden_pages": suspicious_hidden_pages,
+            "suspicious_pages": suspicious_pages}
+
+
 def make_chunks(pages: list[Page], doc_id: str, metadata: SourceMetadata, version: int,
                 max_words: int = 600, overlap_words: int = 90) -> list[dict[str, Any]]:
     """~800 tokens / 120 de solapamiento estimados por palabras; una página por chunk."""
@@ -202,10 +218,20 @@ def make_chunks(pages: list[Page], doc_id: str, metadata: SourceMetadata, versio
             words = unit["texto"].split()
             if not words:
                 continue
-            # Conserva párrafos/tablas pequeños. Solo divide unidades largas.
-            step = max_words - overlap_words
-            for start in range(0, len(words), step):
-                text = unit["texto"] if len(words) <= max_words else " ".join(words[start:start + max_words])
+            # En una tabla larga, cada continuación conserva el encabezado.
+            table_header = unit["texto"].splitlines()[0].strip() if unit["tipo_chunk"] == "tabla" else ""
+            header_words = table_header.split()
+            table_split = len(words) > max_words and 0 < len(header_words) < max_words - overlap_words
+            body_words = words[len(header_words):] if table_split else words
+            window = max_words - len(header_words) if table_split else max_words
+            step = window - min(overlap_words, window - 1)
+            for start in range(0, len(body_words), step):
+                if len(words) <= max_words:
+                    text = unit["texto"]
+                elif table_split:
+                    text = table_header + "\n" + " ".join(body_words[start:start + window])
+                else:
+                    text = " ".join(body_words[start:start + window])
                 if not text:
                     break
                 index = len(chunks) + 1
@@ -229,10 +255,11 @@ def make_chunks(pages: list[Page], doc_id: str, metadata: SourceMetadata, versio
                     "pagina_impresa": printed_by_page[page.number], "estado_calidad": page.quality,
                     "seccion": unit["seccion"], "tipo_chunk": unit["tipo_chunk"],
                     "tabla_markdown": unit["tabla_markdown"] if len(words) <= max_words else None,
+                    "encabezado_tabla": table_header if unit["tipo_chunk"] == "tabla" else None,
                     "texto": text, "metodo_extraccion": page.method,
                     "injection_suspected": flagged, "indexable": not flagged,
                 })
-                if start + max_words >= len(words):
+                if start + window >= len(body_words):
                     break
     return chunks
 
@@ -287,6 +314,12 @@ class IngestionService:
                 return json.loads(Path(row[0]).read_text(encoding="utf-8"))
 
         pages = extract_pages(path, use_ocr=use_ocr)
+        try:
+            hidden_text = extract_hidden_text(path)
+            scan_complete = True
+        except (ValueError, RuntimeError, TimeoutError, ParseError):
+            hidden_text = {}
+            scan_complete = False
         extracted_nog = _nog_reference(pages)
         if extracted_nog and metadata.nog_referencia is None:
             metadata = replace(metadata, nog_referencia=extracted_nog)
@@ -304,6 +337,13 @@ class IngestionService:
             warnings.append("Hay páginas incompletas o ilegibles")
         if extracted_nog and metadata.nog_referencia != extracted_nog:
             warnings.append("El NOG declarado difiere de la referencia encontrada en el PDF")
+        security_scan = _security_scan(pages, hidden_text)
+        security_scan["scan_complete"] = scan_complete
+        suspicious_pages = security_scan["suspicious_pages"]
+        if not scan_complete:
+            warnings.append("No se pudo revisar el texto oculto; ningún fragmento se indexará hasta revisarlo")
+        if suspicious_pages:
+            warnings.append("Posibles instrucciones incrustadas en páginas: " + ", ".join(map(str, suspicious_pages)))
         with closing(sqlite3.connect(self.database, timeout=30)) as connection, connection:
             connection.execute("BEGIN IMMEDIATE")
             event = connection.execute(
@@ -343,10 +383,11 @@ class IngestionService:
             chunks = make_chunks(pages, doc_id, metadata, version)
             for chunk in chunks:
                 chunk["hash_sha256"] = digest
-                if not event_matches or only_notice:
+                if chunk["pagina_inicio"] in suspicious_pages:
+                    chunk["injection_suspected"] = True
                     chunk["indexable"] = False
-            if any(chunk["injection_suspected"] for chunk in chunks):
-                warnings.append("Se detectaron posibles instrucciones ajenas al documento")
+                if not event_matches or only_notice or not scan_complete:
+                    chunk["indexable"] = False
             status = "completo" if not warnings else "requiere_revision"
             existing_types = {row[0] for row in connection.execute(
                 "SELECT DISTINCT tipo_documento FROM documents WHERE tenant_id=? AND evento_id=?",
@@ -357,7 +398,8 @@ class IngestionService:
                 "previous_doc_id": previous[0] if previous else None,
                 "object_uri": object_uri, "status": status,
                 "created_at": datetime.now(timezone.utc).isoformat(),
-                "chunking_revision": 2,
+                "chunking_revision": 3,
+                "security_scan": security_scan,
                 "warnings": warnings,
                 "cobertura": {"solo_convocatoria": only_notice, "evento_confirmado_en_pdf": event_matches,
                               "paginas_legibles": sum(page.quality == "ok" for page in pages),
@@ -395,17 +437,40 @@ class IngestionService:
         if metadata.nog_referencia is None and (nog := _nog_reference(pages)):
             metadata = replace(metadata, nog_referencia=nog)
             manifest["metadata"] = asdict(metadata)
+        if not manifest.get("security_scan", {}).get("scan_complete", False):
+            object_uri = manifest["object_uri"]
+            if object_uri.startswith("file://"):
+                hidden_text = extract_hidden_text(Path(object_uri.removeprefix("file://")))
+                manifest["security_scan"] = _security_scan(pages, hidden_text)
+                manifest["security_scan"]["scan_complete"] = True
+                manifest["warnings"] = [warning for warning in manifest["warnings"]
+                                        if not warning.startswith("No se pudo revisar el texto oculto")]
+            else:
+                raise RuntimeError("No se puede revisar texto oculto del original remoto desde reprocess")
+        suspicious_pages = set(manifest["security_scan"]["suspicious_pages"])
+        if suspicious_pages:
+            warning = "Posibles instrucciones incrustadas en páginas: " + ", ".join(map(str, sorted(suspicious_pages)))
+            if warning not in manifest["warnings"]:
+                manifest["warnings"].append(warning)
+        manifest["status"] = "completo" if not manifest["warnings"] else "requiere_revision"
         chunks = make_chunks(pages, doc_id, metadata, manifest["version_ingesta"])
         for chunk in chunks:
             chunk["hash_sha256"] = manifest["hash_sha256"]
-            if manifest["cobertura"]["solo_convocatoria"] or not manifest["cobertura"]["evento_confirmado_en_pdf"]:
+            if chunk["pagina_inicio"] in suspicious_pages:
+                chunk["injection_suspected"] = True
+                chunk["indexable"] = False
+            if (manifest["cobertura"]["solo_convocatoria"]
+                    or not manifest["cobertura"]["evento_confirmado_en_pdf"]
+                    or not manifest["security_scan"]["scan_complete"]):
                 chunk["indexable"] = False
         manifest["chunks"] = chunks
         manifest["reprocessed_at"] = datetime.now(timezone.utc).isoformat()
-        manifest["chunking_revision"] = 2
+        manifest["chunking_revision"] = 3
         temporary = path.with_suffix(".tmp")
         with temporary.open("x", encoding="utf-8") as stream:
             json.dump(manifest, stream, ensure_ascii=False, indent=2)
         os.chmod(temporary, 0o600)
         temporary.replace(path)
+        with closing(sqlite3.connect(self.database)) as connection, connection:
+            connection.execute("UPDATE documents SET status=? WHERE doc_id=?", (manifest["status"], doc_id))
         return manifest

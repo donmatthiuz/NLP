@@ -7,8 +7,10 @@ import shutil
 import subprocess
 import tempfile
 import unicodedata
+from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
+from xml.etree import ElementTree
 
 
 @dataclass
@@ -37,6 +39,32 @@ def normalize_text(text: str) -> str:
     text = unicodedata.normalize("NFC", text)
     text = "".join(c for c in text if c in "\n\t" or unicodedata.category(c) != "Cc")
     return "\n".join(re.sub(r"[ \t]+$", "", line) for line in text.splitlines()).strip()
+
+
+def extract_hidden_text(path: Path) -> dict[int, list[str]]:
+    """Compara texto visible y total de Poppler por página para revisar capas ocultas."""
+    def text_by_page(include_hidden: bool) -> dict[int, Counter[str]]:
+        command = ["pdftohtml", "-xml", "-i", "-stdout"]
+        if include_hidden:
+            command.append("-hidden")
+        command.append(str(path))
+        xml = _run(command, timeout=180)
+        root = ElementTree.fromstring(xml)
+        return {
+            int(page.attrib["number"]): Counter(
+                normalized for node in page.findall("text")
+                if (normalized := " ".join("".join(node.itertext()).split()))
+            )
+            for page in root.findall("page")
+        }
+
+    visible = text_by_page(False)
+    complete = text_by_page(True)
+    return {
+        number: list((complete[number] - visible.get(number, Counter())).elements())
+        for number in complete
+        if complete[number] - visible.get(number, Counter())
+    }
 
 
 def _ocr_page(path: Path, number: int) -> str | None:
