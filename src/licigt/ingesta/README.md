@@ -8,7 +8,7 @@ Este módulo implementa el [flujo de ingesta del anteproyecto](../../../docs/ant
 
 La fuente principal es [Proveedores del IGSS](https://www.igssgt.org/proveedores/) y los PDF oficiales alojados en `igssgt.org`. El MVP usa carga manual de archivos obtenidos allí. El conector `automatic.py` permite descargar un evento específico desde la página de proveedores como extensión opcional; no rastrea todo el portal ni consulta GUATECOMPRAS.
 
-Se verificaron y cargaron dos fuentes iniciales del anteproyecto en `data/ingesta` bajo el espacio ficticio `empresa_demo`:
+Se verificaron y cargaron seis PDF de cinco eventos en `data/ingesta` bajo el espacio ficticio `empresa_demo`. Dos fuentes iniciales del anteproyecto son:
 
 | Evento | Código IGSS | Documento oficial |
 |---|---:|---|
@@ -38,7 +38,7 @@ PYTHONPATH=src python -m licigt.ingesta documento.pdf \
   --codigo-igss 432 --data-dir data/ingesta
 ```
 
-`--fecha-documento`, `--fecha-publicacion` y `--fecha-descarga` son opcionales. Una fecha no verificada queda en `null`; la fecha de descarga no sustituye a la fecha oficial. Se aceptan `--unidad-requirente`, `--nog-referencia`, `--identificador-version-oficial` y `--relacion-documental` cuando se conocen. La API del rol 3 debe derivar `tenant_id` de la sesión autenticada; no debe aceptar una empresa elegida libremente por un cliente externo.
+`--fecha-documento`, `--fecha-publicacion`, `--fecha-ficha` y `--fecha-descarga` son opcionales. Una fecha no verificada queda en `null`; la fecha de la ficha del portal y la fecha de descarga no sustituyen a la fecha oficial de publicación del PDF. Se aceptan `--unidad-requirente`, `--nog-referencia`, `--identificador-version-oficial` y `--relacion-documental` cuando se conocen. La API del rol 3 debe derivar `tenant_id` de la sesión autenticada; no debe aceptar una empresa elegida libremente por un cliente externo.
 
 Un mismo PDF y `document_key` dentro de un evento se deduplican por SHA-256. Si cambia el archivo, se crea una nueva `version_ingesta` y se conserva el original previo. Esa versión técnica no implica que una aclaración sustituya legalmente las bases. Los documentos modificatorios se guardan por separado y pueden señalar su `relacion_documental`.
 
@@ -53,7 +53,7 @@ PYTHONPATH=src python -m licigt.ingesta.download \
   --data-dir data/ingesta
 ```
 
-Puedes repetir `--numero-evento` para otros eventos publicados en [Proveedores del IGSS](https://www.igssgt.org/proveedores/). Los archivos quedan en `data/ingesta/descargas_igss/<numero_evento>/<sha256>.pdf`, con un JSON contiguo que registra URL, fecha, código IGSS y hash. El comando descarga todos los enlaces PDF oficiales encontrados en la fila de cada evento, valida la cabecera PDF y el límite de 50 MB por archivo. Si el contenido cambia, conserva otra copia bajo su nuevo hash; si no cambia, indica `ya_existia`. Este paso no crea eventos, fragmentos ni índices.
+Puedes repetir `--numero-evento` para otros eventos publicados en [Proveedores del IGSS](https://www.igssgt.org/proveedores/). Los archivos quedan en `data/ingesta/descargas_igss/<numero_evento>/<sha256>.pdf`, con un JSON contiguo que registra URL, fecha, código IGSS y hash. En ese JSON, `archivo` es el nombre del PDF relativo a la ubicación del propio JSON. El comando descarga todos los enlaces PDF oficiales encontrados en la fila de cada evento, valida la cabecera PDF y el límite de 50 MB por archivo. Si el contenido cambia, conserva otra copia bajo su nuevo hash; si no cambia, indica `ya_existia`. Este paso no crea eventos, fragmentos ni índices.
 
 Para repetir la descarga del [corpus seleccionado](../../../docs/ingesta/Seleccion_del_corpus.md), que incluye eventos de 2023 y las bases de 222 no enlazadas en su ficha:
 
@@ -82,9 +82,23 @@ El conector lee la fila del evento en el portal, registra número, año, modalid
 
 ## Entrega al rol 2
 
+Para reproducir la ingesta del corpus seleccionado a partir de las seis descargas verificadas y crear el paquete de intercambio:
+
+```bash
+PYTHONPATH=src python -m licigt.ingesta.prepare_corpus \
+  --tenant-id empresa_demo --data-dir data/ingesta
+PYTHONPATH=src python -m licigt.ingesta.handoff \
+  --tenant-id empresa_demo --data-dir data/ingesta \
+  --output entregables/recuperacion/empresa_demo.zip
+```
+
+El ZIP contiene `chunks.jsonl` (un fragmento indexable por línea), `inventario.json` (procedencia, SHA-256, estado, cobertura, versiones, alertas y recuentos), `originales/<doc_id>.pdf`, `manifiestos/<doc_id>.json` y los JSON de descarga en `procedencia/<doc_id>.json` cuando existen. Dentro del ZIP, todas las rutas de archivo son relativas a su raíz. El SHA-256 de `chunks.jsonl` figura en el inventario; cada original se verifica contra su hash antes de empaquetarlo. Esta entrega está en [`entregables/recuperacion`](../../../entregables/recuperacion/README.md), fuera de `data/`, para que Git pueda incluirla. El rol 2 debe importar el JSONL a PostgreSQL y generar allí `tsvector` y embeddings/`pgvector`. **El ZIP no contiene índices ni embeddings.**
+
+El exportador lee solo documentos registrados para el `tenant_id` indicado y valida su correspondencia con los manifiestos; la CLI es de desarrollo. En producción, el rol 4 debe autorizar quién puede crear o acceder a un paquete de cada empresa. La autorización de consultas se aplica en la base y la API, no se infiere del `tenant_id` escrito en el JSONL. Para un despliegue con MinIO, los PDF pueden estar en el bucket compartido con permisos y versionado; este exportador portátil requiere originales locales.
+
 El registro está en `data/ingesta/igss_ingesta.sqlite3`, los originales en `data/ingesta/originales/igss/<tenant_id>/<evento_id>/` y los manifiestos en `data/ingesta/manifiestos_igss/<doc_id>.json`. El manifiesto conserva páginas extraídas, advertencias y `cobertura`. Cada fragmento incluye `tenant_id`, `evento_id`, número y año institucional, tipo, versión, fechas diferenciadas, URL, hash, página del PDF, página impresa cuando se puede reconocer y texto. `nog_referencia` no se usa para filtrar.
 
-El rol 2 debe indexar solo fragmentos con `indexable=true` y filtrar siempre por `tenant_id`, `evento_id` y el rol autorizado. Un archivo que parece solo convocatoria o cuyo número de evento no coincide con el declarado se marca `requiere_revision` y sus fragmentos no son indexables. Las páginas ilegibles se excluyen. El manifiesto no demuestra que el expediente esté completo: `cobertura.tipos_cargados` enumera solo los tipos efectivamente cargados.
+El rol 2 debe indexar solo fragmentos con `indexable=true` y filtrar siempre por `tenant_id`, `evento_id` y el rol autorizado. El ZIP ya excluye los fragmentos `indexable=false`. Un archivo que parece solo convocatoria o cuyo número de evento no coincide con el declarado se marca `requiere_revision` y sus fragmentos no son indexables. Las páginas ilegibles no producen fragmentos. El manifiesto no demuestra que el expediente esté completo: `cobertura.tipos_cargados` enumera solo los tipos efectivamente cargados. La modificación de 222 tiene dos páginas sin texto por falta de OCR y requiere revisión.
 
 La segmentación mejorada conserva secciones y tablas; cuando divide una tabla larga, repite su encabezado y lo registra como `encabezado_tabla`. Los encabezados y pies de página repetidos se quitan **solo de los fragmentos**, no del texto original por página. Las ventanas largas usan 600 palabras con 90 de solapamiento como aproximación a 800/120 tokens. El rol 2 debe aplicar el tokenizer real del modelo para la línea base de 120 tokens y comprobar truncamiento. Para reconstruir fragmentos tras un cambio de segmentación sin alterar el original ni `doc_id`, existe `IngestionService.reprocess(doc_id)`.
 

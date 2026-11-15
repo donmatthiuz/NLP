@@ -166,7 +166,7 @@ def ingest_event(numero_evento: str, tenant_id: str, service: IngestionService, 
         modalidad=event.modalidad, document_key="bases_integradas", tipo_documento="bases",
         titulo=event.titulo, entidad="IGSS", unidad_requirente=event.unidad_requirente,
         codigos_producto_igss=(event.codigo_igss,) if event.codigo_igss else (),
-        fecha_publicacion=event.fecha_publicacion,
+        fecha_ficha=event.fecha_publicacion,
         fecha_descarga=datetime.now(ZoneInfo("America/Guatemala")).date().isoformat(),
         url_origen=final_url,
     )

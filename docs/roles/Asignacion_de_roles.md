@@ -60,7 +60,7 @@ Esta distribución corresponde a los cuatro frentes de la [arquitectura actualiz
 
 ## Acuerdos de integración
 
-1. **Rol 1 → rol 2:** cada fragmento conserva como mínimo `chunk_id`, `doc_id`, `tenant_id`, `evento_id`, `numero_evento`, `version_ingesta`, `pagina_inicio`, `pagina_fin`, `seccion`, `texto` y `indexable`. El NOG es opcional y no filtra consultas.
+1. **Rol 1 → rol 2:** entregar `chunks.jsonl`, `inventario.json`, manifiestos y originales en el [ZIP versionable](../../entregables/recuperacion/README.md). Cada fragmento conserva como mínimo `chunk_id`, `doc_id`, `tenant_id`, `evento_id`, `numero_evento`, `version_ingesta`, `pagina_inicio`, `pagina_fin`, `seccion`, `texto` y `indexable`. El NOG es opcional y no filtra consultas. El inventario informa páginas faltantes, alertas y cobertura; la importación no debe borrar versiones anteriores.
 2. **Rol 2 → rol 3:** la búsqueda devuelve fragmentos autorizados con puntaje y datos suficientes para construir una cita; los conflictos de versión se indican explícitamente.
 3. **Rol 4 → roles 2 y 3:** el contexto de acceso proviene de la sesión autenticada. Los roles 2 y 3 no aceptan empresa, rol o permisos escritos por el usuario como fuente de autoridad.
 4. **Roles 1, 2 y 3 → rol 4:** cada módulo aporta casos de prueba, instrucciones de ejecución y ejemplos de fallo para la evaluación común.

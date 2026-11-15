@@ -60,6 +60,9 @@ class AutomaticTests(unittest.TestCase):
             self.assertEqual(first["doc_id"], second["doc_id"])
             self.assertEqual(first["status"], "completo")
             self.assertEqual(first["version_ingesta"], 1)
+            manifest = json.loads((Path(temporary) / "manifiestos_igss" / f"{first['doc_id']}.json").read_text())
+            self.assertEqual(manifest["metadata"]["fecha_ficha"], "2026-11-13")
+            self.assertIsNone(manifest["metadata"]["fecha_publicacion"])
 
     def test_batch_download_saves_pdf_and_provenance_without_ingesting(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -72,8 +75,11 @@ class AutomaticTests(unittest.TestCase):
             for item in first:
                 pdf = Path(item["archivo"])
                 self.assertEqual(hashlib.sha256(pdf.read_bytes()).hexdigest(), item["sha256"])
-                self.assertEqual(json.loads(Path(item["manifiesto"]).read_text())["numero_evento"],
-                                 item["numero_evento"])
+                sidecar_path = Path(item["manifiesto"])
+                sidecar = json.loads(sidecar_path.read_text())
+                self.assertEqual(sidecar["numero_evento"], item["numero_evento"])
+                self.assertFalse(Path(sidecar["archivo"]).is_absolute())
+                self.assertEqual((sidecar_path.parent / sidecar["archivo"]).resolve(), pdf)
             self.assertFalse((root / "igss_ingesta.sqlite3").exists())
 
     def test_historical_event_and_additional_bases(self):

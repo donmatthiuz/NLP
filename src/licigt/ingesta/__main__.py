@@ -18,6 +18,7 @@ def main() -> None:
     parser.add_argument("--nog-referencia")
     parser.add_argument("--fecha-documento")
     parser.add_argument("--fecha-publicacion")
+    parser.add_argument("--fecha-ficha")
     parser.add_argument("--fecha-descarga")
     parser.add_argument("--identificador-version-oficial")
     parser.add_argument("--relacion-documental")
@@ -31,6 +32,7 @@ def main() -> None:
         unidad_requirente=args.unidad_requirente,
         codigos_producto_igss=tuple(args.codigo_igss), nog_referencia=args.nog_referencia,
         fecha_documento=args.fecha_documento, fecha_publicacion=args.fecha_publicacion,
+        fecha_ficha=args.fecha_ficha,
         fecha_descarga=args.fecha_descarga,
         identificador_version_oficial=args.identificador_version_oficial,
         relacion_documental=args.relacion_documental,

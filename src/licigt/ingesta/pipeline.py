@@ -48,6 +48,7 @@ class SourceMetadata:
     nog_referencia: str | None = None
     fecha_documento: str | None = None
     fecha_publicacion: str | None = None
+    fecha_ficha: str | None = None
     fecha_descarga: str | None = None
     identificador_version_oficial: str | None = None
     relacion_documental: str | None = None
@@ -74,7 +75,7 @@ class SourceMetadata:
             raise ValueError("nog_referencia inválido")
         if any(not re.fullmatch(r"\d{1,10}", code) for code in self.codigos_producto_igss):
             raise ValueError("Código IGSS inválido")
-        for name in ("fecha_documento", "fecha_publicacion", "fecha_descarga"):
+        for name in ("fecha_documento", "fecha_publicacion", "fecha_ficha", "fecha_descarga"):
             value = getattr(self, name)
             if value is not None:
                 date.fromisoformat(value)
@@ -250,6 +251,7 @@ def make_chunks(pages: list[Page], doc_id: str, metadata: SourceMetadata, versio
                     "titulo": metadata.titulo, "entidad": metadata.entidad,
                     "fecha_documento": metadata.fecha_documento,
                     "fecha_publicacion": metadata.fecha_publicacion,
+                    "fecha_ficha": metadata.fecha_ficha,
                     "fecha_descarga": metadata.fecha_descarga, "url_origen": metadata.url_origen,
                     "pagina_inicio": page.number, "pagina_fin": page.number,
                     "pagina_impresa": printed_by_page[page.number], "estado_calidad": page.quality,

@@ -20,6 +20,6 @@
 - Las preguntas sin respuesta se obtienen formulando preguntas sobre información ausente en el corpus; no requieren un PDF incompleto. Las pruebas de inyección, acceso cruzado y citas falsas usan la suite adversaria separada que define el anteproyecto.
 - Esta selección no confirma que se haya reunido todo el historial de anexos, aclaraciones o modificaciones de cada evento. Antes de fijar los 20 casos deben registrarse los documentos efectivamente disponibles y sus faltantes.
 
-**Estado local:** los seis PDF de los cinco eventos están en `data/ingesta/descargas_igss/`; ver el [inventario de archivos y hashes](Corpus_IGSS.md#descargas-disponibles). Solo 399 y 363 se habían procesado con el pipeline de ingesta; los cuatro PDF nuevos permanecen como descargas para la siguiente fase.
+**Estado local:** los seis PDF de los cinco eventos están en `data/ingesta/descargas_igss/` y ya se procesaron con la ingesta; ver el [inventario de archivos y hashes](Corpus_IGSS.md). El [paquete para el rol 2](../../entregables/recuperacion/README.md) contiene originales, manifiestos y fragmentos preparados.
 
 El descargador por lote consulta la página del año correspondiente. Para 222 se usó `--pdf-adicional` con las bases oficiales, porque la fila del portal de 2023 enlaza solo la modificación.

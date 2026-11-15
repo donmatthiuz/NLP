@@ -92,7 +92,8 @@ def download_selected(numbers: list[str], data_dir: Path, *, fetcher=None,
                 "pagina_origen": page_url, "enlace_en_ficha": source_type == "ficha",
                 "tipo_documento_declarado": document_type,
                 "url_origen": final_url,
-                "sha256": digest, "bytes": len(pdf_bytes), "archivo": str(target.resolve()),
+                "sha256": digest, "bytes": len(pdf_bytes),
+                "archivo": target.name,
             }
             manifest_path = target.with_suffix(".json")
             if not manifest_path.exists():
