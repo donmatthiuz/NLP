@@ -4,7 +4,7 @@
 
 Aquí se implementarán embeddings, índices de PostgreSQL y `pgvector`, búsqueda léxica y vectorial, fusión, reranking y detección de evidencia insuficiente o versiones en conflicto.
 
-**Entrada:** fragmentos preparados por ingesta y consulta con NOG y contexto de acceso autenticado.
+**Entrada:** fragmentos preparados por ingesta y consulta con `evento_id` y contexto de acceso autenticado de la empresa.
 
 **Salida para consulta:** fragmentos autorizados con puntaje, `chunk_id`, documento, página, versión y alertas de conflicto.
 

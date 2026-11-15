@@ -1,57 +1,43 @@
-import json
-import shutil
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
-from licigt.ingesta.automatic import candidates_from_ocds, ingest_nog, official_url
+from licigt.ingesta.automatic import ingest_event, official_url, parse_portal
+from licigt.ingesta.pdf import Page
 from licigt.ingesta.pipeline import IngestionService
 
 
-FIXTURE = Path(__file__).resolve().parents[4] / "docs/presentaciones/Proyecto Final CC3103_ Sistema NLP_RAG Agéntico Empresarial-1.pdf"
+ROW = '''<tr data-prov-id="10432" data-pub="2026-11-13"><td>
+<span>Licitación</span><span>No. 399-IGSS-2026</span><span>Código: 432</span>
+<div class="fw-semibold">MULTIVITAMINICO PRENATAL</div>
+<div class="small text-muted">DISTINTAS UNIDADES MEDICAS</div></td>
+<td><a href="https://www.igssgt.org/wp-content/uploads/bases.pdf">Descargar</a></td></tr>'''
 
 
 class FakeFetcher:
-    def __init__(self, pdf):
-        self.pdf = pdf
-        self.calls = []
-
     def get(self, url, max_bytes):
-        self.calls.append(url)
-        if url.endswith(".pdf"):
-            return self.pdf, url, "application/pdf"
-        return b"<html><a href='https://www.guatecompras.gt/archivos/bases.pdf'>Bases del concurso</a></html>", url, "text/html"
+        return (ROW.encode(), url) if url.endswith("/proveedores/") else (b"%PDF-1.4\nfake", url)
 
 
 class AutomaticTests(unittest.TestCase):
-    def test_only_official_https_links(self):
-        self.assertTrue(official_url("https://www.guatecompras.gt/a.pdf"))
-        self.assertFalse(official_url("http://www.guatecompras.gt/a.pdf"))
-        self.assertFalse(official_url("https://guatecompras.gt.evil.test/a.pdf"))
-        self.assertFalse(official_url("https://127.0.0.1/a.pdf"))
+    def test_portal_row_and_domain(self):
+        self.assertTrue(official_url("https://www.igssgt.org/a.pdf"))
+        self.assertFalse(official_url("https://igssgt.org.evil.test/a.pdf"))
+        event = parse_portal(ROW)[0]
+        self.assertEqual(event.numero_evento, "399-IGSS-2026")
+        self.assertEqual(event.codigo_igss, "432")
+        self.assertEqual(event.fecha_publicacion, "2026-11-13")
 
-    def test_ocds_uses_documents_of_selected_nog(self):
-        payload = {"releases": [
-            {"ocid": "ocds-xqjsxa-123", "tender": {"documents": [{"url": "https://www.guatecompras.gt/a.pdf", "title": "Bases"}]}},
-            {"ocid": "ocds-xqjsxa-456", "tender": {"documents": [{"url": "https://evil.test/b.pdf"}]}},
-        ]}
-        _, candidates = candidates_from_ocds(payload, "123")
-        self.assertEqual(len(candidates), 1)
-        self.assertEqual(candidates[0].title, "Bases")
-
-    @unittest.skipUnless(FIXTURE.exists() and shutil.which("pdftotext") and shutil.which("pdfinfo"), "Se requiere PDF y Poppler")
-    def test_nog_page_downloads_pdf_and_reuses_ingestion(self):
-        fetcher = FakeFetcher(FIXTURE.read_bytes())
-        with tempfile.TemporaryDirectory() as temporary:
+    def test_download_reuses_manual_pipeline(self):
+        page = Page(1, "DOCUMENTOS DE LICITACIÓN 399-IGSS-2026\nCÓDIGO IGSS 432", "text", "ok")
+        with tempfile.TemporaryDirectory() as temporary, patch("licigt.ingesta.pipeline.extract_pages", return_value=[page]):
             service = IngestionService(Path(temporary))
-            result = ingest_nog("123456", service, title="Concurso", entity="Entidad",
-                                published="2026-11-14", fetcher=fetcher)
-            self.assertEqual(len(result["ingested"]), 1)
-            self.assertEqual(result["ingested"][0]["version"], 1)
-            self.assertEqual(result["skipped"], [])
-            repeated = ingest_nog("123456", service, title="Concurso", entity="Entidad",
-                                  published="2026-11-14", fetcher=fetcher)
-            self.assertEqual(repeated["ingested"][0]["doc_id"], result["ingested"][0]["doc_id"])
+            first = ingest_event("399-IGSS-2026", "empresa_demo", service, fetcher=FakeFetcher())
+            second = ingest_event("399-IGSS-2026", "empresa_demo", service, fetcher=FakeFetcher())
+            self.assertEqual(first["doc_id"], second["doc_id"])
+            self.assertEqual(first["status"], "completo")
+            self.assertEqual(first["version_ingesta"], 1)
 
 
 if __name__ == "__main__":

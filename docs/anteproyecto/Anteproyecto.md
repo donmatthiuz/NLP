@@ -21,7 +21,7 @@
 
 **Usuario primario:** analista de licitaciones o encargado de preparar ofertas dentro de una empresa proveedora del IGSS.
 
-**Fuente documental principal:** sección [Proveedores del IGSS](https://www.igssgt.org/proveedores/) y archivos oficiales de licitaciones alojados en el sitio institucional. El proyecto utilizará carga manual de PDF obtenidos de esa fuente; su funcionamiento no dependerá de una conexión o extracción desde Guatecompras.
+**Fuente documental principal:** sección [Proveedores del IGSS](https://www.igssgt.org/proveedores/) y archivos oficiales de licitaciones alojados en el sitio institucional. El proyecto utilizará carga manual de PDF obtenidos de esa fuente y conservará su URL de origen.
 
 **Problema y propuesta de valor:** el analista debe localizar y relacionar requisitos dispersos entre bases, especificaciones, cronogramas y anexos del IGSS. LiciGT facilitará consultas sobre esos documentos y generará listas de verificación con referencias al documento, versión y página. En las adquisiciones de medicamentos, permitirá consultar condiciones documentales asociadas a códigos IGSS, presentaciones, concentraciones y demás especificaciones que aparezcan expresamente en el expediente.
 
@@ -126,12 +126,12 @@ Desarrollar y evaluar un sistema basado en RAG que facilite la identificación y
 - Consultas sobre requisitos, documentos de la oferta, especificaciones y cronogramas.
 - Generación de listas de verificación con citas y estados de seguimiento.
 - Comparación de versiones y documentos modificatorios disponibles del mismo evento.
-- Flujo agéntico acotado para seleccionar herramientas de consulta, extracción y comparación.
+- Flujo agéntico acotado para seleccionar tres herramientas de solo lectura: búsqueda, extracción y comparación.
 - Autenticación, permisos por empresa y evaluación de seguridad.
 
 ### No incluye
 
-- Extracción, monitoreo o integración automática con Guatecompras.
+- Extracción, monitoreo o integración automática con plataformas externas de contratación pública.
 - Presentación de ofertas, trámites o modificaciones en plataformas externas.
 - Seguimiento exhaustivo de todas las publicaciones del IGSS ni garantía de actualización en tiempo real.
 - Generación completa de propuestas técnicas o económicas y decisión automática de participar.
@@ -143,7 +143,7 @@ Desarrollar y evaluar un sistema basado en RAG que facilite la identificación y
 
 ### MVP
 
-Un prototipo funcional que permita registrar un evento del IGSS, cargar sus PDF, consultar requisitos con citas y generar una lista de verificación editable. Mostrará qué documentos fueron incorporados y qué información falta. Incluirá comparación de versiones cuando exista un par documental adecuado, un flujo limitado de herramientas y pruebas de seguridad.
+Un prototipo funcional que permita registrar un evento del IGSS, cargar sus PDF, consultar requisitos con citas y generar una lista de verificación editable por el usuario. Mostrará qué documentos fueron incorporados y qué información falta. Incluirá comparación de versiones cuando exista un par documental adecuado, tres herramientas de consulta de solo lectura y pruebas de seguridad.
 
 **Hipótesis central:** un RAG especializado en documentos de licitaciones del IGSS puede reducir el tiempo de identificación de requisitos para una empresa proveedora, manteniendo respuestas precisas y verificables.
 
@@ -196,7 +196,7 @@ El código IGSS identifica un producto dentro de los documentos y no reemplaza a
 
 ### Permisos
 
-Las cargas, índices y listas de verificación se asociarán al espacio de la empresa que los utiliza. Para simplificar el MVP, incluso los PDF de origen público tendrán copias lógicas de trabajo dentro de cada empresa. El acceso requerirá autenticación y controles por `tenant_id` antes de recuperar fragmentos o abrir archivos. Los datos de prueba que representen empresas o usuarios serán ficticios.
+Las cargas, índices y listas de verificación se asociarán al espacio de la empresa que los utiliza. Para simplificar el MVP, incluso los PDF de origen público tendrán copias lógicas de trabajo dentro de cada empresa. El acceso requerirá autenticación y filtros previos por `tenant_id`, `evento_id` y rol antes de recuperar fragmentos o abrir archivos. Los datos de prueba que representen empresas o usuarios serán ficticios.
 
 ## 8. Requisitos
 
@@ -204,7 +204,7 @@ Las cargas, índices y listas de verificación se asociarán al espacio de la em
 
 1. **Registro y carga:** crear eventos del IGSS y cargar PDF, validando formato, procedencia declarada, duplicados y asociación al evento. Extraer contenido por página y señalar fallos de OCR o extracción.
 2. **Consulta con evidencia:** responder preguntas sobre requisitos, documentos, especificaciones y fechas del evento seleccionado. Mostrar documento, página, versión y texto de respaldo; abstenerse cuando no exista evidencia suficiente.
-3. **Lista de verificación:** organizar requisitos por categoría y, cuando la fuente lo establezca, por carácter fundamental o no fundamental. Cada ítem tendrá cita y estado: pendiente, preparado o revisado. Esos estados describirán el seguimiento del usuario, no una certificación automática.
+3. **Lista de verificación:** organizar requisitos por categoría y, cuando la fuente lo establezca, por carácter fundamental o no fundamental. Cada ítem tendrá cita y estado: pendiente, preparado o revisado. El agente propondrá los ítems con evidencia; la aplicación guardará solo los cambios que confirme el usuario. Los estados no certifican cumplimiento.
 4. **Comparación documental:** contrastar bases y modificaciones del mismo evento, con referencias a ambas fuentes, alcance del cambio y alerta de contradicción o ambigüedad.
 5. **Cobertura y auditoría:** mostrar los documentos cargados, referencias a anexos ausentes, fechas no verificadas y última incorporación. Registrar cargas, consultas y resultados de validación sin exponer información innecesaria.
 
@@ -223,49 +223,41 @@ Las siguientes son metas propuestas que deberán medirse:
 
 ## 9. Arquitectura
 
-La arquitectura conservará dos flujos: ingesta de archivos oficiales del IGSS y consulta autenticada sobre los documentos ya procesados. La selección y descarga inicial será manual; las herramientas del modelo no navegarán por sitios externos.
+La arquitectura de referencia se incluye a página completa al final del documento. Conserva dos flujos: ingesta de PDF oficiales del portal de proveedores del IGSS y consulta RAG autenticada sobre esos documentos. El analista selecciona y carga los archivos manualmente; las herramientas del modelo no navegan por sitios externos. `evento_id` es la clave operativa interna y el NOG, si figura en el expediente, permanece como referencia externa opcional.
 
 ### Flujo de ingesta
 
-El analista registra un evento y carga sus PDF. El sistema valida el archivo y su relación con el evento, calcula SHA-256, conserva el original en MinIO y extrae texto y tablas por página. Si una página es ilegible, se marca para revisión. Después limpia el contenido, segmenta por estructura, registra metadatos y genera los índices léxico y vectorial.
+1. El analista registra el evento y carga cada PDF con su tipo y URL de origen. El sistema valida formato, procedencia, permisos y correspondencia con el evento, calcula SHA-256 y conserva el original inmutable en MinIO.
+2. La extracción preserva texto, encabezados y tablas por página, con OCR cuando sea necesario. El control de calidad señala páginas ilegibles y documentos incompletos.
+3. La limpieza conserva números, fechas y códigos. La segmentación reúne cláusulas relacionadas por sección y página y repite encabezados cuando una tabla se divide.
+4. Un control de inyección detecta instrucciones incrustadas, incluso en texto oculto. Los fragmentos se tratan siempre como datos no confiables, aunque superen ese control.
+5. Los metadatos y versiones se registran sin borrar las anteriores. PostgreSQL mantiene un índice léxico con `tsvector` en español y uno vectorial con `pgvector`.
 
 ### Flujo de consulta
 
-La aplicación autentica al usuario y valida su acceso al evento. El enrutador selecciona una ruta de consulta, extracción o comparación. La recuperación se filtra por empresa y evento antes de entregar evidencia al modelo. El sistema verifica suficiencia, relaciones entre versiones y citas; devuelve una respuesta fundamentada, una abstención o una respuesta que requiere revisión humana.
+1. La aplicación autentica al analista y resuelve empresa, `evento_id` y rol. Valida formato, alcance e indicios de ataque antes de recuperar; una solicitud insegura o fuera de alcance conduce a abstención.
+2. Un enrutador acotado elige una de tres herramientas registradas y de solo lectura: búsqueda, extracción o comparación. Sus esquemas de parámetros y límites se verifican fuera del modelo.
+3. La recuperación filtra por empresa y evento en SQL, reforzada por seguridad por fila. Combina búsqueda léxica y vectorial y reordena los resultados autorizados. El modelo nunca recibe fragmentos que el usuario no pueda consultar.
+4. Un control de vigencia y suficiencia compara documentos relacionados y exige un umbral calibrado. La evidencia insuficiente produce abstención; una contradicción o condición de alto impacto se remite a revisión humana.
+5. El modelo redacta una respuesta estructurada con citas para cada dato documental. Un validador determinista comprueba esquema, permisos, fragmentos y citas antes de publicar la respuesta. Una falla genera una salida controlada o abstención.
 
-```mermaid
-flowchart TD
-    A[Consulta autenticada] --> B{Permiso sobre el evento}
-    B -->|No| C[Acceso denegado]
-    B -->|Sí| D[Herramienta autorizada]
-    D --> E[Recuperación por empresa y evento]
-    E --> F{Evidencia suficiente}
-    F -->|No| G[Abstención]
-    F -->|Sí| H[Generación y validación de citas]
-    H --> I{Resultado validado}
-    I -->|Sí| J[Respuesta con fuentes]
-    I -->|Conflicto| K[Revisión humana]
-    I -->|Cita inválida| G
-```
+El estado de ejecución contendrá `tenant_id`, usuario, rol, `evento_id`, intención, herramienta seleccionada, filtros aplicados, fragmentos recuperados y resultados de validación. Las decisiones de seguridad, permisos y vigencia no quedarán a cargo del modelo. La meta de latencia P95 del flujo de consulta es de hasta 15 segundos con documentos ya indexados.
 
-El estado compartido contendrá `tenant_id`, usuario, rol, `evento_id`, intención, herramientas ejecutadas, documentos consultados, fragmentos recuperados y resultados de validación. Los permisos serán resueltos por la aplicación, nunca por el modelo.
-
-PostgreSQL con `pgvector` almacenará eventos, documentos, fragmentos, versiones, vectores y listas de verificación. Se aplicarán políticas de seguridad por fila, filtros de aplicación y un rol de base de datos sin privilegios para eludir esas políticas. MinIO conservará los PDF originales con versionado y controles contra sobrescritura. La bitácora y los archivos del banco de pruebas permitirán repetir la evaluación.
+PostgreSQL con `pgvector` almacenará eventos, documentos, fragmentos, metadatos, versiones, permisos y listas de verificación. Se aplicarán políticas de seguridad por fila y un rol de base de datos sin privilegios para eludirlas. MinIO conservará los PDF originales como evidencia para las citas. El registro de herramientas mantendrá esquemas y límites; la auditoría guardará tareas, filtros, identificadores de fragmento, citas y errores sin datos personales innecesarios. Un banco de al menos 20 casos permitirá comparar la línea base y la versión mejorada.
 
 ### Componentes
 
 | Componente | Función | Entrada y salida principal |
 |---|---|---|
-| Interfaz y autenticación | Gestionar usuarios, eventos y permisos | Usuario autenticado y solicitud asociada a empresa y evento |
-| Registro y almacenamiento | Validar PDF, calcular hash y preservar original | PDF y metadatos → `doc_id` y archivo versionado |
-| Extracción y calidad | Extraer texto, tablas y OCR por página | PDF → contenido y alertas de legibilidad |
-| Limpieza y segmentación | Conservar numerales, códigos, unidades y relaciones entre secciones | Contenido → fragmentos con páginas y sección |
-| Control de contenido no confiable | Aislar instrucciones presentes en documentos | Fragmentos → contenido tratado como datos y alertas |
-| Versionado e índices | Mantener referencias, permisos y relaciones documentales | Fragmentos → índices léxico y vectorial |
-| Enrutador y herramientas | Seleccionar acciones permitidas dentro del presupuesto de ejecución | Intención → ruta acotada |
-| Recuperación y evidencia | Buscar, combinar y reordenar resultados autorizados | Pregunta → fragmentos relevantes y estado de cobertura |
-| Generación y validación | Construir respuesta estructurada y verificar respaldo | Evidencia → respuesta, abstención o revisión |
-| Auditoría y evaluación | Guardar trazas sanitizadas y comparar variantes | Eventos de ejecución → métricas y reporte de errores |
+| Interfaz y autenticación | Gestionar usuarios, eventos y permisos por empresa | Solicitud autenticada con `evento_id` y rol |
+| Registro y originales | Validar PDF, origen, tipo, hash y versión; preservar en MinIO | PDF y metadatos → `doc_id` y original inmutable |
+| Extracción y calidad | Extraer texto, encabezados, tablas y OCR por página | PDF → contenido y alertas de legibilidad |
+| Limpieza, segmentación y control de inyección | Conservar numerales, fechas y códigos; tratar todo fragmento como dato | Contenido → fragmentos por sección y página con alertas |
+| Versionado e índices | Mantener relaciones documentales, `tsvector` y `pgvector` | Fragmentos → índices léxico y vectorial por empresa y evento |
+| Validación de entrada y enrutador | Comprobar formato, alcance y seguridad; elegir herramienta autorizada | Solicitud → búsqueda, extracción, comparación o abstención |
+| Recuperación y vigencia | Filtrar antes de recuperar y valorar suficiencia y conflictos | Pregunta → evidencia autorizada, abstención o revisión |
+| Generación y validación | Construir respuesta estructurada y verificar cada cita | Evidencia → respuesta con fuentes o salida controlada |
+| Auditoría y evaluación | Guardar trazas sanitizadas y comparar variantes | Tareas y resultados → métricas y reporte de errores |
 
 ## 10. Recuperación y RAG
 
@@ -308,7 +300,7 @@ Las variantes con dimensiones distintas utilizarán columnas o índices separado
 
 ### Búsqueda y reordenamiento
 
-1. Validar acceso y filtrar por `tenant_id` y `evento_id` antes de recuperar contenido.
+1. Validar acceso y filtrar por `tenant_id`, `evento_id` y rol en SQL antes de recuperar contenido.
 2. En la línea base, obtener los cinco fragmentos más próximos por búsqueda semántica.
 3. En la versión mejorada, recuperar hasta 20 candidatos semánticos y 20 léxicos, con apoyo de coincidencias exactas para evento, código y numeral.
 4. Fusionar mediante Reciprocal Rank Fusion con constante inicial 60 y pesos iniciales 0.6 para recuperación semántica y 0.4 para léxica.
@@ -319,11 +311,12 @@ Los parámetros son puntos de partida y se ajustarán con un subconjunto de desa
 
 ### Citas y abstención
 
-Cada afirmación se vinculará con uno o más `chunk_id` y una cita breve. Un validador comprobará existencia, permisos, pertenencia al evento, página y coincidencia del texto citado. Una cita literal válida no asegura una interpretación correcta; la fidelidad se revisará también mediante evaluación humana.
+Cada afirmación se vinculará con uno o más `chunk_id` y una cita breve. Un validador posterior a la generación comprobará esquema, existencia, permisos, pertenencia al evento, versión, página y coincidencia del texto citado. Una cita literal válida no asegura una interpretación correcta; la fidelidad se revisará también mediante evaluación humana.
 
 La respuesta se abstendrá o limitará expresamente cuando:
 
 - No existan fragmentos autorizados del evento que respondan la pregunta.
+- La solicitud esté fuera de alcance o la validación de entrada detecte un ataque.
 - Falte una base, anexo o modificación necesaria para la consulta.
 - La extracción sea ilegible en la sección requerida.
 - La evidencia no supere el umbral de relevancia calibrado en desarrollo.
@@ -338,20 +331,17 @@ La interfaz mostrará: “La respuesta se basa en los documentos cargados del ev
 
 | Herramienta | Propósito | Parámetros principales | Permisos y validación |
 |---|---|---|---|
-| `buscar_documentos` | Recuperar evidencia del evento | `query`, `evento_id`, `tipo_documento?`, `k` | Lectura autorizada; consulta de hasta 500 caracteres y `k` entre 1 y 10; filtro previo por empresa y evento |
-| `extraer_requisitos` | Identificar requisitos y documentación de la oferta | `evento_id`, `categoria?` | Rol analista; categorías administrativa, legal, técnica y financiera; cada ítem exige cita |
-| `extraer_fechas` | Extraer fechas, horarios y plazos documentados | `evento_id` | Verificar relación con la actividad; conservar texto original y zona horaria documentada; señalar supuestos |
-| `comparar_versiones` | Contrastar bases y documentos aclaratorios o modificatorios | `evento_id`, `doc_base_id`, `doc_cambio_id` | Mismo evento y empresa; verificar relación, fecha y alcance del cambio; citar ambas fuentes |
-| `verificar_cita` | Validar respaldo y autorización de una cita | `chunk_id`, `cita`, contexto autorizado | Herramienta interna determinista; existencia, página, versión, permisos y coincidencia textual |
-| `generar_checklist` | Consolidar requisitos verificados | `evento_id`, `incluir_modificaciones` | Rol analista; escritura solo en su empresa; ítems con cita y conflictos explícitos |
+| `buscar_documentos` | Buscar evidencia del evento | `query`, `evento_id`, `tipo_documento?`, `k` | Solo lectura; consulta de hasta 500 caracteres y `k` entre 1 y 10; filtro previo por empresa, evento y rol |
+| `extraer_requisitos` | Extraer requisitos, fechas y documentación de la oferta | `evento_id`, `categoria?` | Solo lectura; categorías administrativa, legal, técnica y financiera; cada dato exige cita |
+| `comparar_versiones` | Comparar bases y documentos aclaratorios o modificatorios | `evento_id`, `doc_base_id`, `doc_cambio_id` | Solo lectura; mismo evento y empresa; verificar relación, fecha y alcance del cambio; citar ambas fuentes |
 
-`buscar_documentos` proporciona la evidencia de las demás funciones. La separación entre requisitos y fechas permite usar validaciones distintas. `comparar_versiones` aborda los cambios documentales; `verificar_cita` controla la correspondencia con el original; `generar_checklist` entrega una lista que el analista puede revisar y utilizar para organizar su trabajo.
+Estas son las tres herramientas que puede seleccionar el agente. La extracción de fechas se realiza dentro de `extraer_requisitos`, con comprobaciones específicas de actividad y plazo. La lista de verificación se deriva de una respuesta estructurada y citada; guardar o cambiar sus estados corresponde a una acción explícita del usuario en la aplicación. La verificación de esquema y citas es un control determinista obligatorio después de la generación, no una herramienta elegible por el modelo.
 
 ### Orquestación
 
-El enrutador seleccionará una de tres rutas: consulta documental, extracción o comparación. Tendrá un máximo de tres invocaciones de herramientas seleccionadas por el modelo por solicitud y una sola regeneración ante salida inválida. Las herramientas compuestas ejecutarán recuperación y validación internas de forma acotada y registrarán todas sus operaciones; la validación obligatoria no se omitirá por agotar el presupuesto del agente.
+El enrutador seleccionará entre búsqueda, extracción y comparación tras validar la entrada. Tendrá un máximo de tres invocaciones de herramientas seleccionadas por el modelo por solicitud y una sola regeneración ante salida inválida. Las decisiones de entrada segura, selección de herramienta y suficiencia se implementarán como clasificadores acotados con umbral; se compararán reglas y salida estructurada del modelo para elegir su implementación. Ningún filtro aislado se considerará suficiente y la validación final no se omitirá por agotar el presupuesto del agente.
 
-Las herramientas no podrán navegar a URL arbitrarias, ejecutar comandos ni presentar ofertas. `generar_checklist` solo escribirá dentro del espacio de la empresa autenticada. Ante una falla, se devolverá un error controlado o una abstención.
+Las herramientas serán de solo lectura: no podrán navegar a URL arbitrarias, ejecutar comandos, presentar ofertas ni modificar documentos. Ante una falla, se devolverá un error controlado o una abstención.
 
 ### Contrato de salida
 
@@ -418,10 +408,10 @@ Se prepararán al menos ocho pruebas: inyección directa en la pregunta, inyecci
 ## 13. Seguridad
 
 - **Instrucciones maliciosas:** tratar el texto de documentos y resultados de herramientas como datos no confiables. Separar instrucciones del sistema, evidencia y solicitud del usuario. Los patrones sospechosos serán una señal auxiliar, no la única defensa.
-- **Permisos:** autenticar usuarios y validar la empresa y el evento antes de recuperar fragmentos, abrir PDF o modificar listas. Las políticas de seguridad por fila servirán como segunda barrera.
+- **Permisos:** autenticar usuarios y validar empresa, evento y rol antes de recuperar fragmentos, abrir PDF o modificar listas. Las políticas de seguridad por fila servirán como segunda barrera; el modelo nunca recibirá contenido fuera del alcance del usuario.
 - **Datos personales:** utilizar documentos públicos necesarios para la tarea y usuarios ficticios en las pruebas. Evitar reproducir datos personales innecesarios en registros y reportes.
 - **Integridad documental:** preservar originales, hashes y versiones. Las copias utilizadas para ataques o simulaciones se etiquetarán y mantendrán fuera del corpus oficial.
-- **Aislamiento del modelo:** permitir únicamente herramientas registradas, parámetros validados y rutas acotadas. El modelo no decidirá permisos ni tendrá capacidad de presentar ofertas o alterar documentos externos.
+- **Aislamiento del modelo:** permitir únicamente tres herramientas de solo lectura registradas, parámetros validados y rutas acotadas. El modelo no decidirá permisos ni tendrá capacidad de presentar ofertas o alterar documentos externos.
 - **Salida validada:** verificar esquema, citas, evento y autorización. Una fecha o requisito crítico ambiguo activará `needs_human_review`.
 - **Auditoría:** registrar usuario seudonimizado, empresa, evento, fecha, herramienta, fragmentos usados y resultado de validación. No registrar credenciales ni contenido privado innecesario.
 
@@ -487,4 +477,6 @@ Fuentes identificadas para el diseño del corpus el 14 de noviembre de 2026. La 
 - *Enunciado del Proyecto Final CC3103: Sistema NLP/RAG Agéntico Empresarial*. Referencia académica indicada en la versión original; el equipo verificará la correspondencia final con la rúbrica vigente del curso.
 - *Repositorio del proyecto LiciGT*, rama `proyecto`: https://github.com/donmatthiuz/NLP/tree/proyecto
 
-La implementación, el diagrama de arquitectura y la documentación del repositorio deberán reflejar el uso del portal del IGSS, `evento_id` como clave operativa y las limitaciones de cobertura definidas en este anteproyecto.
+La implementación y la documentación del repositorio deberán reflejar el uso del portal del IGSS, `evento_id` como clave operativa, las tres herramientas de solo lectura y las limitaciones de cobertura definidas en este anteproyecto. El diagrama siguiente reproduce esa arquitectura con el portal del IGSS como fuente autorizada.
+
+![Arquitectura general de LiciGT para documentos del IGSS](../arquitectura/arquitectura_igss.svg)

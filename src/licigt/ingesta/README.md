@@ -1,71 +1,64 @@
-# Ingesta y documentos — rol 1
+# Ingesta de documentos del IGSS — rol 1
 
 **Integrante:** ______________________________
 
-Este módulo implementa el tramo **registro → extracción por página → control de calidad → limpieza → segmentación → metadatos y versión** del [diagrama](../../../docs/arquitectura/arquitectura.jpeg). El índice vectorial y léxico corresponde al rol 2.
+Este módulo implementa el [flujo de ingesta del anteproyecto](../../../docs/anteproyecto/Anteproyecto.md#flujo-de-ingesta): registro de evento, validación del PDF, SHA-256, conservación del original, extracción por página, OCR opcional, control de calidad, segmentación y manifiesto para el rol 2. El NOG es una referencia externa opcional; **`evento_id` es la clave operativa**.
 
-## Origen de los datos
+## Corpus y procedencia
 
-El analista puede cargar PDF de [GUATECOMPRAS](https://www.guatecompras.gt/) con su NOG y URL de origen. También existe una **extensión opcional fuera del MVP** que descubre documentos desde la ficha pública de un NOG o desde un paquete JSON del [portal oficial OCDS](https://ocds.guatecompras.gt/), descarga los PDF y los pasa por este mismo pipeline. La autenticación de quien inicia la carga debe proporcionarla la API del rol 4.
+La fuente principal es [Proveedores del IGSS](https://www.igssgt.org/proveedores/) y los PDF oficiales alojados en `igssgt.org`. El MVP usa carga manual de archivos obtenidos allí. El conector `automatic.py` permite descargar un evento específico desde la página de proveedores como extensión opcional; no rastrea todo el portal ni consulta GUATECOMPRAS.
 
-## Requisitos
+Se verificaron y cargaron dos fuentes iniciales del anteproyecto en `data/ingesta` bajo el espacio ficticio `empresa_demo`:
 
-* Python 3.11 o posterior.
-* `poppler-utils` (`pdfinfo`, `pdftotext` y, para OCR, `pdftoppm`).
-* OCR opcional: Tesseract con datos del idioma español (`spa`). Una página sin texto suficiente queda marcada `incompleta` si no hay OCR utilizable.
-* MinIO opcional: `pip install -r src/licigt/ingesta/requirements.txt`. Sin variables de MinIO se usa un almacén local de desarrollo.
+| Evento | Código IGSS | Documento oficial |
+|---|---:|---|
+| 399-IGSS-2026 | 432 | [Multivitamínico prenatal con flúor](https://www.igssgt.org/wp-content/uploads/2026/11/LICITACION-PUBLICA-DA-No.-399-IGSS-2026.pdf) |
+| 363-IGSS-2026 | 345 | [Metimazol, tableta de 5 mg](https://www.igssgt.org/wp-content/uploads/2026/11/LICITACION-PUBLICA-DA-No.-363-IGSS-2026.pdf) |
 
-## Ejecución
+Los hashes, identificadores, fechas y resultados de extracción figuran en el [inventario del corpus](../../../docs/ingesta/Corpus_IGSS.md).
 
-Desde la raíz del repositorio:
+`data/` está excluido de Git para evitar publicar originales, manifiestos o datos de trabajo por accidente. Cada empresa recibe su propia copia lógica y su propio registro.
+
+## Dependencias
+
+- Python 3.11 o posterior y `poppler-utils` (`pdfinfo`, `pdftotext`; `pdftoppm` para OCR).
+- OCR opcional: Tesseract con idioma `spa`. Sin OCR, una página con poco texto queda marcada `incompleta`.
+- Almacenamiento local por defecto. Para MinIO: `pip install -r src/licigt/ingesta/requirements.txt` y configurar `LICIGT_MINIO_ENDPOINT`, `LICIGT_MINIO_BUCKET`, `LICIGT_MINIO_ACCESS_KEY`, `LICIGT_MINIO_SECRET_KEY` y, si aplica, `LICIGT_MINIO_SECURE`. El bucket debe existir y tener versionado habilitado.
+
+## Carga manual
 
 ```bash
 PYTHONPATH=src python -m licigt.ingesta documento.pdf \
-  --nog 12345678 --document-key bases --tipo-documento bases \
-  --titulo "Bases de licitación" --entidad "Entidad convocante" \
-  --fecha-publicacion 2026-11-14 \
-  --url-origen "https://www.guatecompras.gt/" \
+  --tenant-id empresa_demo --evento-id evento_399 \
+  --numero-evento 399-IGSS-2026 --anio 2026 \
+  --modalidad "Licitación Pública DA" \
+  --document-key bases_integradas --tipo-documento bases \
+  --titulo "Multivitamínico prenatal con flúor" \
+  --url-origen "https://www.igssgt.org/wp-content/uploads/2026/11/LICITACION-PUBLICA-DA-No.-399-IGSS-2026.pdf" \
+  --codigo-igss 432 --data-dir data/ingesta
+```
+
+`--fecha-documento`, `--fecha-publicacion` y `--fecha-descarga` son opcionales. Una fecha no verificada queda en `null`; la fecha de descarga no sustituye a la fecha oficial. Se aceptan `--unidad-requirente`, `--nog-referencia`, `--identificador-version-oficial` y `--relacion-documental` cuando se conocen. La API del rol 3 debe derivar `tenant_id` de la sesión autenticada; no debe aceptar una empresa elegida libremente por un cliente externo.
+
+Un mismo PDF y `document_key` dentro de un evento se deduplican por SHA-256. Si cambia el archivo, se crea una nueva `version_ingesta` y se conserva el original previo. Esa versión técnica no implica que una aclaración sustituya legalmente las bases. Los documentos modificatorios se guardan por separado y pueden señalar su `relacion_documental`.
+
+## Descarga opcional de un evento del IGSS
+
+```bash
+PYTHONPATH=src python -m licigt.ingesta.automatic \
+  --numero-evento 399-IGSS-2026 --tenant-id empresa_demo \
   --data-dir data/ingesta
 ```
 
-`document-key` identifica el documento lógico dentro del NOG: por ejemplo `bases`, `anexo_01` o `aclaracion_02`. Al cargar el mismo archivo se devuelve el manifiesto existente; un archivo distinto con la misma clave genera una versión nueva. `--visibilidad privada --tenant-id EMPRESA` restringe el ámbito del registro a esa empresa. La API deberá derivar `tenant-id` de la sesión, nunca de un dato libre enviado por el usuario.
-
-### Descarga automática por NOG
-
-```bash
-PYTHONPATH=src python -m licigt.ingesta.automatic --nog 12362662 --data-dir data/ingesta
-```
-
-El conector consulta `https://www.guatecompras.gt/concursos/consultaConcurso.aspx?nog=<NOG>`, busca enlaces a bases, anexos, aclaraciones y otros PDF del concurso y descarga únicamente archivos HTTPS del dominio `guatecompras.gt`. Si la ficha no informa título, entidad o fecha de publicación, añádelos con `--titulo`, `--entidad` y `--fecha-publicacion AAAA-MM-DD`. No se inventa una fecha faltante. La respuesta muestra los documentos ingeridos y los enlaces omitidos con su motivo.
-
-Si tienes un paquete OCDS JSON exportado del portal oficial, puedes usarlo para descubrir metadatos y enlaces de `tender.documents`:
-
-```bash
-PYTHONPATH=src python -m licigt.ingesta.automatic --nog 12362662 \
-  --ocds-json paquete.json --data-dir data/ingesta
-```
-
-El paquete debe contener una liberación del NOG solicitado y los enlaces públicos a los PDF. Esta opción evita depender del HTML de la ficha, pero la descarga de cada PDF sigue requiriendo acceso al portal. El publicador OCDS registra concursos desde 2020; para NOG anteriores se conserva la carga manual. Se limita cada ficha a 5 MB, cada PDF a 50 MB y cada NOG a 30 enlaces. El conector no usa sesión, no supera captchas ni elude controles de acceso. Si el portal devuelve HTTP 403 o 429, informa el bloqueo y detiene la descarga; se puede usar la carga manual de PDF autorizado.
-
-### Descarga con verificación humana en Firefox
-
-Si GUATECOMPRAS presenta un desafío de Cloudflare, inicia la interfaz local con Firefox instalado:
-
-```bash
-PYTHONPATH=src venv/bin/python -m licigt.ingesta.local_browser --data-dir data/ingesta --port 8765
-```
-
-Se abre `http://127.0.0.1:8765/` en una ventana de Firefox controlada por Selenium. Escribe el NOG, abre la ficha del concurso en la pestaña nueva y **resuelve tú el desafío**. Regresa a la pestaña local y pulsa **Descargar e ingerir PDF**. El programa utiliza esa misma sesión de Firefox para descargar los documentos; guarda los originales y los manifiestos en `data/ingesta`. Si la ficha no contiene título, entidad o fecha legibles, rellena esos campos antes de pulsar Descargar. El servidor escucha solo en `127.0.0.1` y guarda la sesión del navegador en un perfil temporal; al terminar con `Ctrl+C`, se cierra Firefox y se elimina ese perfil.
-
-Este flujo requiere el navegador visible y acceso a internet desde esa máquina. La verificación la realiza una persona en el sitio oficial; el programa no resuelve desafíos automáticamente. Algunos enlaces del portal pueden no ser PDF directos o pueden depender de una sesión adicional; aparecen en la lista de omitidos para revisión.
-
-Para MinIO, configurar `LICIGT_MINIO_ENDPOINT`, `LICIGT_MINIO_BUCKET`, `LICIGT_MINIO_ACCESS_KEY`, `LICIGT_MINIO_SECRET_KEY` y opcionalmente `LICIGT_MINIO_SECURE=true`. El bucket debe existir y tener versionado habilitado. Cada documento se escribe con una clave única, sin sobrescribir originales; el administrador puede añadir Object Lock si requiere impedir también su eliminación.
+El conector lee la fila del evento en el portal, registra número, año, modalidad, descripción, unidad y código IGSS cuando aparecen, descarga el PDF oficial y llama al mismo pipeline. Si el portal cambia de estructura o enlaza a otra plataforma, informa el error; no inventa metadatos ni sigue redirecciones fuera de `igssgt.org`. Si se omite `--evento-id`, genera uno estable para esa empresa y evento. Para documentos adicionales del mismo expediente, usa carga manual con **el mismo** `evento_id`.
 
 ## Entrega al rol 2
 
-El comando devuelve `doc_id`, versión, estado, número de páginas, fragmentos y ubicación del original. El manifiesto completo se guarda en `data/ingesta/manifiestos/<doc_id>.json`; el registro local de desarrollo está en `data/ingesta/ingesta.sqlite3`. Cada fragmento contiene `chunk_id`, `doc_id`, `nog`, `tenant_id`, `visibilidad`, `version`, páginas, sección, tipo y `texto`. El rol 2 **solo debe indexar fragmentos con `indexable=true`**. Las páginas con calidad `incompleta` se excluyen y las frases que parecen instrucciones dirigidas al modelo se marcan para revisión.
+El registro está en `data/ingesta/igss_ingesta.sqlite3`, los originales en `data/ingesta/originales/igss/<tenant_id>/<evento_id>/` y los manifiestos en `data/ingesta/manifiestos_igss/<doc_id>.json`. El manifiesto conserva páginas extraídas, advertencias y `cobertura`. Cada fragmento incluye `tenant_id`, `evento_id`, número y año institucional, tipo, versión, fechas diferenciadas, URL, hash, página del PDF, página impresa cuando se puede reconocer y texto. `nog_referencia` no se usa para filtrar.
 
-La segmentación conserva párrafos o tablas pequeños; unidades largas se dividen en ventanas de 600 palabras con 90 de solapamiento (aproximación a 800 y 120 tokens del anteproyecto), siempre dentro de una sola página. Las tablas reconocidas incluyen una representación `tabla_markdown` adicional; `texto` conserva la extracción para verificar citas. La detección de tablas e instrucciones maliciosas es heurística y requiere revisión sobre PDF reales. El manifiesto no interpreta cuál versión prevalece legalmente.
+El rol 2 debe indexar solo fragmentos con `indexable=true` y filtrar siempre por `tenant_id` y `evento_id`. Un archivo que parece solo convocatoria o cuyo número de evento no coincide con el declarado se marca `requiere_revision` y sus fragmentos no son indexables. Las páginas ilegibles se excluyen. El manifiesto no demuestra que el expediente esté completo: `cobertura.tipos_cargados` enumera solo los tipos efectivamente cargados.
+
+La segmentación mejorada conserva secciones y tablas; los encabezados y pies repetidos se quitan **solo de los fragmentos**, no del texto original por página. Las ventanas largas usan 600 palabras con 90 de solapamiento como aproximación a 800/120 tokens. El rol 2 debe aplicar el tokenizer real del modelo para la línea base de 120 tokens y comprobar truncamiento. Para reconstruir fragmentos tras un cambio de segmentación sin alterar el original ni `doc_id`, existe `IngestionService.reprocess(doc_id)`.
 
 ## Pruebas
 
@@ -73,4 +66,4 @@ La segmentación conserva párrafos o tablas pequeños; unidades largas se divid
 PYTHONPATH=src python -m unittest discover -s src/licigt/ingesta/tests -v
 ```
 
-Ver [responsabilidades e integración](../../../docs/roles/Asignacion_de_roles.md#rol-1--ingesta-y-documentos).
+Ver [asignación de roles](../../../docs/roles/Asignacion_de_roles.md#rol-1--ingesta-y-documentos).

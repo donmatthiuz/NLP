@@ -1,0 +1,198 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="947" viewBox="0 0 1600 947" role="img" aria-labelledby="title desc">
+<title id="title">Arquitectura general de LiciGT: ingesta y consulta RAG sobre documentos del IGSS</title>
+<desc id="desc">Diagrama de dos flujos: ingesta de PDF oficiales del portal del IGSS y consulta RAG con control de permisos por empresa y evento, herramientas de solo lectura, recuperación híbrida, validación de citas, abstención y revisión humana.</desc>
+<defs>
+  <marker id="purple-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#8350d5"/></marker>
+  <marker id="blue-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#4d8fe0"/></marker>
+  <marker id="gray-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#7a7a7a"/></marker>
+  <marker id="teal-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#45bdb4"/></marker>
+</defs>
+<style>
+  text{font-family:Arial,Helvetica,sans-serif;fill:#30323a}
+  .title{font-size:15px;font-weight:700}
+  .lane-title{font-size:12px;font-weight:700;fill:#737580}
+  .node-title{font-size:12px;font-weight:700}
+  .node-line{font-size:10px;fill:#666a74}
+  .small{font-size:10px;fill:#666a74}
+  .edge-label{font-size:10px;fill:#4f5159;font-weight:600}
+  .section{font-size:11px;font-weight:700;fill:#535761}
+  .note{font-size:11px;fill:#464a53}
+</style>
+<rect width="1600" height="947" fill="#fff"/>
+<text x="42" y="33" class="title">ARQUITECTURA GENERAL DE LICIGT: INGESTA + CONSULTA RAG</text>
+<rect x="25" y="50" width="1550" height="190" fill="#faf9fc" stroke="#d2d4da" stroke-dasharray="7 5"/>
+<rect x="25" y="266" width="1550" height="164" fill="#fafbfc" stroke="#d2d4da" stroke-dasharray="7 5"/>
+<rect x="25" y="456" width="1550" height="251" fill="#faf9fc" stroke="#d2d4da" stroke-dasharray="7 5"/>
+<text x="1552" y="70" text-anchor="end" class="lane-title">A · INGESTA Y PREPARACIÓN · una vez por documento o versión</text>
+<text x="1552" y="286" text-anchor="end" class="lane-title">ALMACENAMIENTO · aislado por empresa</text>
+<text x="1552" y="476" text-anchor="end" class="lane-title">B · CONSULTA RAG · meta P95 ≤ 15 s</text>
+
+<path d="M174 154 H205" fill="none" stroke="#8350d5" stroke-width="1.8" marker-end="url(#purple-arrow)"/>
+<path d="M356 154 H376" fill="none" stroke="#8350d5" stroke-width="1.8" marker-end="url(#purple-arrow)"/>
+<path d="M527 154 H547" fill="none" stroke="#8350d5" stroke-width="1.8" marker-end="url(#purple-arrow)"/>
+<path d="M698 154 H718" fill="none" stroke="#8350d5" stroke-width="1.8" marker-end="url(#purple-arrow)"/>
+<path d="M869 154 H889" fill="none" stroke="#8350d5" stroke-width="1.8" marker-end="url(#purple-arrow)"/>
+<path d="M1040 154 H1060" fill="none" stroke="#8350d5" stroke-width="1.8" marker-end="url(#purple-arrow)"/>
+<path d="M1211 154 H1231" fill="none" stroke="#8350d5" stroke-width="1.8" marker-end="url(#purple-arrow)"/>
+<path d="M1382 154 H1402" fill="none" stroke="#8350d5" stroke-width="1.8" marker-end="url(#purple-arrow)"/>
+<rect x="42" y="130" width="132" height="48" rx="24.0" fill="#fff" stroke="#8350d5" stroke-width="1.6"/>
+<text x="108.0" y="151" text-anchor="middle" class="node-title">ANALISTA</text>
+<text x="108.0" y="167" text-anchor="middle" class="node-line">sube PDF + evento + tipo</text>
+<rect x="210" y="123" width="146" height="62" rx="3" fill="#fff" stroke="#8350d5" stroke-width="1.6"/>
+<text x="283.0" y="140" text-anchor="middle" class="node-title">CODE</text>
+<text x="283.0" y="156" text-anchor="middle" class="node-line">registro + hash</text>
+<text x="283.0" y="172" text-anchor="middle" class="node-line">origen · fecha · SHA-256</text>
+<rect x="381" y="123" width="146" height="62" rx="3" fill="#fff" stroke="#8350d5" stroke-width="1.6"/>
+<text x="454.0" y="140" text-anchor="middle" class="node-title">CODE</text>
+<text x="454.0" y="156" text-anchor="middle" class="node-line">extracción por página</text>
+<text x="454.0" y="172" text-anchor="middle" class="node-line">texto · tablas · OCR</text>
+<rect x="552" y="123" width="146" height="62" rx="3" fill="#fff" stroke="#8350d5" stroke-width="1.6"/>
+<text x="625.0" y="140" text-anchor="middle" class="node-title">CODE</text>
+<text x="625.0" y="156" text-anchor="middle" class="node-line">control de calidad</text>
+<text x="625.0" y="172" text-anchor="middle" class="node-line">ilegible → incompleto</text>
+<rect x="723" y="123" width="146" height="62" rx="3" fill="#fff" stroke="#8350d5" stroke-width="1.6"/>
+<text x="796.0" y="140" text-anchor="middle" class="node-title">CODE</text>
+<text x="796.0" y="156" text-anchor="middle" class="node-line">limpieza</text>
+<text x="796.0" y="172" text-anchor="middle" class="node-line">conserva fechas y códigos</text>
+<rect x="894" y="123" width="146" height="62" rx="3" fill="#fff" stroke="#8350d5" stroke-width="1.6"/>
+<text x="967.0" y="140" text-anchor="middle" class="node-title">CODE</text>
+<text x="967.0" y="156" text-anchor="middle" class="node-line">chunking por sección</text>
+<text x="967.0" y="172" text-anchor="middle" class="node-line">cláusulas y tablas juntas</text>
+<rect x="1065" y="123" width="146" height="62" rx="3" fill="#e8dcfc" stroke="#8350d5" stroke-width="1.6"/>
+<text x="1138.0" y="140" text-anchor="middle" class="node-title">DECISIÓN</text>
+<text x="1138.0" y="156" text-anchor="middle" class="node-line">inyección en documento</text>
+<text x="1138.0" y="172" text-anchor="middle" class="node-line">reglas · texto oculto</text>
+<rect x="1236" y="123" width="146" height="62" rx="3" fill="#fff" stroke="#8350d5" stroke-width="1.6"/>
+<text x="1309.0" y="140" text-anchor="middle" class="node-title">CODE</text>
+<text x="1309.0" y="156" text-anchor="middle" class="node-line">metadatos + versión</text>
+<text x="1309.0" y="172" text-anchor="middle" class="node-line">sin borrar las anteriores</text>
+<rect x="1407" y="123" width="146" height="62" rx="3" fill="#fff" stroke="#8350d5" stroke-width="1.6"/>
+<text x="1480.0" y="140" text-anchor="middle" class="node-title">CODE</text>
+<text x="1480.0" y="156" text-anchor="middle" class="node-line">índice léxico + vectorial</text>
+<text x="1480.0" y="172" text-anchor="middle" class="node-line">tsvector · pgvector</text>
+<path d="M283 185 V270 H332 V303" fill="none" stroke="#4d8fe0" stroke-width="1.8" marker-end="url(#blue-arrow)"/>
+<path d="M1480 185 V254 H660 V303" fill="none" stroke="#4d8fe0" stroke-width="1.8" marker-end="url(#blue-arrow)"/>
+<path d="M120 303 V220 H108 V179" fill="none" stroke="#4d8fe0" stroke-width="1.8" stroke-dasharray="6 5" marker-end="url(#blue-arrow)"/>
+<path d="M970 388 V492 H735 V531" fill="none" stroke="#4d8fe0" stroke-width="1.8" marker-end="url(#blue-arrow)"/>
+<path d="M650 388 V493 H890 V531" fill="none" stroke="#4d8fe0" stroke-width="1.8" marker-end="url(#blue-arrow)"/>
+<path d="M1170 531 V442 H1215 V388" fill="none" stroke="#4d8fe0" stroke-width="1.8" stroke-dasharray="6 5" marker-end="url(#blue-arrow)"/>
+<path d="M275 531 V444 H650 V388" fill="none" stroke="#7a7a7a" stroke-width="1.8" marker-end="url(#gray-arrow)"/>
+<text x="455" y="443" text-anchor="middle" class="edge-label">filtro por empresa y evento</text>
+<path d="M41 310 C41 295 206 295 206 310 V384 C206 399 41 399 41 384Z" fill="#fff" stroke="#4d8fe0" stroke-width="1.5"/>
+<ellipse cx="123.5" cy="310" rx="82.5" ry="11" fill="#fff" stroke="#4d8fe0" stroke-width="1.5"/>
+<text x="123.5" y="344" text-anchor="middle" class="node-title">FUENTES AUTORIZADAS</text>
+<text x="123.5" y="360" text-anchor="middle" class="node-line">Portal de Proveedores IGSS</text>
+<text x="123.5" y="376" text-anchor="middle" class="node-line">bases · anexos · aclaraciones</text>
+<path d="M254 310 C254 295 419 295 419 310 V384 C419 399 254 399 254 384Z" fill="#fff" stroke="#4d8fe0" stroke-width="1.5"/>
+<ellipse cx="336.5" cy="310" rx="82.5" ry="11" fill="#fff" stroke="#4d8fe0" stroke-width="1.5"/>
+<text x="336.5" y="344" text-anchor="middle" class="node-title">PDF ORIGINALES</text>
+<text x="336.5" y="360" text-anchor="middle" class="node-line">MinIO · inmutables</text>
+<text x="336.5" y="376" text-anchor="middle" class="node-line">evidencia para citas</text>
+<path d="M490 310 C490 295 820 295 820 310 V384 C820 399 490 399 490 384Z" fill="#fff" stroke="#4d8fe0" stroke-width="1.5"/>
+<ellipse cx="655.0" cy="310" rx="165.0" ry="11" fill="#fff" stroke="#4d8fe0" stroke-width="1.5"/>
+<text x="655.0" y="344" text-anchor="middle" class="node-title">PostgreSQL + pgvector</text>
+<text x="655.0" y="360" text-anchor="middle" class="node-line">documentos · fragmentos · versiones</text>
+<text x="655.0" y="376" text-anchor="middle" class="node-line">permisos · listas · índices</text>
+<text x="655.0" y="392" text-anchor="middle" class="node-line">Row-Level Security por empresa</text>
+<path d="M887 310 C887 295 1052 295 1052 310 V384 C1052 399 887 399 887 384Z" fill="#fff" stroke="#4d8fe0" stroke-width="1.5"/>
+<ellipse cx="969.5" cy="310" rx="82.5" ry="11" fill="#fff" stroke="#4d8fe0" stroke-width="1.5"/>
+<text x="969.5" y="344" text-anchor="middle" class="node-title">REGISTRO DE</text>
+<text x="969.5" y="360" text-anchor="middle" class="node-line">HERRAMIENTAS</text>
+<text x="969.5" y="376" text-anchor="middle" class="node-line">esquemas · límites</text>
+<path d="M1116 310 C1116 295 1306 295 1306 310 V384 C1306 399 1116 399 1116 384Z" fill="#fff" stroke="#4d8fe0" stroke-width="1.5"/>
+<ellipse cx="1211.0" cy="310" rx="95.0" ry="11" fill="#fff" stroke="#4d8fe0" stroke-width="1.5"/>
+<text x="1211.0" y="344" text-anchor="middle" class="node-title">AUDITORÍA</text>
+<text x="1211.0" y="360" text-anchor="middle" class="node-line">tarea · filtros · chunk_id</text>
+<text x="1211.0" y="376" text-anchor="middle" class="node-line">citas · errores · sin PII</text>
+<path d="M1375 310 C1375 295 1553 295 1553 310 V384 C1553 399 1375 399 1375 384Z" fill="#fff" stroke="#4d8fe0" stroke-width="1.5"/>
+<ellipse cx="1464.0" cy="310" rx="89.0" ry="11" fill="#fff" stroke="#4d8fe0" stroke-width="1.5"/>
+<text x="1464.0" y="344" text-anchor="middle" class="node-title">BANCO DE EVALUACIÓN</text>
+<text x="1464.0" y="360" text-anchor="middle" class="node-line">20+ casos</text>
+<text x="1464.0" y="376" text-anchor="middle" class="node-line">base vs. mejorado</text>
+<path d="M168 561 H185" fill="none" stroke="#8350d5" stroke-width="1.8" marker-end="url(#purple-arrow)"/>
+<path d="M335 561 H345" fill="none" stroke="#8350d5" stroke-width="1.8" marker-end="url(#purple-arrow)"/>
+<path d="M490 561 H500" fill="none" stroke="#8350d5" stroke-width="1.8" marker-end="url(#purple-arrow)"/>
+<path d="M645 561 H655" fill="none" stroke="#8350d5" stroke-width="1.8" marker-end="url(#purple-arrow)"/>
+<path d="M805 561 H815" fill="none" stroke="#8350d5" stroke-width="1.8" marker-end="url(#purple-arrow)"/>
+<path d="M965 561 H975" fill="none" stroke="#8350d5" stroke-width="1.8" marker-end="url(#purple-arrow)"/>
+<path d="M1115 561 H1125" fill="none" stroke="#8350d5" stroke-width="1.8" marker-end="url(#purple-arrow)"/>
+<path d="M1255 561 H1265" fill="none" stroke="#8350d5" stroke-width="1.8" marker-end="url(#purple-arrow)"/>
+<path d="M1415 561 H1425" fill="none" stroke="#8350d5" stroke-width="1.8" marker-end="url(#purple-arrow)"/>
+<rect x="42" y="537" width="126" height="48" rx="24.0" fill="#fff" stroke="#8350d5" stroke-width="1.6"/>
+<text x="105.0" y="558" text-anchor="middle" class="node-title">ANALISTA</text>
+<text x="105.0" y="574" text-anchor="middle" class="node-line">pregunta · lista · comparación</text>
+<rect x="190" y="528" width="145" height="66" rx="3" fill="#fff" stroke="#8350d5" stroke-width="1.6"/>
+<text x="262.5" y="545" text-anchor="middle" class="node-title">CODE</text>
+<text x="262.5" y="561" text-anchor="middle" class="node-line">autenticación + permisos</text>
+<text x="262.5" y="577" text-anchor="middle" class="node-line">empresa · evento_id · rol</text>
+<rect x="350" y="528" width="140" height="66" rx="3" fill="#e8dcfc" stroke="#8350d5" stroke-width="1.6"/>
+<text x="420.0" y="545" text-anchor="middle" class="node-title">DECISIÓN</text>
+<text x="420.0" y="561" text-anchor="middle" class="node-line">entrada válida y segura</text>
+<text x="420.0" y="577" text-anchor="middle" class="node-line">formato · alcance · ataque</text>
+<rect x="505" y="528" width="140" height="66" rx="3" fill="#e8dcfc" stroke="#8350d5" stroke-width="1.6"/>
+<text x="575.0" y="545" text-anchor="middle" class="node-title">DECISIÓN</text>
+<text x="575.0" y="561" text-anchor="middle" class="node-line">intención → herramienta</text>
+<text x="575.0" y="577" text-anchor="middle" class="node-line">botón o clasificador</text>
+<rect x="660" y="528" width="145" height="66" rx="3" fill="#fff" stroke="#8350d5" stroke-width="1.6"/>
+<text x="732.5" y="545" text-anchor="middle" class="node-title">CODE</text>
+<text x="732.5" y="561" text-anchor="middle" class="node-line">herramienta acotada</text>
+<text x="732.5" y="577" text-anchor="middle" class="node-line">search · extract · compare</text>
+<rect x="820" y="528" width="145" height="66" rx="3" fill="#fff" stroke="#8350d5" stroke-width="1.6"/>
+<text x="892.5" y="545" text-anchor="middle" class="node-title">CODE</text>
+<text x="892.5" y="561" text-anchor="middle" class="node-line">recuperación híbrida</text>
+<text x="892.5" y="577" text-anchor="middle" class="node-line">filtros · léxico + vectorial</text>
+<rect x="980" y="528" width="135" height="66" rx="3" fill="#e8dcfc" stroke="#8350d5" stroke-width="1.6"/>
+<text x="1047.5" y="545" text-anchor="middle" class="node-title">DECISIÓN</text>
+<text x="1047.5" y="561" text-anchor="middle" class="node-line">vigencia y suficiencia</text>
+<text x="1047.5" y="577" text-anchor="middle" class="node-line">umbral calibrado</text>
+<rect x="1130" y="528" width="125" height="66" rx="3" fill="#ffd9d9" stroke="#ed7179" stroke-width="1.6"/>
+<text x="1192.5" y="545" text-anchor="middle" class="node-title">LLM</text>
+<text x="1192.5" y="561" text-anchor="middle" class="node-line">respuesta estructurada</text>
+<text x="1192.5" y="577" text-anchor="middle" class="node-line">cada dato con su cita</text>
+<rect x="1270" y="528" width="145" height="66" rx="3" fill="#fff" stroke="#8350d5" stroke-width="1.6"/>
+<text x="1342.5" y="545" text-anchor="middle" class="node-title">CODE</text>
+<text x="1342.5" y="561" text-anchor="middle" class="node-line">validar esquema y citas</text>
+<text x="1342.5" y="577" text-anchor="middle" class="node-line">fuentes permitidas</text>
+<path d="M1445 528H1560L1545 594H1430Z" fill="#fff" stroke="#45bdb4" stroke-width="1.6"/>
+<text x="1495.0" y="551" text-anchor="middle" class="node-title">OUTPUT</text>
+<text x="1495.0" y="567" text-anchor="middle" class="node-line">respuesta · fuentes</text>
+<text x="1495.0" y="583" text-anchor="middle" class="node-line">abstención · revisión</text>
+<path d="M420 594 V654 H987" fill="none" stroke="#7a7a7a" stroke-width="1.8" stroke-dasharray="6 5" marker-end="url(#gray-arrow)"/>
+<text x="717" y="648" text-anchor="middle" class="edge-label">fuera de alcance / ataque</text>
+<path d="M1045 594 V634 H1040" fill="none" stroke="#7a7a7a" stroke-width="1.8" stroke-dasharray="6 5" marker-end="url(#gray-arrow)"/>
+<text x="1060" y="625" text-anchor="middle" class="edge-label">insuficiente</text>
+<path d="M1078 594 V626 H1300 V634" fill="none" stroke="#4d8fe0" stroke-width="1.8" stroke-dasharray="6 5" marker-end="url(#blue-arrow)"/>
+<text x="1202" y="620" text-anchor="middle" class="edge-label">contradictoria</text>
+<path d="M1000 635H1155L1140 689H985Z" fill="#fff" stroke="#45bdb4" stroke-width="1.6"/>
+<text x="1070.0" y="658" text-anchor="middle" class="node-title">ABSTENCIÓN</text>
+<text x="1070.0" y="674" text-anchor="middle" class="node-line">abstained = true</text>
+<rect x="1203" y="635" width="190" height="54" rx="3" fill="#fff1bd" stroke="#eab642" stroke-width="1.6"/>
+<text x="1298.0" y="656" text-anchor="middle" class="node-title">REVISIÓN HUMANA</text>
+<text x="1298.0" y="672" text-anchor="middle" class="node-line">contradicción o alto impacto</text>
+<rect x="25" y="738" width="220" height="180" fill="#fff" stroke="#d5d7db"/>
+<text x="37" y="759" class="section">LEYENDA</text>
+<rect x="37" y="767" width="60" height="18" fill="#fff" stroke="#8350d5"/>
+<text x="67" y="780" text-anchor="middle" class="small">CODE</text>
+<text x="107" y="780" class="small">lógica determinista</text>
+<rect x="37" y="792" width="60" height="18" fill="#e8dcfc" stroke="#8350d5"/>
+<text x="67" y="805" text-anchor="middle" class="small">DECISIÓN</text>
+<text x="107" y="805" class="small">clasificación acotada</text>
+<rect x="37" y="817" width="60" height="18" fill="#ffd9d9" stroke="#ed7179"/>
+<text x="67" y="830" text-anchor="middle" class="small">LLM</text>
+<text x="107" y="830" class="small">generación de texto</text>
+<rect x="37" y="842" width="60" height="18" fill="#fff" stroke="#8350d5"/>
+<text x="67" y="855" text-anchor="middle" class="small">DATOS</text>
+<text x="107" y="855" class="small">almacenamiento</text>
+<rect x="37" y="867" width="60" height="18" fill="#fff" stroke="#8350d5"/>
+<text x="67" y="880" text-anchor="middle" class="small">SALIDA</text>
+<text x="107" y="880" class="small">respuesta al usuario</text>
+<rect x="37" y="892" width="60" height="18" fill="#fff1bd" stroke="#eab642"/>
+<text x="67" y="905" text-anchor="middle" class="small">HUMANO</text>
+<text x="107" y="905" class="small">confirmación</text>
+<text x="270" y="757" class="section">Principios de diseño</text>
+<text x="270" y="778" class="note">1. El LLM recibe solo documentos autorizados: el filtro por empresa y evento se aplica en SQL antes de recuperar.</text>
+<text x="270" y="801" class="note">2. El agente elige entre tres herramientas de solo lectura; ninguna presenta ofertas ni modifica documentos.</text>
+<text x="270" y="824" class="note">3. Una aclaración no reemplaza todo lo anterior: se comparan cláusulas y, si no está claro, decide un humano.</text>
+<text x="270" y="847" class="note">4. Todo fragmento recuperado es dato, nunca instrucción. Ningún filtro aislado se considera suficiente.</text>
+<text x="270" y="870" class="note">5. Los nodos DECISIÓN son clasificadores acotados con umbral; su implementación se elige mediante evaluación.</text>
+</svg>
