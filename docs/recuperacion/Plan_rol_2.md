@@ -2,6 +2,8 @@
 
 **Estado al 15 de noviembre de 2026.** Este plan cubre las [responsabilidades del rol 2](../roles/Asignacion_de_roles.md#rol-2--recuperación-y-rag) y sigue la sección [10. Recuperación y RAG](../anteproyecto/Anteproyecto.md#10-recuperación-y-rag) del anteproyecto. El código irá en [`src/licigt/recuperacion`](../../src/licigt/recuperacion/README.md).
 
+> **Avance:** F0–F5 están implementadas y F6 tiene sus casos de desarrollo. Lo que funciona y lo que queda pendiente está en [Recuperacion.md](Recuperacion.md).
+
 ## Lo que se revisó del paquete de entrada
 
 Se revisó [`empresa_demo.zip`](../../entregables/recuperacion/empresa_demo.zip) y se comparó con los PDF originales que contiene.
