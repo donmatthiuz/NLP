@@ -1,0 +1,394 @@
+{
+ "nota": "Casos de DESARROLLO para ajustar parámetros; el banco de evaluación final es del rol 4. Relevancia por tipo de documento y página.",
+ "casos": [
+  {
+   "id": "399-rec",
+   "evento": "399-IGSS-2026",
+   "pregunta": "¿Cuál es la fecha y hora de recepción de ofertas?",
+   "relevantes": [
+    {
+     "tipo_documento": "bases",
+     "paginas": [
+      8,
+      9,
+      20
+     ]
+    }
+   ]
+  },
+  {
+   "id": "399-plica",
+   "evento": "399-IGSS-2026",
+   "pregunta": "¿Qué documentos debe contener la plica?",
+   "relevantes": [
+    {
+     "tipo_documento": "bases",
+     "paginas": [
+      11,
+      12,
+      13,
+      14,
+      15,
+      16
+     ]
+    }
+   ]
+  },
+  {
+   "id": "399-req",
+   "evento": "399-IGSS-2026",
+   "pregunta": "¿Cuáles son los requisitos fundamentales?",
+   "relevantes": [
+    {
+     "tipo_documento": "bases",
+     "paginas": [
+      17
+     ]
+    }
+   ]
+  },
+  {
+   "id": "399-seg",
+   "evento": "399-IGSS-2026",
+   "pregunta": "¿Qué seguro de caución de sostenimiento de oferta se exige y por cuánto?",
+   "relevantes": [
+    {
+     "tipo_documento": "bases",
+     "paginas": [
+      27
+     ]
+    }
+   ]
+  },
+  {
+   "id": "399-ent",
+   "evento": "399-IGSS-2026",
+   "pregunta": "¿Cuál es la forma de entrega del producto adjudicado?",
+   "relevantes": [
+    {
+     "tipo_documento": "bases",
+     "paginas": [
+      29
+     ]
+    }
+   ]
+  },
+  {
+   "id": "363-rec",
+   "evento": "363-IGSS-2026",
+   "pregunta": "¿Cuál es la fecha y hora de recepción de ofertas?",
+   "relevantes": [
+    {
+     "tipo_documento": "bases",
+     "paginas": [
+      8,
+      9,
+      20
+     ]
+    }
+   ]
+  },
+  {
+   "id": "363-plica",
+   "evento": "363-IGSS-2026",
+   "pregunta": "¿Qué documentos debe contener la plica?",
+   "relevantes": [
+    {
+     "tipo_documento": "bases",
+     "paginas": [
+      11,
+      12,
+      13,
+      14,
+      15,
+      16
+     ]
+    }
+   ]
+  },
+  {
+   "id": "363-req",
+   "evento": "363-IGSS-2026",
+   "pregunta": "¿Cuáles son los requisitos fundamentales?",
+   "relevantes": [
+    {
+     "tipo_documento": "bases",
+     "paginas": [
+      17
+     ]
+    }
+   ]
+  },
+  {
+   "id": "363-seg",
+   "evento": "363-IGSS-2026",
+   "pregunta": "¿Qué seguro de caución de sostenimiento de oferta se exige y por cuánto?",
+   "relevantes": [
+    {
+     "tipo_documento": "bases",
+     "paginas": [
+      27
+     ]
+    }
+   ]
+  },
+  {
+   "id": "363-ent",
+   "evento": "363-IGSS-2026",
+   "pregunta": "¿Cuál es la forma de entrega del producto adjudicado?",
+   "relevantes": [
+    {
+     "tipo_documento": "bases",
+     "paginas": [
+      29
+     ]
+    }
+   ]
+  },
+  {
+   "id": "368-rec",
+   "evento": "368-IGSS-2026",
+   "pregunta": "¿Cuál es la fecha y hora de recepción de ofertas?",
+   "relevantes": [
+    {
+     "tipo_documento": "bases",
+     "paginas": [
+      8,
+      9,
+      20
+     ]
+    }
+   ]
+  },
+  {
+   "id": "368-plica",
+   "evento": "368-IGSS-2026",
+   "pregunta": "¿Qué documentos debe contener la plica?",
+   "relevantes": [
+    {
+     "tipo_documento": "bases",
+     "paginas": [
+      11,
+      12,
+      13,
+      14,
+      15,
+      16
+     ]
+    }
+   ]
+  },
+  {
+   "id": "368-req",
+   "evento": "368-IGSS-2026",
+   "pregunta": "¿Cuáles son los requisitos fundamentales?",
+   "relevantes": [
+    {
+     "tipo_documento": "bases",
+     "paginas": [
+      17
+     ]
+    }
+   ]
+  },
+  {
+   "id": "368-seg",
+   "evento": "368-IGSS-2026",
+   "pregunta": "¿Qué seguro de caución de sostenimiento de oferta se exige y por cuánto?",
+   "relevantes": [
+    {
+     "tipo_documento": "bases",
+     "paginas": [
+      27
+     ]
+    }
+   ]
+  },
+  {
+   "id": "368-ent",
+   "evento": "368-IGSS-2026",
+   "pregunta": "¿Cuál es la forma de entrega del producto adjudicado?",
+   "relevantes": [
+    {
+     "tipo_documento": "bases",
+     "paginas": [
+      29
+     ]
+    }
+   ]
+  },
+  {
+   "id": "327-rec",
+   "evento": "327-IGSS-2023",
+   "pregunta": "¿Cuál es la fecha y hora de recepción de ofertas?",
+   "relevantes": [
+    {
+     "tipo_documento": "bases",
+     "paginas": [
+      8,
+      9,
+      21
+     ]
+    }
+   ]
+  },
+  {
+   "id": "327-plica",
+   "evento": "327-IGSS-2023",
+   "pregunta": "¿Qué documentos debe contener la plica?",
+   "relevantes": [
+    {
+     "tipo_documento": "bases",
+     "paginas": [
+      12,
+      13,
+      14,
+      15,
+      16,
+      17
+     ]
+    }
+   ]
+  },
+  {
+   "id": "327-req",
+   "evento": "327-IGSS-2023",
+   "pregunta": "¿Cuáles son los requisitos fundamentales?",
+   "relevantes": [
+    {
+     "tipo_documento": "bases",
+     "paginas": [
+      18,
+      19
+     ]
+    }
+   ]
+  },
+  {
+   "id": "327-seg",
+   "evento": "327-IGSS-2023",
+   "pregunta": "¿Qué seguro de caución de sostenimiento de oferta se exige y por cuánto?",
+   "relevantes": [
+    {
+     "tipo_documento": "bases",
+     "paginas": [
+      28
+     ]
+    }
+   ]
+  },
+  {
+   "id": "327-ent",
+   "evento": "327-IGSS-2023",
+   "pregunta": "¿Cuál es la forma de entrega del producto adjudicado?",
+   "relevantes": [
+    {
+     "tipo_documento": "bases",
+     "paginas": [
+      30,
+      31
+     ]
+    }
+   ]
+  },
+  {
+   "id": "222-rec",
+   "evento": "222-IGSS-2023",
+   "pregunta": "¿Cuál es la fecha y hora de recepción de ofertas?",
+   "relevantes": [
+    {
+     "tipo_documento": "bases",
+     "paginas": [
+      8,
+      9,
+      20
+     ]
+    },
+    {
+     "tipo_documento": "modificacion",
+     "paginas": [
+      1,
+      2
+     ]
+    }
+   ]
+  },
+  {
+   "id": "222-plica",
+   "evento": "222-IGSS-2023",
+   "pregunta": "¿Qué documentos debe contener la plica?",
+   "relevantes": [
+    {
+     "tipo_documento": "bases",
+     "paginas": [
+      11,
+      12,
+      13,
+      14,
+      15
+     ]
+    },
+    {
+     "tipo_documento": "modificacion",
+     "paginas": [
+      1,
+      2
+     ]
+    }
+   ]
+  },
+  {
+   "id": "222-req",
+   "evento": "222-IGSS-2023",
+   "pregunta": "¿Cuáles son los requisitos fundamentales?",
+   "relevantes": [
+    {
+     "tipo_documento": "bases",
+     "paginas": [
+      16,
+      17
+     ]
+    }
+   ]
+  },
+  {
+   "id": "222-seg",
+   "evento": "222-IGSS-2023",
+   "pregunta": "¿Qué seguro de caución de sostenimiento de oferta se exige y por cuánto?",
+   "relevantes": [
+    {
+     "tipo_documento": "bases",
+     "paginas": [
+      26,
+      27
+     ]
+    }
+   ]
+  },
+  {
+   "id": "222-ent",
+   "evento": "222-IGSS-2023",
+   "pregunta": "¿Cuál es la forma de entrega del producto adjudicado?",
+   "relevantes": [
+    {
+     "tipo_documento": "bases",
+     "paginas": [
+      29
+     ]
+    }
+   ]
+  },
+  {
+   "id": "399-sin-evidencia-1",
+   "evento": "399-IGSS-2026",
+   "pregunta": "¿Cuál es el precio del petróleo en Venezuela?",
+   "relevantes": []
+  },
+  {
+   "id": "363-sin-evidencia-2",
+   "evento": "363-IGSS-2026",
+   "pregunta": "¿Quién ganó el mundial de fútbol de 2022?",
+   "relevantes": []
+  }
+ ]
+}
