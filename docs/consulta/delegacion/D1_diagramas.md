@@ -53,6 +53,32 @@ Eliminar `docs/arquitectura/arquitectura_igss.svg` solo cuando el PNG general ex
 - Flechas: flujo principal, consulta a datos, rama de excepción (discontinua) y rama a revisión humana, cada una con su estilo y en la leyenda.
 - Numeración de pasos para que se pueda narrar en la presentación.
 
+## Notación y componentes (obligatorio)
+
+Un diagrama de arquitectura no es un tablero de notas. Cada elemento usa la forma estándar de su tipo (notación de diagramas de flujo ISO 5807 y convenciones del modelo C4):
+
+| Elemento | Forma |
+|---|---|
+| Base de datos (PostgreSQL, índices) | Cilindro |
+| Almacén de archivos (originales PDF) | Cilindro o pila de documentos, nunca un rectángulo |
+| Documento o paquete (PDF, ZIP) | Forma de documento (borde inferior ondulado) |
+| Proceso de código | Rectángulo de esquinas suaves |
+| Decisión o compuerta | Rombo con las ramas etiquetadas (sí, no, falla) |
+| Entrada o salida al usuario | Paralelogramo |
+| Persona (analista, revisor) | Icono de persona dibujado en SVG |
+| Servicio externo (API de JEV) | Caja con borde doble o nube, fuera del límite del sistema |
+| LLM | Rectángulo con color propio |
+| Estado compartido | Caja de borde discontinuo |
+| Límite del sistema | Rectángulo grande discontinuo que encierra lo que es LiciGT |
+
+Reglas de texto:
+
+- Cada nodo lleva un nombre corto (máximo 5 palabras) y, como mucho, una línea secundaria de 8 palabras. Nada de párrafos dentro de los nodos.
+- Los detalles (modelos, parámetros, cifras) van en una tabla lateral o en notas numeradas al pie que el nodo referencia con su número, no dentro del nodo.
+- Las etiquetas de rol y de estado son insignias pequeñas (pastillas), no texto corrido.
+- Las flechas llevan etiqueta solo cuando es una condición o un dato que viaja.
+- Alinear a una cuadrícula, espaciado uniforme, flechas ortogonales sin cruzar nodos.
+
 ## Contenido del diagrama general
 
 Cada dato de abajo sale del código o de los documentos citados; respétalo. Si algo del código no coincide, gana el código y lo reportas.
@@ -149,6 +175,27 @@ Y el contrato de salida: `answer`, `sources` (`doc_id`, `source`, `page`, `page_
 - `make diagramas` genera los dos PNG sin errores.
 - Abre cada PNG y comprueba que no haya texto cortado, nodos encimados ni flechas que crucen texto.
 - Busca en tus archivos y confirma que no aparecen: `GUATECOMPRAS`, `NOG`, `Docling`, `BM25`, `search_documents`, `extract_requirements`, `compare_versions`, `agente autónomo`.
+
+## Corrección 1 (auditoría del gestor sobre la primera entrega)
+
+La primera entrega no cumple. Defectos vistos en los PNG:
+
+- **Texto encimado o cortado:** las insignias `rol N` y `IMPLEMENTADO` tapan títulos y líneas ("Control de inyección", "falso", "PDF", "pregunta", "reranker", "aplica", "inválidos", "sin llamar al LLM", "esquema y citas", "Respuesta / controlada"). El título del carril D queda debajo del nodo de JEV.
+- **Formas incorrectas:** todo es rectángulo. PostgreSQL y Originales deben ser cilindros, el analista un icono de persona, las compuertas rombos, JEV un servicio externo fuera del límite del sistema (ver "Notación y componentes").
+- **Flechas sin destino:** en el general, las ramas de excepción (abstención, sin herramienta, llamadas agotadas, insuficiente) terminan en el aire; hay una línea vertical que sube desde los paneles inferiores y otra que entra al carril B sin llegar a ningún nodo. La salida de ingesta no llega al cilindro de PostgreSQL.
+- **Información oculta o faltante:** el estado compartido del general queda tapado por la leyenda y no está conectado al carril C. Faltan como nodos: la fuente autorizada (Portal de Proveedores del IGSS), las salidas de abstención, aclaración y revisión humana, y la conexión del guardrail de salida con la salida final. La leyenda está cortada abajo.
+- **JEV mal ubicado:** en el flujo de consulta aparece como un paso fijo entre alertas y generación. No es un paso: es una variante que se consulta desde tres compuertas (guardrail de entrada, enrutador y guardrail de salida) con flechas discontinuas hacia el servicio externo, y una rama "API no disponible → reglas".
+- **Dato a verificar:** el panel de fuentes dice que `pipeline.py` admite más tipos de documento (especificaciones, convocatoria, normativa). Si el código lo confirma, cítalo con línea; el diagrama debe mostrar solo los tipos que usa la consulta (`bases`, `anexo`, `aclaracion`, `modificacion`, según `esquemas.py`).
+
+### Verificación automática de maquetación (obligatoria)
+
+Antes de entregar, añade al script de exportación una comprobación que falle si hay defectos:
+
+1. Cada HTML incluye un pequeño script propio que, al cargar con el parámetro `?verificar`, mide con `getBoundingClientRect` todos los nodos, insignias, títulos de carril y paneles, y detecta: elementos que se solapan entre sí, texto desbordado (`scrollWidth > clientWidth` o `scrollHeight > clientHeight`) y elementos que salen del lienzo. Escribe el resultado en un elemento con `id="verificacion"` (`OK` o la lista de problemas con el id de cada elemento).
+2. El script de exportación carga cada HTML con `?verificar` usando `google-chrome --headless=new --dump-dom`, busca ese elemento y termina con error si no dice `OK`.
+3. Las flechas se dibujan entre ids de nodos (de borde a borde), no con coordenadas sueltas, para que ninguna termine en el vacío.
+
+Después de exportar, abre y mira cada PNG completo. No entregues si `make diagramas` falla.
 
 ## Al terminar
 

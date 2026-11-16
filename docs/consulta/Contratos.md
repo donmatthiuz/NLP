@@ -30,7 +30,9 @@ Lo que recibimos, tal como lo devuelve el código hoy.
 ```json
 {"evento_id": "...", "documentos": [
   {"doc_id": "...", "tipo_documento": "bases", "identificador_version_oficial": null,
-   "fragmentos": [{"chunk_id": "...", "pagina_inicio": 8, "texto": "...", "score": 0.7}]}]}
+   "fragmentos": [{"chunk_id": "...", "doc_id": "...", "tipo_documento": "bases", "version_ingesta": 1,
+                   "pagina_inicio": 8, "pagina_fin": 8, "seccion": "...", "texto": "...", "url_origen": "https://...",
+                   "identificador_version_oficial": null, "score": 0.7}]}]}
 ```
 
 ### Reglas de uso (rol 3)
@@ -40,6 +42,9 @@ Lo que recibimos, tal como lo devuelve el código hoy.
 - `cobertura_incompleta` fija `coverage_status = "parcial"` y añade un `warning` con las páginas no indexadas.
 - `evento_con_modificaciones` añade un `warning`: existe una modificación que no apareció en los resultados.
 - `buscar()` no filtra por `tipo_documento`: la herramienta `buscar_documentos` filtra sobre `fragmentos[].tipo_documento`. Si el recorte deja menos de `k` en el banco, se pide el filtro al rol 2.
+- `comparar_versiones` del rol 2 no devuelve alertas ni suficiencia: la herramienta del rol 3 llama también a `buscar()` con el mismo tema para obtenerlas.
+- El filtro por `tipo_documento` nunca quita la otra fuente de un `posible_conflicto`; si no queda ningún fragmento, se abstiene.
+- Un tipo de alerta desconocido no rompe la lectura: se conserva y se añade un `warning`.
 - Se acepta cualquier campo extra; faltar un campo obligatorio es un error de contrato y se trata como falla controlada.
 
 ### Diferencias detectadas (avisar al rol 2 o corregir su documentación)
@@ -72,5 +77,9 @@ Respuesta estructurada (Pydantic):
 | `evento_id` | texto | Evento consultado. |
 | `coverage_status` | texto | `parcial` o `sin_faltantes_detectados` (no certifica expediente completo). |
 | `warnings` | lista de texto | Documentos ausentes, problemas de extracción, conflictos. |
+| `needs_clarification` | booleano | Verdadero cuando la pregunta es ambigua y se pide aclaración en lugar de responder o abstenerse. |
+| `clarification_question` | texto o nulo | La pregunta de vuelta al analista; en ese caso también es `answer` y no hay fuentes ni herramienta. |
+
+Pedir aclaración es una tercera salida, distinta de abstenerse: en búsqueda conversacional, preguntar ante una consulta ambigua es práctica establecida (Aliannejadi y otros, SIGIR 2019; Zamani y otros, WWW 2020) y el curso la lista como acción del agente (diapositiva 267). Así no se mezcla con la métrica de abstención.
 
 Texto fijo de abstención, según las notas de la semana 15.1 (la instrucción debe ser explícita y verificable): `No hay información suficiente en los documentos para responder`.

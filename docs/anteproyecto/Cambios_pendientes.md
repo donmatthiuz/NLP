@@ -23,6 +23,8 @@
 - [ ] `comparar_versiones`: parámetros `evento_id`, `tema` y, opcionales, `doc_base_id` y `doc_cambio_id` (ambos o ninguno). Sin ids, se comparan todos los documentos del evento. Origen: la función del rol 2 recibe `pregunta` y no ids (`recuperacion/busqueda.py`, `comparar_versiones`).
 - [ ] `buscar_documentos`: aclarar que el filtro `tipo_documento` se aplica sobre los resultados de la búsqueda. Origen: `buscar()` del rol 2 no tiene ese filtro.
 - [ ] Contrato de salida: `sources` con `page_end` y la versión separada en `version_ingesta` y `version_oficial`. Origen: decisión del 16 de noviembre; el propio anteproyecto pide no confundir versión de ingesta con modificación oficial.
+- [ ] Contrato de salida: añadir `needs_clarification` y `clarification_question` (pedir aclaración ante ambigüedad como salida propia). Origen: decisión del 16 de noviembre; [Contratos](../consulta/Contratos.md#rol-3-hacia-el-usuario).
+- [ ] Validación de entrada: fuera de dominio por temas prohibidos (los de la sección 6, "No incluye") más el umbral de suficiencia de la recuperación, no por lista de palabras permitidas. Origen: decisión del 16 de noviembre.
 - [ ] Orquestación: describir el flujo como "flujo de decisión con enrutamiento condicional" (instrucciones, sección 5.6), no como agente autónomo. Origen: notas de la semana 7.1 y diapositiva 266 del curso.
 
 ## Sección 12. Evaluación

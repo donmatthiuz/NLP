@@ -34,18 +34,34 @@
 - [ ] Pruebas: parámetros fuera de rango se rechazan; `tenant_id` nunca es un campo aceptado.
 - Encargo: [F1_esquemas](delegacion/F1_esquemas.md). Por decisión del 16 de noviembre, los modelos de la lista de verificación pasan a F5 y los de lectura del rol 2 a F3, donde se usan por primera vez.
 
-### F2. Validación de entrada y enrutador — 1.5 días
-- [ ] Validación de entrada: formato, longitud, alcance (el evento pertenece al usuario) e indicios de inyección; una solicitud insegura o fuera de dominio conduce a abstención.
-- [ ] Enrutador de intención hacia `buscar_documentos`, `extraer_requisitos` o `comparar_versiones`. Implementar dos variantes, reglas y salida estructurada del modelo, y compararlas con los casos de desarrollo, como pide el anteproyecto.
-- [ ] Límites: máximo 3 invocaciones de herramienta por solicitud y una sola regeneración ante salida inválida.
-- [ ] Manejo de la ambigüedad ("la fecha", "el medicamento"): pedir aclaración en lugar de adivinar.
+### F2. Validación de entrada, ambigüedad, enrutador y JEV — 2 días
 
-### F3. Herramientas — 2 días
-- [ ] Modelos tolerantes de lectura de lo que devuelve el rol 2 (`FragmentoRecuperado`, `Alerta`, `ResultadoBusqueda`) y `fuente_desde_fragmento`, según [Contratos](Contratos.md#rol-2-hacia-rol-3).
-- [ ] `buscar_documentos`: envuelve `buscar()` del rol 2, propaga `suficiente` y `alertas`, y filtra por `tipo_documento` sobre los resultados (el rol 2 no tiene ese filtro).
-- [ ] `extraer_requisitos`: extrae requisitos, documentos de la oferta y fechas por categoría; cada dato exige cita. Las fechas con comprobación de actividad y plazo.
-- [ ] `comparar_versiones`: envuelve la función del rol 2; muestra ambas fuentes y no decide la vigencia.
-- [ ] Todas de solo lectura, sin red ni comandos; ante una falla devuelven error controlado o abstención.
+Encargo: [F2_entrada_enrutador](delegacion/F2_entrada_enrutador.md). Decisiones del 16 de noviembre: JEV real entra en F2 (hay clave y presupuesto); el LLM solo queda conectado por interfaz hasta elegir el modelo; los límites de frecuencia se simulan y el límite de 3 llamadas y 1 regeneración se implementa como presupuesto listo para F3 y F4; fuera de dominio por temas prohibidos más la suficiencia de la recuperación; la comprobación de que el evento pertenece al usuario la hacen el SQL del rol 2 y el contexto del rol 4, no F2; pedir aclaración es un campo propio del contrato.
+
+- [ ] Juicios de entrada por reglas: longitud, inyección, temas prohibidos y pregunta concreta.
+- [ ] Enrutador con interfaz común: variantes de reglas, JEV (con degradación a reglas) y LLM sin cliente.
+- [ ] Preguntas y umbrales de JEV en un solo módulo; cliente con clave por archivo, modelo fijado, reintentos explícitos y limitador.
+- [ ] Tabla de decisión: abstener, aclarar o usar herramienta.
+- [ ] Presupuesto de 3 llamadas y 1 regeneración.
+- [ ] Sondeo manual reglas frente a JEV con la API real.
+
+### F3a. Lectura del rol 2 y herramientas de búsqueda y comparación — 1 día
+
+Encargo: [F3a_herramientas](delegacion/F3a_herramientas.md). En paralelo con F2.
+
+- [ ] Modelos tolerantes de lectura y `fuente_desde_fragmento`.
+- [ ] `buscar_documentos` con filtro por tipo que no quita la otra fuente de un conflicto.
+- [ ] `comparar_versiones` que además pide alertas con `buscar()`, filtra por ids y pide revisión humana al comparar con una modificación o aclaración.
+- [ ] Errores controlados, sin excepciones hacia afuera.
+
+### F3b. `extraer_requisitos` — 1.5 días
+
+Depende del cliente de JEV de F2. Diseño acordado (cookbook oficial de fechas de JEV, "seleccionar en vez de generar"; notas de la semana 2 sobre expresiones regulares; puntos débiles de JEV con fechas):
+
+- [ ] Evidencia por categoría con `buscar()` y consultas fijas por categoría en un solo lugar.
+- [ ] Fechas candidatas con expresiones regulares (meses en español), cada una con su `chunk_id`.
+- [ ] JEV asigna cada candidata a su actividad (`Choice` más `Noul` compañero); el código normaliza, valida y compara fechas.
+- [ ] La confianza mínima entre las partes decide revisión humana; una fecha que el documento no dice siempre va a revisión. Sin JEV, las candidatas salen como no verificadas.
 
 ### F4. Generación y validación de salida — 2 días
 - [ ] Prompt aumentado: instrucciones del sistema, evidencia y pregunta separadas; la evidencia se marca como datos no confiables.
