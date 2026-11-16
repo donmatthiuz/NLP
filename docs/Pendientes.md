@@ -13,7 +13,7 @@ Abiertas:
 
 - [x] **Contratos:** definidos en [Contratos](consulta/Contratos.md). Con el rol 2 se verificó contra el código; con el rol 4 no había contrato y se adopta una propuesta (contexto con `tenant_id`, `usuario` y `rol`; auditoría por función inyectada). Todo corre en local.
 - [ ] **Avisar a los roles:** al rol 2, las tres diferencias de su documentación (alerta `evento_con_modificaciones`, firma de `comparar_versiones`, ids de documento); al rol 4, la propuesta de contexto y auditoría; al anteproyecto, los parámetros de `comparar_versiones`.
-- [ ] **JEV, detalle:** definir qué entra y qué sale, qué decisiones cubre y contra qué se compara. Si se mantiene la comparación con reglas y LLM del resumen para el asesor, la adopción por resultados sigue siendo válida. Actualizar el anteproyecto (sección 11), que hoy no lo menciona, y el diagrama.
+- [ ] **JEV, detalle:** la adaptación está en [JEV](consulta/JEV.md) (qué decisiones cubre, preguntas y cookbooks). Falta definir el conjunto etiquetado y contra qué se compara. Si se mantiene la comparación con reglas y LLM del resumen para el asesor, la adopción por resultados sigue siendo válida. Actualizar el anteproyecto (sección 11), que hoy no lo menciona, y el diagrama.
 - [ ] **Tamaño del banco:** el mínimo del curso es 20 casos (sección 8 de las instrucciones); el resumen para el asesor proponía 50. Sugerencia: 20 a 25.
 - [x] **Ejecución:** todo local salvo JEV, que va por API alojada. Equipo: RTX 5070 de 12 GB, 64 GB de RAM, i7-14700KF.
 - [ ] **LLM generador local:** elegir un modelo que quepa en la VRAM que deje el rol 2 y cumpla la latencia P95 de 15 s. Verificar que el stack de CUDA en WSL2 soporte la RTX 5070.
