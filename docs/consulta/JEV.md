@@ -48,14 +48,40 @@ El validador determinista de citas (existencia, permisos, página, versión y te
 - Antes de probar contra la API en vivo: permiso del usuario, presupuesto y lista de lo que se envía, como pide la skill.
 - Se guarda el payload exacto de cada caso de prueba para poder repetirlo.
 
-## Clave
+## Clave y cliente
 
-El SDK lee `TYPESAFE_API_KEY` por defecto. En LiciGT el código lee la clave desde el archivo que indica `LICIGT_JEV_API_KEY_FILE` (`keys/jev/api.key`) y se la pasa al cliente; nunca queda en el entorno ni en el repositorio.
+Según el [uso básico del SDK](https://docs.typesafe.ai/sdk/python/usage/basic.md), consultado el 16 de noviembre de 2026:
+
+- `TypeSafeClient` acepta `api_key` como parámetro; si falta, lee `TYPESAFE_API_KEY`. En LiciGT el código lee la clave desde el archivo que indica `LICIGT_JEV_API_KEY_FILE` (`keys/jev/api.key`) y la pasa como `api_key`; nunca queda en el entorno ni en el repositorio.
+- Otros parámetros: `model`, `base_url`, `headers` y `retry` (un `RetryPolicy` con `max_retries`, `backoff_max` y `timeout`). La documentación no publica los valores por defecto del reintento: se fijan explícitamente.
+- Errores: `TypeSafeAPIError` en fallas de la API y `TypeSafeError` al crear el cliente con una clave inválida. Ambos se tratan como falla controlada, nunca como respuesta.
+- Existe `AsyncTypeSafeClient`.
+
+## Modelo, límites y costo
+
+Según la [página de modelos](https://docs.typesafe.ai/go/models.md):
+
+- Versiones: Jev 1.14.0 (14 de octubre de 2026) y 1.13.0. `jev-latest` apunta hoy a 1.14.0. Se fija la versión exacta para que la evaluación sea reproducible y se registra la que informa cada respuesta.
+- Contexto por defecto: 64 mil tokens por solicitud y 32 mil por pregunta; sin límite de número de preguntas. El modo de contexto largo existe pero es más lento y menos preciso: no se usa.
+- Costo: 0.042 USD por millón de tokens de entrada; la salida no se cobra.
+- Límites de frecuencia: por organización, en la consola; no hay cifras públicas.
+- Idiomas: la documentación no dice nada sobre español. Hay que comprobarlo con casos propios antes de adoptar cualquier variante.
+
+## Puntos débiles que afectan a LiciGT
+
+Según la [página de puntos débiles](https://docs.typesafe.ai/go/jaggedness.md):
+
+- **Fechas y números:** JEV lee las fechas como texto; no compara ni calcula. Coincide con el plan: JEV elige la fecha candidata y el código la compara y valida (caso del evento 222).
+- **Contenido adversario:** JEV no trata el estado como hostil. Un fragmento con instrucciones inyectadas puede influirle; la pregunta de "¿intenta dar instrucciones?" es una capa más, no la única defensa.
+- **Contexto grande e irrelevante:** baja la precisión. Se envían solo los fragmentos y campos que la pregunta necesita.
+- **Orden de opciones:** en `Choice` favorece la primera. En la evaluación se repite con el orden cambiado para medir ese sesgo.
+- **Lectura literal:** la condición exacta va en la pregunta y los casos límite en los criterios.
 
 ## Pendientes
 
-- [ ] Verificar en la documentación del SDK cómo pasar la clave al cliente sin la variable de entorno.
-- [ ] Consultar límites de uso, contexto máximo y costo en la [página de modelos](https://docs.typesafe.ai/go/models.md).
-- [ ] Revisar la [página de puntos débiles](https://docs.typesafe.ai/go/jaggedness.md) del modelo que se fije, sobre todo para texto en español.
+- [x] Cómo pasar la clave al cliente: parámetro `api_key`.
+- [x] Límites, contexto y costo.
+- [x] Puntos débiles documentados. La página no menciona texto en español, tablas ni citas.
+- [ ] Comprobar el desempeño en español con casos propios del IGSS, con permiso y presupuesto.
 - [ ] Definir el conjunto etiquetado del experimento (intención y suficiencia), separado del banco de 20 casos.
 - [ ] Adaptar el diagrama `09-decision-layer-experiment` de la versión anterior (OneDrive, `tareas/proyecto/diagrams`) al IGSS.
