@@ -54,7 +54,7 @@ Se revisó [`empresa_demo.zip`](../../entregables/recuperacion/empresa_demo.zip)
   - Los fragmentos con `chunk_id`, `doc_id`, `tipo_documento`, `version_ingesta`, páginas, `seccion`, `texto`, `url_origen` y los puntajes (semántico, léxico, RRF y reranker).
   - `alertas`.
   - `suficiente: bool`.
-- [ ] Implementar `comparar_versiones(contexto, evento_id, seccion)`, que devuelve los fragmentos pareados de las bases y de sus modificaciones.
+- [ ] Implementar `comparar_versiones(contexto, evento_id, pregunta, k=2)`, que devuelve los fragmentos pareados de las bases y de sus modificaciones.
 - [ ] Ofrecer una CLI con la forma `python -m licigt.recuperacion buscar --evento ... "pregunta"` para hacer demos.
 
 ### F6. Evaluación con el rol 4 — 1 día

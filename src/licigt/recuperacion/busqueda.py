@@ -4,9 +4,8 @@ import re
 from dataclasses import dataclass
 from functools import lru_cache
 
-from .indice import MODELO_BASE, MODELO_MEJORADA, conectar, modelo
+from .indice import MODELO_BASE, MODELO_MEJORADA, MODELO_RERANKER, REVISION, conectar, modelo
 
-MODELO_RERANKER = "BAAI/bge-reranker-v2-m3"
 K, CANDIDATOS, RRF_K = 5, 20, 60
 PESO_SEMANTICO, PESO_LEXICO = 0.6, 0.4
 # shortcut: umbrales iniciales sin calibrar; ajustarlos con el subconjunto de desarrollo (F6).
@@ -32,7 +31,7 @@ class Contexto:
 @lru_cache(maxsize=None)
 def reranker():
     from sentence_transformers import CrossEncoder
-    return CrossEncoder(MODELO_RERANKER)
+    return CrossEncoder(MODELO_RERANKER, revision=REVISION[MODELO_RERANKER])
 
 
 def _sesion(conn, ctx):

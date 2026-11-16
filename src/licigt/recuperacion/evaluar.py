@@ -10,7 +10,7 @@ import time
 from pathlib import Path
 
 from .busqueda import K, UMBRAL, Contexto, buscar
-from .indice import MODELO_BASE, MODELO_MEJORADA, conectar
+from .indice import REVISION, conectar
 
 CASOS = Path(__file__).with_name("casos_desarrollo.json")
 
@@ -66,5 +66,5 @@ if __name__ == "__main__":
     print(json.dumps(resumen, ensure_ascii=False, indent=2))
     if a.salida:
         Path(a.salida).write_text(json.dumps(
-            {"modelos": {"base": MODELO_BASE, "mejorada": MODELO_MEJORADA}, "casos": str(a.casos),
+            {"modelos": REVISION, "casos": str(a.casos),
              "resumen": resumen, "detalle": detalle}, ensure_ascii=False, indent=1), encoding="utf-8")

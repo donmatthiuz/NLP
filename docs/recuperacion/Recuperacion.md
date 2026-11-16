@@ -43,6 +43,19 @@ Para medir se usaron [27 casos](../../src/licigt/recuperacion/casos_desarrollo.j
 - La búsqueda devuelve las dos cláusulas con las alertas `posible_conflicto` (numerales 2.2 y 2.7) y `cobertura_incompleta` (páginas 3 y 4 sin OCR).
 - `comparar_versiones()` devuelve los mejores fragmentos de cada documento para que se contrasten.
 
+## Respuestas a los avisos del rol 3 (16/11)
+
+- **Contrato:** `buscar()` y `comparar_versiones()` se confirman tal como están en el código. Si se renombra algún campo, se avisará antes.
+- **`chunk_id`:** es estable al reimportar (detalle en el [README](../../src/licigt/recuperacion/README.md#contrato-para-el-rol-3)).
+- **Documentación:** el README ya incluye `evento_con_modificaciones`, y el plan ya tiene la firma real de `comparar_versiones`.
+- **`LICIGT_DB_URL`:** ya no tiene valor por defecto ni contraseña en el código. Si falta, `conectar()` falla con un mensaje claro.
+- **Revisiones fijas de los modelos:** están en `REVISION` (`indice.py`) y se guardan en la salida de `evaluar.py`.
+  - MiniLM: `e8f8c21`
+  - bge-m3: `5617a9f`
+  - bge-reranker-v2-m3: `953dc6f`
+- **VRAM medida** con `torch.cuda.max_memory_allocated`, en fp32: buscar con las dos variantes, con bge-m3, el reranker y MiniLM cargados, llega a un pico de **4.85 GiB** (4.99 GiB reservados). Con fp16 debería bajar a la mitad, pero no está medido.
+- **Filtro `tipo_documento`:** no se agrega por ahora. Se acepta el valor por defecto del rol 3, que filtra después de recibir los resultados.
+
 ## Pendientes
 
 - [ ] Calibrar los umbrales con el banco del rol 4 y un evento reservado.

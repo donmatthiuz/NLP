@@ -11,16 +11,25 @@ import psycopg
 from pgvector.psycopg import register_vector
 from psycopg.types.json import Jsonb
 
-DB_URL = os.environ.get("LICIGT_DB_URL", "postgresql://licigt:licigt_dev@127.0.0.1:5432/licigt")
 MODELO_BASE = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 MODELO_MEJORADA = "BAAI/bge-m3"
+MODELO_RERANKER = "BAAI/bge-reranker-v2-m3"
+# Revisiones fijas en Hugging Face para que los resultados sean reproducibles.
+REVISION = {
+    MODELO_BASE: "e8f8c211226b894fcb81acc59f3b34ba3efd5f42",
+    MODELO_MEJORADA: "5617a9f61b028005a4858fdac845db406aefb181",
+    MODELO_RERANKER: "953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e",
+}
 VENTANA, SOLAPE = 120, 20  # tokens de contenido de la línea base (anteproyecto §10)
 SCHEMA = Path(__file__).with_name("schema.sql")
 
 
 def conectar():
     # autocommit: cada `with conn.transaction()` es una transacción real (y SET LOCAL vive solo en ella).
-    conn = psycopg.connect(DB_URL, autocommit=True)
+    url = os.environ.get("LICIGT_DB_URL")
+    if not url:  # sin valor por defecto: la contraseña vive en keys/ y `make` arma la URL
+        raise RuntimeError("Define LICIGT_DB_URL (o usa `make importar` / `make test-recuperacion`)")
+    conn = psycopg.connect(url, autocommit=True)
     conn.execute("CREATE EXTENSION IF NOT EXISTS vector")
     register_vector(conn)
     return conn
@@ -29,7 +38,7 @@ def conectar():
 @lru_cache(maxsize=None)
 def modelo(nombre):
     from sentence_transformers import SentenceTransformer
-    return SentenceTransformer(nombre)
+    return SentenceTransformer(nombre, revision=REVISION[nombre])
 
 
 def leer_paquete(zip_path):
