@@ -9,3 +9,11 @@ Aquí se implementarán el enrutador de intención y tres herramientas de solo l
 **Salida:** respuesta estructurada con `answer`, `sources`, `abstained`, `tool_used`, `needs_human_review`, `evento_id`, `coverage_status` y `warnings`, más propuesta de lista con citas.
 
 Ver [responsabilidades e integración](../../../docs/roles/Asignacion_de_roles.md#rol-3--consulta-y-herramientas).
+
+## Esquemas
+
+`esquemas.py` define la respuesta con citas y los parámetros de las tres herramientas con Pydantic v2. Las dependencias están en `requirements.txt`. Pruebas desde la raíz, sin servicios externos:
+
+```bash
+PYTHONPATH=src python -m unittest discover -s src/licigt/consulta/tests -v
+```
