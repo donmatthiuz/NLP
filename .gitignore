@@ -217,3 +217,8 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# LiciGT: secretos locales y caché de modelos
+# keys/ tiene su propio .gitignore (lista de permitidos)
+models/
+.claude/settings.local.json
