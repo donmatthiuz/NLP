@@ -66,4 +66,5 @@ Las pruebas del rol 3 no deben requerir red, GPU ni base de datos: usar dobles d
 - Verificar con las pruebas antes de afirmar que algo funciona; reportar fallos tal cual.
 - Los resultados de evaluación se reportan como medidos; las metas del anteproyecto no son resultados.
 - Si falta información del equipo (modelo, API, contrato), dejarlo en `docs/Pendientes.md` en vez de inventarlo.
+- Para cualquier código que llame a JEV, usar la skill `typesafe-ai` y [`docs/consulta/JEV.md`](docs/consulta/JEV.md).
 - Skills útiles: `brainstorming` y `writing-plans` antes de crear, `test-driven-development` y `systematic-debugging` al implementar, `verification-before-completion` antes de cerrar.
