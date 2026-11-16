@@ -40,10 +40,10 @@ Los cambios concretos por sección están en [Cambios_pendientes](anteproyecto/C
 
 ### Diagramas
 
-- [ ] En el repo solo está `arquitectura_igss.svg`. Los 9 diagramas de OneDrive (general, ingesta, consulta, recuperación, generación, tres E2E y experimento) describen la versión anterior; decidir cuáles se actualizan al IGSS y se traen al repo.
-- [ ] La sección 6 de las instrucciones exige que el diagrama muestre el estado compartido, los guardrails de salida y el tratamiento de excepciones. Hoy el estado compartido solo está en texto y los guardrails de salida no son nodos propios.
-- [ ] Editar la arquitectura para incluir JEV (capa de decisión con probabilidad) y reutilizar el diagrama de decisión del `.drawio` de OneDrive.
-- [ ] Mantener el `.drawio` como fuente editable.
+- [x] Decisión: fuente en HTML autocontenido exportado a PNG, en `docs/arquitectura/diagramas/`. La versión anterior de OneDrive está deprecada y no se usa como referencia. Se borró `arquitectura.jpeg` (GUATECOMPRAS y NOG, sin referencias).
+- [ ] Diagrama general y flujo de consulta: encargo [D1](consulta/delegacion/D1_diagramas.md). Reemplazan a `arquitectura_igss.svg`; al terminar, actualizar las referencias en el anteproyecto (línea 482) y en `DESIGN.md`, y avisar a quien creó el SVG.
+- [ ] Generación, lista de verificación, E2E de comparación, E2E de inyección y experimento de JEV: en la fase que los use (F4, F5, F6, F7).
+- [ ] Ingesta detallada y recuperación: se piden a los roles 1 y 2 (ver sus avisos).
 
 ### Documento técnico (10 a 15 páginas)
 

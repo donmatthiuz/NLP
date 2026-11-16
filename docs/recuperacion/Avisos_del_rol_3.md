@@ -24,6 +24,10 @@
 - [ ] **Fijar la revisión de los modelos.** `SentenceTransformer` y `CrossEncoder` se crean sin `revision=` (`indice.py`, función `modelo`; `busqueda.py`, función `reranker`). Pedimos fijarla y guardarla en la salida de `evaluar.py` junto con los nombres. Mientras tanto, `make models-status` muestra la revisión descargada en `models/` y se anota en la tabla de [Recuperacion](Recuperacion.md#índices).
 - [ ] **Caché de modelos.** `make` exporta `HF_HOME=<repo>/models`, así que los modelos se descargan dentro del proyecto (ignorado por Git) sin cambiar código. Usar `make importar`, `make buscar` y `make test-recuperacion`.
 
+## Diagramas
+
+- [ ] **Diagrama de recuperación (opcional).** Mismo formato que `docs/arquitectura/diagramas/`. Por defecto: el diagrama general muestra la búsqueda híbrida y el detalle sigue en [Recuperacion](Recuperacion.md).
+
 ## Coordinación de GPU
 
 - [ ] La máquina de desarrollo del rol 3 tiene una RTX 5070 de 12 GB. El reranker y los embeddings de recuperación comparten GPU con el LLM local del rol 3. Pedimos el consumo de VRAM medido de `bge-m3` y `bge-reranker-v2-m3` para repartir memoria. Por defecto: se asumen unos pocos GB y el LLM se elige para caber en el resto.
