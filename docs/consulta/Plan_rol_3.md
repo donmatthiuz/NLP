@@ -1,6 +1,6 @@
 # Plan del rol 3: consulta y herramientas
 
-**Estado al 16 de noviembre de 2026.** Este plan cubre las [responsabilidades del rol 3](../roles/Asignacion_de_roles.md#rol-3--consulta-y-herramientas) y sigue las secciones [9. Arquitectura](../anteproyecto/Anteproyecto.md#9-arquitectura), [10. Citas y abstención](../anteproyecto/Anteproyecto.md#citas-y-abstención) y [11. Herramientas y agentes](../anteproyecto/Anteproyecto.md#11-herramientas-y-agentes) del anteproyecto. El código irá en [`src/licigt/consulta`](../../src/licigt/consulta/README.md).
+**Estado al 17 de noviembre de 2026.** Este plan cubre las [responsabilidades del rol 3](../roles/Asignacion_de_roles.md#rol-3--consulta-y-herramientas) y sigue las secciones [9. Arquitectura](../anteproyecto/Anteproyecto.md#9-arquitectura), [10. Citas y abstención](../anteproyecto/Anteproyecto.md#citas-y-abstención) y [11. Herramientas y agentes](../anteproyecto/Anteproyecto.md#11-herramientas-y-agentes) del anteproyecto. El código irá en [`src/licigt/consulta`](../../src/licigt/consulta/README.md).
 
 > **Avance:** el módulo está vacío (solo README). Contratos definidos en [Contratos](Contratos.md). Cada fase sigue el [flujo de trabajo](Flujo_de_trabajo.md): cinco porqués y visto bueno antes de delegar.
 
@@ -90,11 +90,13 @@ Hecha con un repositorio en memoria ([F5](delegacion/F5_lista_de_verificacion.md
 - [x] Marcar ítems y señalar contradicciones para revisión humana.
 
 ### F6. Interfaz web y demo
-- [ ] Interfaz web desde el inicio: React, Vite y TypeScript, con pnpm, sobre FastAPI. Decisión del 16 de noviembre. El curso solo exige la demo en vivo ([I3](investigacion/I3_lista_e_interfaz.md)); la vista web la promete el anteproyecto (`Anteproyecto.md:146`, `:222`).
-- [ ] Muestra respuesta, fuentes, página, versión, advertencias, revisión humana y aclaración, y confirma la lista explícitamente.
-- [ ] Puede empezar en paralelo con F4, contra respuestas de ejemplo que cumplan `RespuestaEstructurada`.
-- [ ] La API es del rol 4. Si no la entrega al cerrar F5, el rol 3 escribe un adaptador reemplazable, sin tocar `src/licigt/plataforma`.
-- [ ] Demo con el evento 222: una consulta respondible, una sin evidencia, la comparación del cronograma (bases frente a modificación 1), una aclaración, una inyección contra la lista y la falla real de OCR de las páginas 3 y 4.
+
+Hecha (F6 a F6f): la compuerta de diseño dio PASS el 17 de noviembre y la demo está medida en [Demo_222](Demo_222.md). El adaptador de API vive en `src/licigt/consulta/api.py`.
+- [x] Interfaz web desde el inicio: React, Vite y TypeScript, con pnpm, sobre FastAPI. Decisión del 16 de noviembre. El curso solo exige la demo en vivo ([I3](investigacion/I3_lista_e_interfaz.md)); la vista web la promete el anteproyecto (`Anteproyecto.md:146`, `:222`).
+- [x] Muestra respuesta, fuentes, página, versión, advertencias, revisión humana y aclaración, y confirma la lista explícitamente.
+- [x] Puede empezar en paralelo con F4, contra respuestas de ejemplo que cumplan `RespuestaEstructurada`.
+- [x] La API es del rol 4. Si no la entrega al cerrar F5, el rol 3 escribe un adaptador reemplazable, sin tocar `src/licigt/plataforma`.
+- [x] Demo con el evento 222: una consulta respondible, una sin evidencia, la comparación del cronograma (bases frente a modificación 1), una aclaración, una inyección contra la lista y la falla real de OCR de las páginas 3 y 4.
 
 ### F7. Pruebas con el rol 4
 - [ ] Casos de herramientas para el banco: ejecución nominal, selección errónea, parámetros fuera de rango, confirmación humana e indisponibilidad del servicio.
