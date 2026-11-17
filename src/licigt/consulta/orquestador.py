@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 
 from pydantic import ValidationError
 
+from .citas_jev import aplicar_citas, citas_activas
 from .config import obtener_configuracion_llm
 from .decision import decidir
 from .esquemas import (
@@ -105,6 +106,7 @@ class _Ejecucion:
     """Lo que la ejecución de una herramienta deja para la auditoría y para quien la llamó."""
     def __init__(self):
         self.resultado, self.fragmentos, self.error, self.validacion = None, [], None, "no_aplica"
+        self.citas_jev = None
 
 
 def _ejecutar(ctx, evento_id, evento_salida, pregunta, herramienta, presupuesto, *, recuperador,
@@ -177,6 +179,8 @@ def _ejecutar(ctx, evento_id, evento_salida, pregunta, herramienta, presupuesto,
             if isinstance(verificada, RespuestaEstructurada):
                 respuesta = verificada
                 validacion = "regenerada_ok" if intento else "ok"
+                if citas_activas():
+                    respuesta, ejecucion.citas_jev = aplicar_citas(respuesta, fragmentos, cliente_jev)
                 return respuesta
             validacion = "fallida"
             if intento:
@@ -207,7 +211,7 @@ def _ejecutar(ctx, evento_id, evento_salida, pregunta, herramienta, presupuesto,
 
 
 def _registrar(auditar, usuario, tenant_id, evento_salida, intencion, respuesta, fragmentos,
-               validacion, inicio, error, generador):
+               validacion, inicio, error, generador, citas_jev=None):
     """Evento de auditoría de una consulta; si el registro falla, la respuesta no cambia."""
     try:
         auditar({
@@ -220,6 +224,7 @@ def _registrar(auditar, usuario, tenant_id, evento_salida, intencion, respuesta,
             "chunk_ids_citados": list(dict.fromkeys(f.chunk_id for f in respuesta.sources)),
             "modelo_generador": _atributo_seguro(generador, "modelo_generador"),
             "version_prompt": VERSION_PROMPT,
+            **({"citas_jev": citas_jev} if citas_jev else {}),
         })
     except Exception:
         pass
@@ -233,7 +238,7 @@ def consultar(ctx, evento_id, pregunta, *, enrutador, recuperador, generador,
     # Incluso un id inválido debe producir una respuesta compatible con TextoNoVacio.
     evento_salida = evento_id if isinstance(evento_id, str) and evento_id.strip() else "sin_evento"
     respuesta = _abstencion(evento_salida)
-    resultado, herramienta, error = None, None, None
+    resultado, herramienta, error, citas_jev = None, None, None, None
     fragmentos = []
     intencion = None
     validacion = "no_aplica"
@@ -264,6 +269,7 @@ def consultar(ctx, evento_id, pregunta, *, enrutador, recuperador, generador,
         finally:
             resultado, fragmentos = ejecucion.resultado, ejecucion.fragmentos
             error, validacion = ejecucion.error or error, ejecucion.validacion
+            citas_jev = ejecucion.citas_jev
     except LimiteAgotado:
         error = "presupuesto_agotado"
         respuesta = _abstencion(evento_salida, resultado, "citas_no_validas", herramienta)
@@ -278,4 +284,4 @@ def consultar(ctx, evento_id, pregunta, *, enrutador, recuperador, generador,
         return respuesta
     finally:
         _registrar(auditar, usuario, tenant_id, evento_salida, intencion, respuesta, fragmentos,
-                   validacion, inicio, error, generador)
+                   validacion, inicio, error, generador, citas_jev)

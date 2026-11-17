@@ -1,0 +1,38 @@
+[
+  {
+    "id": "222-fiel-1",
+    "afirmacion": "Las bases indican recepción de ofertas el 31 de julio de 2023.",
+    "seccion": "La recepción de ofertas se llevará a cabo el 31 de julio de 2023, a las 11:00 horas (hora\n     límite 11:30)",
+    "fiel": true
+  },
+  {
+    "id": "222-fiel-2",
+    "afirmacion": "La modificación indica recepción de ofertas el 06 de octubre de 2023.",
+    "seccion": "Lugar, dirección, fecha y hora para           En Salones Los Volcanes, ubicados en la 7ª. Avenida\n              la recepción de OFERTAS.                      22-72 zona 1, segundo nivel, Oficinas Centrales del\n                                                            INSTITUTO, el día 06 de octubre de 2023, a las\n                                                            11:00 horas (hora límite 11:30)",
+    "fiel": true
+  },
+  {
+    "id": "222-fiel-3",
+    "afirmacion": "La hora de recepción de ofertas es a las 11:00 horas.",
+    "seccion": "La recepción de ofertas se llevará a cabo el 31 de julio de 2023, a las 11:00 horas (hora\n     límite 11:30)",
+    "fiel": true
+  },
+  {
+    "id": "222-infiel-1",
+    "afirmacion": "Las bases indican recepción de ofertas el 06 de octubre de 2023.",
+    "seccion": "La recepción de ofertas se llevará a cabo el 31 de julio de 2023, a las 11:00 horas (hora\n     límite 11:30)",
+    "fiel": false
+  },
+  {
+    "id": "222-infiel-2",
+    "afirmacion": "La modificación indica recepción de ofertas el 31 de julio de 2023.",
+    "seccion": "Lugar, dirección, fecha y hora para           En Salones Los Volcanes, ubicados en la 7ª. Avenida\n              la recepción de OFERTAS.                      22-72 zona 1, segundo nivel, Oficinas Centrales del\n                                                            INSTITUTO, el día 06 de octubre de 2023, a las\n                                                            11:00 horas (hora límite 11:30)",
+    "fiel": false
+  },
+  {
+    "id": "222-infiel-3",
+    "afirmacion": "Las bases fijan la recepción de ofertas en la Gerencia Financiera del Instituto.",
+    "seccion": "La recepción de ofertas se llevará a cabo el 31 de julio de 2023, a las 11:00 horas (hora\n     límite 11:30)",
+    "fiel": false
+  }
+]
