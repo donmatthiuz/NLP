@@ -22,12 +22,11 @@ from urllib.parse import urljoin, urlparse
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 from zoneinfo import ZoneInfo
 
-from .pipeline import KINDS, IngestionService, SourceMetadata
+from .pipeline import AVISO_MODIFICACION, KINDS, IngestionService, SourceMetadata
 
 PORTAL = "https://www.igssgt.org/proveedores/"
 TIPOS_CON_RELACION = {"modificacion", "aclaracion", "anexo"}
 PARECE_MODIFICACION = re.compile(r"MODIFICACI[ÓO]N", re.I)
-AVISO_MODIFICACION = "El PDF parece una modificación; revisar el tipo documental"
 
 
 def official_url(url: str) -> bool:

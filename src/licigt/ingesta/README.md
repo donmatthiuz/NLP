@@ -83,15 +83,17 @@ El conector lee la fila del evento en el portal, registra número, año, modalid
 
 ## Entrega al rol 2
 
-Para reproducir la ingesta del corpus seleccionado a partir de las seis descargas verificadas y crear el paquete de intercambio:
+El corpus es reproducible con los mismos `doc_id` y `chunk_id`: [`corpus_igss.json`](corpus_igss.json) lista, en orden de ingesta, cada documento con su evento, tipo, versión oficial, relación, URL de origen, SHA-256, `doc_id`, `ingested_at`, páginas que requieren OCR y el JSON de procedencia. `IngestionService.ingest` acepta `doc_id` e `ingested_at` (sin ellos usa `uuid4` y la hora actual; un `doc_id` ya registrado con otro SHA-256 da error). Se regenera el paquete con:
 
 ```bash
-PYTHONPATH=src python -m licigt.ingesta.prepare_corpus \
-  --tenant-id empresa_demo --data-dir data/ingesta
-PYTHONPATH=src python -m licigt.ingesta.handoff \
-  --tenant-id empresa_demo --data-dir data/ingesta \
-  --output entregables/recuperacion/empresa_demo.zip
+# sin red, con los originales de un ZIP
+PYTHONPATH=src python -m licigt.ingesta.reproducir \
+  --desde-zip entregables/recuperacion/empresa_demo.zip --salida /tmp/empresa_demo.zip
+# bajando cada url_origen de igssgt.org (no sigue redirecciones fuera del dominio)
+make corpus CONFIRMAR=1
 ```
+
+Cada PDF se verifica contra el SHA-256 de la especificación; si uno falla, no se escribe nada. La ingesta va sin OCR, para que los `chunk_id` no dependan del entorno; después, si `tesseract --list-langs` incluye `spa`, se aplica `reextraer` a los documentos con `paginas_ocr`, y si no, se avisa y esas páginas quedan ilegibles. `make corpus` sin `CONFIRMAR=1` solo muestra el comando. `prepare_corpus` (ingesta desde `descargas_igss` ya verificadas) lee la misma especificación y solo acepta su `tenant_id`.
 
 El ZIP contiene `chunks.jsonl` (un fragmento indexable por línea), `inventario.json` (procedencia, SHA-256, estado, cobertura, versiones, alertas y recuentos), `originales/<doc_id>.pdf`, `manifiestos/<doc_id>.json` y los JSON de descarga en `procedencia/<doc_id>.json` cuando existen. Dentro del ZIP, todas las rutas de archivo son relativas a su raíz. El SHA-256 de `chunks.jsonl` figura en el inventario; cada original se verifica contra su hash antes de empaquetarlo. Esta entrega está en [`entregables/recuperacion`](../../../entregables/recuperacion/README.md), fuera de `data/`, para que Git pueda incluirla. El rol 2 debe importar el JSONL a PostgreSQL y generar allí `tsvector` y embeddings/`pgvector`. **El ZIP no contiene índices ni embeddings.**
 

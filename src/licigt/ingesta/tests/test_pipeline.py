@@ -1,10 +1,11 @@
+import json
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
 from licigt.ingesta.pdf import Page, extract_hidden_text
-from licigt.ingesta.pipeline import IngestionService, SourceMetadata, make_chunks
+from licigt.ingesta.pipeline import AVISO_MODIFICACION, IngestionService, SourceMetadata, make_chunks
 
 
 def metadata(**changes):
@@ -98,6 +99,79 @@ class IngestionTests(unittest.TestCase):
             self.assertFalse(result["security_scan"]["scan_complete"])
             self.assertEqual(result["status"], "requiere_revision")
             self.assertFalse(result["chunks"][0]["indexable"])
+
+    def test_doc_id_e_ingested_at_inyectados_dan_corridas_identicas(self):
+        pages = [Page(1, "DOCUMENTOS DE LICITACIÓN 399-IGSS-2026\nCÓDIGO IGSS 432\nBases de licitación", "text", "ok")]
+        doc_id = "a" * 32
+        momento = "2026-11-15T00:50:35.573481+00:00"
+        manifiestos = []
+        for nombre in ("uno", "dos"):
+            with tempfile.TemporaryDirectory() as temporary, \
+                    patch("licigt.ingesta.pipeline.extract_pages", return_value=pages), \
+                    patch("licigt.ingesta.pipeline.extract_hidden_text", return_value={}):
+                root = Path(temporary)
+                source = root / "doc.pdf"
+                source.write_bytes(b"%PDF-1.4\nfijo")
+                resultado = IngestionService(root / nombre).ingest(
+                    source, metadata(), doc_id=doc_id, ingested_at=momento)
+                resultado["object_uri"] = resultado["object_uri"].replace(str(root / nombre), "")
+                manifiestos.append(resultado)
+        self.assertEqual(manifiestos[0]["doc_id"], doc_id)
+        self.assertEqual(manifiestos[0]["created_at"], momento)
+        self.assertEqual(manifiestos[0], manifiestos[1])
+        self.assertEqual(manifiestos[0]["chunks"][0]["chunk_id"], f"{doc_id}:00001")
+
+    def test_sin_doc_id_usa_uuid_y_hora_actual(self):
+        pages = [Page(1, "DOCUMENTOS DE LICITACIÓN 399-IGSS-2026", "text", "ok")]
+        with tempfile.TemporaryDirectory() as temporary, \
+                patch("licigt.ingesta.pipeline.extract_pages", return_value=pages), \
+                patch("licigt.ingesta.pipeline.extract_hidden_text", return_value={}):
+            root = Path(temporary)
+            source = root / "doc.pdf"
+            source.write_bytes(b"%PDF-1.4\nuuid")
+            resultado = IngestionService(root / "data").ingest(source, metadata())
+            self.assertRegex(resultado["doc_id"], r"^[0-9a-f]{32}$")
+            self.assertTrue(resultado["created_at"].startswith("20"))
+
+    def test_doc_id_repetido_con_otro_sha256_da_error(self):
+        pages = [Page(1, "DOCUMENTOS DE LICITACIÓN 399-IGSS-2026", "text", "ok")]
+        with tempfile.TemporaryDirectory() as temporary, \
+                patch("licigt.ingesta.pipeline.extract_pages", return_value=pages), \
+                patch("licigt.ingesta.pipeline.extract_hidden_text", return_value={}):
+            root = Path(temporary)
+            source = root / "doc.pdf"
+            source.write_bytes(b"%PDF-1.4\nprimero")
+            service = IngestionService(root / "data")
+            service.ingest(source, metadata(), doc_id="b" * 32)
+            source.write_bytes(b"%PDF-1.4\notro")
+            with self.assertRaisesRegex(ValueError, "doc_id"):
+                service.ingest(source, metadata(document_key="otro"), doc_id="b" * 32)
+            with self.assertRaisesRegex(ValueError, "doc_id"):
+                service.ingest(source, metadata(), doc_id="no-es-hex")
+
+    def test_reprocess_respeta_la_advertencia_de_parece_modificacion(self):
+        pages = [Page(1, "DOCUMENTOS DE LICITACIÓN 399-IGSS-2026\nRequisito visible.", "text", "ok")]
+        with tempfile.TemporaryDirectory() as temporary, \
+                patch("licigt.ingesta.pipeline.extract_pages", return_value=pages), \
+                patch("licigt.ingesta.pipeline.extract_hidden_text", return_value={}):
+            root = Path(temporary)
+            source = root / "doc.pdf"
+            source.write_bytes(b"%PDF-1.4\nmodificacion")
+            service = IngestionService(root / "data")
+            manifiesto = service.ingest(source, metadata())
+            self.assertTrue(manifiesto["chunks"][0]["indexable"])
+            ruta = root / "data" / "manifiestos_igss" / f"{manifiesto['doc_id']}.json"
+            guardado = json.loads(ruta.read_text(encoding="utf-8"))
+            guardado["warnings"].append(AVISO_MODIFICACION)
+            guardado["status"] = "requiere_revision"
+            for chunk in guardado["chunks"]:
+                chunk["indexable"] = False
+            ruta.write_text(json.dumps(guardado), encoding="utf-8")
+            rehecho = service.reprocess(manifiesto["doc_id"])
+            self.assertIn(AVISO_MODIFICACION, rehecho["warnings"])
+            self.assertEqual(rehecho["status"], "requiere_revision")
+            self.assertTrue(rehecho["chunks"])
+            self.assertTrue(all(not chunk["indexable"] for chunk in rehecho["chunks"]))
 
 
 class MetadataTests(unittest.TestCase):

@@ -26,6 +26,7 @@ SUSPICIOUS = re.compile(
     r"revela (el )?prompt (del )?sistema|reveal (the )?system prompt|"
     r"actúa como (el )?sistema|you are now the system)"
 )
+AVISO_MODIFICACION = "El PDF parece una modificación; revisar el tipo documental"
 HEADING = re.compile(r"^(?:\d+(?:\.\d+)*[.)]?\s+|(?:art[íi]culo|numeral|anexo|cap[íi]tulo|secci[óo]n)\s+[\w.-]+[:.]?\s+).{3,120}$", re.I)
 
 
@@ -94,6 +95,12 @@ def _sha256(path: Path) -> str:
         while block := stream.read(1024 * 1024):
             digest.update(block)
     return digest.hexdigest()
+
+
+def paginas_sin_indexables(page_numbers, chunks: list[dict[str, Any]]) -> list[int]:
+    """Páginas sin ningún fragmento indexable: ilegibles, solo con ruido de OCR o retenidas."""
+    indexadas = {chunk["pagina_inicio"] for chunk in chunks if chunk["indexable"]}
+    return sorted(number for number in page_numbers if number not in indexadas)
 
 
 def _table_like(lines: list[str]) -> bool:
@@ -291,8 +298,17 @@ class IngestionService:
         os.chmod(self.database, 0o600)
 
     def ingest(self, pdf_path: Path, metadata: SourceMetadata, *, max_bytes: int = 50 * 1024 * 1024,
-               use_ocr: bool = True) -> dict[str, Any]:
+               use_ocr: bool = True, doc_id: str | None = None,
+               ingested_at: datetime | str | None = None) -> dict[str, Any]:
+        """`doc_id` e `ingested_at` se inyectan para reproducir un corpus; sin ellos, uuid4 y la hora actual."""
         metadata.validate()
+        if doc_id is not None and not re.fullmatch(r"[0-9a-f]{32}", doc_id):
+            raise ValueError("doc_id inválido")
+        if ingested_at is None:
+            ingested_at = datetime.now(timezone.utc)
+        if isinstance(ingested_at, str):
+            ingested_at = datetime.fromisoformat(ingested_at)
+        ingested_at = ingested_at.isoformat()
         path = Path(pdf_path).resolve(strict=True)
         if not path.is_file() or path.stat().st_size == 0 or path.stat().st_size > max_bytes:
             raise ValueError("Archivo vacío, no regular o superior al límite de tamaño")
@@ -379,7 +395,10 @@ class IngestionService:
                 "SELECT doc_id FROM documents WHERE tenant_id=? AND evento_id=? AND document_key=? ORDER BY version_ingesta DESC LIMIT 1",
                 (metadata.tenant_id, metadata.evento_id, metadata.document_key),
             ).fetchone()
-            doc_id = uuid.uuid4().hex
+            if doc_id is None:
+                doc_id = uuid.uuid4().hex
+            elif connection.execute("SELECT 1 FROM documents WHERE doc_id=?", (doc_id,)).fetchone():
+                raise ValueError("doc_id ya está registrado con otro documento (SHA-256 distinto)")
             key = f"igss/{metadata.tenant_id}/{metadata.evento_id}/{metadata.document_key}/v{version}/{doc_id}.pdf"
             object_uri = self.store.put(path, key)
             chunks = make_chunks(pages, doc_id, metadata, version)
@@ -399,7 +418,7 @@ class IngestionService:
                 "doc_id": doc_id, "hash_sha256": digest, "version_ingesta": version,
                 "previous_doc_id": previous[0] if previous else None,
                 "object_uri": object_uri, "status": status,
-                "created_at": datetime.now(timezone.utc).isoformat(),
+                "created_at": ingested_at,
                 "chunking_revision": 3,
                 "security_scan": security_scan,
                 "warnings": warnings,
@@ -463,7 +482,8 @@ class IngestionService:
                 chunk["indexable"] = False
             if (manifest["cobertura"]["solo_convocatoria"]
                     or not manifest["cobertura"]["evento_confirmado_en_pdf"]
-                    or not manifest["security_scan"]["scan_complete"]):
+                    or not manifest["security_scan"]["scan_complete"]
+                    or AVISO_MODIFICACION in manifest["warnings"]):
                 chunk["indexable"] = False
         manifest["chunks"] = chunks
         manifest["reprocessed_at"] = datetime.now(timezone.utc).isoformat()

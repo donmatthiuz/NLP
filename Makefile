@@ -30,7 +30,7 @@ WITH_DB = LICIGT_DB_URL="postgresql://$(LICIGT_DB_USER):$$(tr -d '\r\n' < $(LICI
 EVENTO ?= 222-IGSS-2023
 
 .PHONY: help setup env-init keys-init keys-status key-set db-up db-down db-password-sync \
-        importar buscar models-status claude opencode codex test-consulta test-ingesta test-recuperacion \
+        importar buscar models-status claude opencode codex test-consulta test-ingesta test-recuperacion corpus \
         diagramas llm-descargar llm-servidor llm-estado deps-consulta sondeo-jev api experimento-jev web web-build
 
 help: ## Muestra esta ayuda
@@ -134,6 +134,14 @@ test-consulta: ## Pruebas del rol 3, sin red ni base de datos
 
 test-ingesta: ## Pruebas del rol 1
 	@PYTHONPATH=src $(PYTHON) -m unittest discover -s src/licigt/ingesta/tests -v
+
+corpus: ## Regenera el ZIP del corpus con los mismos ids; baja los PDF del IGSS solo con CONFIRMAR=1
+	@if [ "$(CONFIRMAR)" = "1" ]; then \
+		PYTHONPATH=src $(PYTHON) -m licigt.ingesta.reproducir --descargar --salida entregables/recuperacion/empresa_demo.zip; \
+	else \
+		printf 'Haría: PYTHONPATH=src python -m licigt.ingesta.reproducir --descargar --salida entregables/recuperacion/empresa_demo.zip\n'; \
+		printf 'Descarga los PDF de igssgt.org y reescribe el ZIP. Agrega CONFIRMAR=1 para ejecutarlo.\n'; \
+	fi
 
 test-recuperacion: ## Pruebas del rol 2 (las de integración requieren make db-up e importar)
 	@$(WITH_DB) PYTHONPATH=src $(PYTHON) -m unittest discover -s src/licigt/recuperacion/tests -v
