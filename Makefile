@@ -31,7 +31,7 @@ EVENTO ?= 222-IGSS-2023
 
 .PHONY: help setup env-init keys-init keys-status key-set db-up db-down db-password-sync \
         importar buscar models-status claude opencode codex test-consulta test-ingesta test-recuperacion corpus \
-        diagramas llm-descargar llm-servidor llm-estado deps-consulta sondeo-jev api experimento-jev web web-build
+        diagramas llm-descargar llm-servidor llm-estado deps-consulta sondeo-jev api experimento-jev web web-build lista-schema test-consulta-sql
 
 help: ## Muestra esta ayuda
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(firstword $(MAKEFILE_LIST)) \
@@ -106,6 +106,12 @@ sondeo-jev: ## Vista previa del sondeo de JEV; CONFIRMAR=1 autoriza el envío
 
 experimento-jev: ## Experimento de JEV: CONJUNTO=desarrollo|prueba; CONFIRMAR=1 autoriza el envío
 	@PYTHONPATH=src $(PYTHON) -m licigt.consulta.experimento correr $(CONJUNTO) $(if $(filter 1,$(CONFIRMAR)),--confirmar-envio)
+
+lista-schema: ## Crea las tablas de la lista de verificación (idempotente; requiere db-up e importar)
+	@$(WITH_DB) PYTHONPATH=src $(PYTHON) -c "import os,psycopg; psycopg.connect(os.environ['LICIGT_DB_URL'], autocommit=True).execute(open('src/licigt/consulta/lista_schema.sql', encoding='utf-8').read())"
+
+test-consulta-sql: ## Pruebas de la lista en Postgres (requieren make db-up)
+	@$(WITH_DB) PYTHONPATH=src $(PYTHON) -m unittest licigt.consulta.tests.test_lista_sql -v
 
 api: ## Arranca el adaptador de consulta (demo, sin autenticación) en 127.0.0.1:8000
 	@$(WITH_DB) PYTHONPATH=src $(PYTHON) -m uvicorn licigt.consulta.api:app --host 127.0.0.1 --port 8000
