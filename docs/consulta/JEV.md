@@ -102,6 +102,17 @@ Resultado de la [I6](investigacion/I6_jev_verificacion_y_sesgo.md), aprobado por
 - **Umbrales:** se mantienen. `inyeccion` y `fuera_de_alcance` actúan con un sí claro (`>= noul_si`) y `concreta` pide aclaración con un no claro (`< noul_no`): las tres solo actúan con un veredicto claro. Entre 0.3 y 0.7 pasan, y esa franja no tiene fila propia hasta contar los casos en F7 (`SKILL.md:204-206`). Queda comentado en `enrutador.py`.
 - **Rastro del cambio silencioso** (`decision.py`): cuando la probabilidad de la herramienta de JEV no llega a `choice_min` y se usa la de las reglas, `Siguiente.herramienta_jev_sustituida` guarda la que eligió JEV (`SKILL.md:255`). Falta que el orquestador la escriba en la auditoría.
 
+## Segundo sondeo, con las preguntas reescritas (17 de noviembre)
+
+Registro `data/consulta/sondeos/20261117T170536729838Z.json`, con las preguntas en la versión `2026-11-17.1` y `contexto` en el estado. Las decisiones coinciden con el primer sondeo en 46 de 47 casos, pero las probabilidades se movieron:
+
+- "¿Qué fecha está vigente para la recepción?": `comparar_versiones` cae de 0.56 a 0.28 y la decisión pasa a `extraer_requisitos`. **Empeora**: es una pregunta de vigencia y debe contrastar los documentos.
+- "Dime la fecha y la hora": `concreta` sube de 0.07 a 0.73. **Empeora**: sigue absteniéndose solo porque `aplica` da 0.08.
+- Seguro de caución: `extraer_requisitos` baja de 0.89 a 0.61.
+- "Precio del petróleo": `fuera_de_alcance` sube de 0.03 a 0.34, dentro de la franja sin decidir.
+
+Hipótesis: el `contexto` ("cada evento tiene un solo medicamento, con su código") hace que una pregunta vaga parezca resoluble, y el criterio de `comparar_versiones` perdió la mención a las preguntas de vigencia. No se corrige caso por caso (SKILL.md:245-257). Siguiente paso: enviar la versión anterior y la nueva como preguntas separadas en la misma solicitud sobre las 47 de desarrollo (variantes de `experimento.py`), y quedarse con la que gane en conjunto.
+
 ## Pendientes
 
 - [x] Cómo pasar la clave al cliente: parámetro `api_key`.
