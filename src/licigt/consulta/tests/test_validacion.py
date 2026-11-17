@@ -484,7 +484,7 @@ class ValidacionTests(unittest.TestCase):
             with self.subTest(texto=texto):
                 self.assertEqual(self.codigos(self.armar(texto, "Recepción durante la semana")),
                                  ["dato_fuera_de_literal"])
-        for texto in ("El lo y los os del IGSS aplican.", "Plazo de ll dias."):
+        for texto in ("El lo y los os del IGSS aplican.",):
             with self.subTest(texto=texto):
                 self.assertIsInstance(self.armar(texto, "Recepción durante la semana"), RespuestaEstructurada)
 
@@ -641,6 +641,45 @@ class ValidacionTests(unittest.TestCase):
         for cita in ("El plazo (dieciocho meses)", "El plazo es de dieciocho meses."):
             with self.subTest(cita=cita):
                 self.assertIsInstance(self.armar_en(cita + " contados a partir de la firma", "Dato documental.", cita),
+                                      RespuestaEstructurada)
+
+    def test_c8_h1_espacio_con_marca_combinante_cuenta_como_signo(self):
+        for sep in ("´", "˙", "¨", "¯", "¸", "˘", "˚", "˛", "˜", "˝", "‾", "￣", "΄"):
+            with self.subTest(sep=sep):
+                fuente = f"El monto máximo es de Q 1{sep}500,000.00 por renglón, ubicado en la zona 1 del municipio."
+                self.assertEqual(self.codigos(self.armar_en(fuente, "Dato documental.", "500,000.00 por renglón, ubicado")),
+                                 ["cita_no_literal"])
+                r = self.armar_en(fuente, "El monto es de {1}.", f"El monto máximo es de Q 1{sep}500,000.00 por renglón",
+                                  ["500,000.00"])
+                self.assertEqual(self.codigos(r), ["dato_no_literal"])
+
+    def test_c8_h2_vigencia_por_la_evidencia_con_cualquier_tipo_citado(self):
+        base, mod = fragmentos_222()
+        cita = "se llevará a cabo el 31 de julio de 2023, a las 11:00 horas"
+        salida = {"abstener": False, "revision_humana": False, "afirmaciones": [
+            {"texto": "La fecha de recepción sigue siendo el {1}.", "datos": [{"cita": 1, "literal": "31 de julio de 2023"}],
+             "citas": [{"fragmento": "F1", "cita": cita}]}]}
+        for tipo in ("bases", "anexo", "especificaciones", "convocatoria", "normativa"):
+            with self.subTest(tipo=tipo):
+                fb = base.model_copy(update={"texto": B001, "tipo_documento": tipo})
+                r = self.verificar(salida, herramienta(fragmentos=[fb, mod]))
+                self.assertIsInstance(r, RespuestaEstructurada)
+                self.assertTrue(r.needs_human_review)
+
+    def test_c8_h3_unidad_antes_con_parentesis_o_coma(self):
+        cita = "El plazo contractual es de dieciocho (18) meses contados a partir"
+        for texto in ("El monto es de Q ({1}).", "El monto es de Q. ({1}).", "El monto es de Q, {1}."):
+            with self.subTest(texto=texto):
+                self.assertEqual(self.codigos(self.armar(texto, cita, ["(18)"])), ["unidad_fuera_de_literal"])
+
+    def test_c8_h4_letras_i_o_que_parecen_cifras(self):
+        for palabra in ("IOO", "IO.OOO", "IO,OOO", "ll"):
+            with self.subTest(palabra=palabra):
+                self.assertEqual(self.codigos(self.armar(f"El seguro es del {palabra} del valor.",
+                                                         "Recepción durante la semana")), ["dato_fuera_de_literal"])
+        for palabra in ("SI", "ISO", "OS", "III"):
+            with self.subTest(palabra=palabra):
+                self.assertIsInstance(self.armar(f"Aplica la norma {palabra} del valor.", "Recepción durante la semana"),
                                       RespuestaEstructurada)
 
     def test_c7_a9_comparar_versiones_publica_desde_el_original_de_documentos(self):

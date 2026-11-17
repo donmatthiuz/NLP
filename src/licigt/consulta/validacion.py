@@ -24,8 +24,27 @@ class ErrorValidacion(BaseModel):
 COMILLAS = str.maketrans({"“": '"', "”": '"', "«": '"', "»": '"', "‘": "'", "’": "'"})
 
 
+def _espacio_con_marca(c: str) -> bool:
+    """Un carácter cuyo NFKC es un espacio y una marca combinante (´, ¨, ‾): sigue siendo un signo, no un espacio."""
+    if c.isascii():
+        return False
+    p = unicodedata.normalize("NFKC", c)
+    return len(p) > 1 and p[0].isspace() and unicodedata.category(p[1]).startswith("M")
+
+
+def _nfkc(texto: str) -> str:
+    """NFKC que deja intactos los caracteres de _espacio_con_marca, para que no se vuelvan un espacio."""
+    trozos, inicio = [], 0
+    for i, c in enumerate(texto):
+        if _espacio_con_marca(c):
+            trozos += [unicodedata.normalize("NFKC", texto[inicio:i]), c]
+            inicio = i + 1
+    trozos.append(unicodedata.normalize("NFKC", texto[inicio:]))
+    return "".join(trozos)
+
+
 def normalizar_cita(texto: str) -> str:
-    return normalizar(unicodedata.normalize("NFKC", texto).translate(COMILLAS))
+    return normalizar(_nfkc(texto).translate(COMILLAS))
 
 
 MESES_INGLES = {"january", "february", "march", "april", "may", "june", "july", "august", "september",
@@ -48,15 +67,18 @@ UNIDADES = ("día|días|mes|meses|año|años|hora|horas|minutos|semana|semanas|t
             "mil|centavo|centavos|gramo|gramos|miligramo|miligramos|microgramo|microgramos|mcg|tableta|tabletas|"
             "frasco|frascos|ampolla|ampollas|litro|litros|cc")
 UNIDAD_DESPUES = re.compile(r"\{[1-9][0-9]*\}\s+(?:" + normalizar(UNIDADES) + r")(?![^\W\d_])")
-UNIDAD_ANTES = re.compile(r"(?<![\w$])(?:q\.?|gtq|us\$|\$)\s+\{[1-9][0-9]*\}")
+UNIDAD_ANTES = re.compile(r"(?<![\w$])(?:q\.?|gtq|us\$|\$)(?:\s+|\s*[(,]\s*)\{[1-9][0-9]*\}")
 # Letras que parecen dígitos: una l minúscula junto a O, I, S, Z o B mayúscula, o letras sueltas de ese conjunto unidas por . , /
 PARECE_DIGITO = re.compile(r"l[OISZB]|[OISZB]l")
 PARECE_CIFRA_SUELTA = re.compile(r"(?<![^\W\d_])[lOISZB](?:[.,/][lOISZB])+(?![^\W\d_])")
+# Palabra de solo I y O que parece una cifra: con dos O o con un signo interno ("IOO", "IO.OOO"); "SI", "ISO" y "III" no.
+PARECE_CIFRA_IO = re.compile(r"(?<![^\W\d_])[IO]+(?:[.,][IO]+)*(?![^\W\d_])")
+PALABRA_LL = re.compile(r"(?<![^\W\d_])ll(?![^\W\d_])")
 TIPOS_QUE_ESCALAN = {"modificacion", "aclaracion"}
 
 
 def _espaciar(texto: str) -> str:
-    return " ".join(unicodedata.normalize("NFKC", texto).split())
+    return " ".join(_nfkc(texto).split())
 
 
 def _signo(c: str) -> bool:
@@ -90,7 +112,7 @@ def _mapa(texto: str, plegar: bool) -> tuple[str, list[int]]:
     """Normaliza como normalizar_cita (plegar) o como _espaciar, y da por carácter su posición en el original."""
     salida, indices = [], []
     for i, c in enumerate(texto):
-        pieza = unicodedata.normalize("NFKC", c)
+        pieza = c if _espacio_con_marca(c) else unicodedata.normalize("NFKC", c)
         if plegar:
             pieza = unicodedata.normalize("NFD", pieza.translate(COMILLAS).casefold())
         for ch in pieza:
@@ -194,7 +216,8 @@ def _error_texto(afirmacion) -> str | None:
     # Las de categoría Nl (Ⅻ) son letras para NFKC: se revisan también antes de normalizar.
     if (any(unicodedata.category(c).startswith("N") for c in sin_marcadores + resto) or _con_mes(resto)
             or any(PARECE_DIGITO.search(p) for p in re.findall(r"[^\W\d_]+", resto))
-            or PARECE_CIFRA_SUELTA.search(resto)):
+            or PARECE_CIFRA_SUELTA.search(resto) or PALABRA_LL.search(resto)
+            or any(p.count("O") >= 2 or not p.isalpha() for p in PARECE_CIFRA_IO.findall(resto))):
         return "dato_fuera_de_literal"
     if BARRA_SUELTA.search(resto) or not TEXTO_PERMITIDO.fullmatch(resto):
         return "texto_invalido"
@@ -339,9 +362,9 @@ def validar(salida_cruda: str, evidencia: dict[str, FragmentoRecuperado],
                 return [ErrorValidacion(codigo=codigo, afirmacion=i)]
             lineas.append(linea + " " + "".join(marcadores))
         # Una modificación o aclaración como fuente basta para pedir revisión: el sistema no decide la vigencia.
-        # Si estaba en la evidencia y solo se citan las bases, la afirmación puede estar desactualizada.
+        # Si estaba en la evidencia y se cita cualquier otro tipo de documento, la afirmación puede estar desactualizada.
         tipos_citados = {evidencia[c.fragmento].tipo_documento for a in salida.afirmaciones for c in a.citas}
-        if tipos_citados & TIPOS_QUE_ESCALAN or ("bases" in tipos_citados and any(
+        if tipos_citados & TIPOS_QUE_ESCALAN or (tipos_citados - TIPOS_QUE_ESCALAN and any(
                 f.tipo_documento in TIPOS_QUE_ESCALAN for f in evidencia.values())):
             comunes["needs_human_review"] = True
         return RespuestaEstructurada(answer="\n".join(lineas), sources=fuentes, abstained=False, **comunes)
