@@ -809,7 +809,8 @@ class ValidacionTests(unittest.TestCase):
 
     def test_deduplica_par_chunk_cita_y_mantiene_marcadores(self):
         salida = salida_222()
-        salida["afirmaciones"].append(salida["afirmaciones"][0])
+        # C13: una afirmación repetida tal cual es afirmacion_duplicada; la misma cita en otra afirmación se deduplica.
+        salida["afirmaciones"].append({**salida["afirmaciones"][0], "texto": "Las bases confirman recepción el {1}."})
         r = self.verificar(salida)
         self.assertEqual(len(r.sources), 2)
         self.assertEqual(r.answer.count("[1]"), 2)
@@ -1006,8 +1007,9 @@ class DatosDesdeLaCitaTests(unittest.TestCase):
         self.assertEqual(informe["datos_desde_cita"], 1)
 
     def test_tramo_con_unidad_pegada_sigue_rechazado(self):
+        # C13: la unidad que la cita trae seguida entra en el tramo; con otra unidad en el texto sigue rechazado.
         cita = "con vigencia de 120 días a partir de la fecha"
-        r = self.validar(self.salida("Vigencia de 120 días.", [("F1", cita)]), self.un_fragmento(cita))
+        r = self.validar(self.salida("Vigencia de 120 meses.", [("F1", cita)]), self.un_fragmento(cita))
         self.assertEqual([e.codigo for e in r], ["unidad_fuera_de_literal"])
 
     def test_c11_identificador_de_version_del_fragmento_citado_se_acepta(self):
@@ -1036,3 +1038,116 @@ class DatosDesdeLaCitaTests(unittest.TestCase):
         crudo = self.salida("En la Modificación Número 1, la recepción es el {1}.",
                             [("F2", "INSTITUTO, el día 06 de octubre de 2023")], [(1, "06 de octubre de 2023")])
         self.assertEqual([e.codigo for e in self.validar(crudo, [f1, f2])], ["dato_fuera_de_literal"])
+
+
+class OctavaPasadaTests(unittest.TestCase):
+    """C13: identificador completo, relleno con otro documento, tramos largos, uniones mixtas y unidades."""
+
+    CITA_M11 = "Hasta diez (10) días hábiles contados a partir del día siguiente de la fecha de recepción de OFERTAS."
+
+    def validar(self, salida, fragmentos, conflictos=(), informe=None):
+        resultado = herramienta(fragmentos=fragmentos)
+        _, evidencia, _, _ = construir_prompt("pregunta", resultado.fragmentos)
+        crudo = json.dumps({"abstener": False, "revision_humana": False, "afirmaciones": salida}, ensure_ascii=False)
+        return validar(crudo, evidencia, resultado, evento_id="222", conflictos=conflictos, informe=informe)
+
+    def af(self, texto, cita, datos=(), fragmento="F1"):
+        return {"texto": texto, "citas": [{"fragmento": fragmento, "cita": cita}],
+                "datos": [{"cita": 1, "literal": d} for d in datos]}
+
+    def con_texto(self, indice, texto):
+        return fragmentos_222()[indice].model_copy(update={"texto": texto})
+
+    def codigos(self, r):
+        self.assertIsInstance(r, list)
+        return [e.codigo for e in r]
+
+    def test_h1_un_uno_suelto_no_sale_del_identificador(self):
+        f2 = self.con_texto(1, self.CITA_M11)
+        self.assertEqual(f2.identificador_version_oficial, "Modificación Número 1")
+        for texto in ("La apertura de plicas es hasta un (1) día hábil después de la recepción de ofertas.",
+                      "La apertura de plicas se hace a la 1 de la tarde.", "Se requiere 1 muestra del producto.",
+                      "La apertura de plicas es hasta un ({1}) día hábil después de la recepción de ofertas."):
+            with self.subTest(texto=texto):
+                datos = ["1"] if "{1}" in texto else []
+                r = self.validar([self.af(texto, self.CITA_M11, datos, "F1")], [f2])
+                self.assertIsInstance(r, list)
+
+    def test_h1_el_identificador_completo_publica_con_o_sin_marcador(self):
+        f2 = self.con_texto(1, "INSTITUTO, el día 06 de octubre de 2023")
+        for texto, datos in (("En la Modificación Número 1, la recepción es el {1}.", ["06 de octubre de 2023"]),
+                             ("En la Modificación Número 1, la recepción es el 06 de octubre de 2023.", [])):
+            with self.subTest(texto=texto):
+                informe = {}
+                r = self.validar([self.af(texto, "INSTITUTO, el día 06 de octubre de 2023", datos)], [f2], informe=informe)
+                self.assertIsInstance(r, RespuestaEstructurada)
+                self.assertIn("En la Modificación Número 1, la recepción es el 06 de octubre de 2023.", r.answer)
+
+    def test_h1_dato_declarado_que_es_solo_parte_del_identificador_se_rechaza(self):
+        f2 = self.con_texto(1, self.CITA_M11)
+        r = self.validar([self.af("La apertura es en la Modificación Número {1}.", self.CITA_M11, ["1"])], [f2])
+        self.assertEqual(self.codigos(r), ["dato_no_literal"])
+
+    def test_h2_dos_afirmaciones_con_el_mismo_texto_se_rechazan(self):
+        f1, f2 = fragmentos_222()
+        a = self.af("La recepción de ofertas se hace en el lugar indicado.",
+                    "La recepción de ofertas se llevará a cabo el 31 de julio de 2023")
+        b = self.af("La recepción  de ofertas se hace en el lugar INDICADO.", "Salones Los Volcanes, ubicados en la 7ª. Avenida",
+                    [], "F2")
+        for conflictos in ((), [{f1.doc_id, f2.doc_id}]):
+            with self.subTest(conflictos=conflictos):
+                self.assertEqual(self.codigos(self.validar([a, b], [f1, f2.model_copy(update={
+                    "texto": "Salones Los Volcanes, ubicados en la 7ª. Avenida"})], conflictos)), ["afirmacion_duplicada"])
+
+    def test_h2_con_conflicto_la_cita_del_otro_documento_debe_compartir_una_palabra(self):
+        f1, f2 = fragmentos_222()
+        grupo = [{f1.doc_id, f2.doc_id}]
+        a = self.af("La recepción de ofertas es el {1}.", "La recepción de ofertas se llevará a cabo el 31 de julio de 2023",
+                    ["31 de julio de 2023"])
+        ajena = self.af("El monto del seguro de caución es el diez por ciento del contrato.",
+                        "Salones Los Volcanes, ubicados en la 7ª. Avenida", [], "F2")
+        self.assertEqual(self.codigos(self.validar([a, ajena], [f1, f2], grupo)), ["cita_ajena"])
+        propia = self.af("Los Volcanes son el lugar de la recepción de ofertas.",
+                         "Salones Los Volcanes, ubicados en la 7ª. Avenida", [], "F2")
+        self.assertIsInstance(self.validar([a, propia], [f1, f2], grupo), RespuestaEstructurada)
+
+    def test_h2_la_palabra_compartida_no_puede_ser_vacia_ni_el_nombre_del_documento(self):
+        f1, f2 = fragmentos_222()
+        grupo = [{f1.doc_id, f2.doc_id}]
+        a = self.af("La recepción de ofertas es el {1}.", "La recepción de ofertas se llevará a cabo el 31 de julio de 2023",
+                    ["31 de julio de 2023"])
+        vacia = "Según las bases, hasta la fecha cuando desde ocurra"
+        b = self.af("Según la modificación, desde ahora hasta cuando sea.", vacia, [], "F2")
+        self.assertEqual(self.codigos(self.validar([a, b], [f1, f2.model_copy(update={"texto": vacia})], grupo)),
+                         ["cita_ajena"])
+
+    def test_h4_tramo_de_mas_de_200_caracteres_no_lanza(self):
+        lista = ", ".join(str(1000 + i) for i in range(45))
+        cita = "Las extensiones son " + lista
+        self.assertGreater(len(lista), 200)
+        r = self.validar([self.af("Las extensiones son " + lista + ".", cita)], [self.con_texto(0, cita)])
+        self.assertIn(self.codigos(r)[0], {"dato_fuera_de_literal", "texto_invalido"})
+
+    def test_h7_marcador_del_codigo_y_dato_creado_contiguos_exigen_el_compuesto_en_la_cita(self):
+        f = self.con_texto(0, B001)
+        r = self.validar([self.af("La recepción de ofertas es el 31 de julio, 11:30.", CITA_REC, ["31 de julio"])], [f])
+        self.assertEqual(self.codigos(r), ["dato_no_literal"])
+        cita = "los códigos 10527, 10528 del evento"
+        r = self.validar([self.af("Los códigos son 10527, 10528.", cita, ["10527"])], [self.con_texto(0, cita + " demo")])
+        self.assertIsInstance(r, RespuestaEstructurada)
+        self.assertIn("10527, 10528", r.answer)
+
+    def test_unidad_que_sigue_al_dato_y_esta_en_la_cita_entra_en_el_tramo(self):
+        cita = "con vigencia de 120 días a partir de la fecha"
+        for texto, esperado in (("Vigencia de 120 días.", "120 días"), ("Tableta de 150 mg.", "150 mg"),
+                                ("Hasta las 10:00 horas.", "10:00 horas")):
+            with self.subTest(texto=texto):
+                c = {"Vigencia de 120 días.": cita, "Tableta de 150 mg.": "tableta de 150 mg, vial",
+                     "Hasta las 10:00 horas.": "hasta las 10:00 horas del día"}[texto]
+                r = self.validar([self.af(texto, c)], [self.con_texto(0, c + " del evento")])
+                self.assertIsInstance(r, RespuestaEstructurada)
+                self.assertIn(esperado, r.answer)
+        r = self.validar([self.af("Vigencia de 120 meses.", cita)], [self.con_texto(0, cita)])
+        self.assertEqual(self.codigos(r), ["unidad_fuera_de_literal"])
+        r = self.validar([self.af("Vigencia de {1} días.", cita, ["120"])], [self.con_texto(0, cita)])
+        self.assertEqual(self.codigos(r), ["unidad_fuera_de_literal"])

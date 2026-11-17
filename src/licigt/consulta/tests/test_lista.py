@@ -177,7 +177,7 @@ class GeneradorFalso:
     def __init__(self, salida=None, error=None):
         self.salida, self.error, self.llamadas = salida, error, 0
 
-    def generar(self, mensajes, esquema):
+    def generar(self, mensajes, esquema, semilla_extra=0):
         self.llamadas += 1
         if self.error:
             raise self.error

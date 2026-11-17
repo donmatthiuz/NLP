@@ -424,14 +424,55 @@ class OrquestadorTests(unittest.TestCase):
         self.assertTrue(r.abstained)
         self.assertIn("falta_segunda_fuente", generador.llamadas[1][0][-1]["content"])
 
-    def test_c10_falta_segunda_fuente_nombra_el_alias_del_documento_sin_citar(self):
+    def test_c13_falta_segunda_fuente_no_nombra_el_alias_y_ofrece_abstenerse(self):
         salida = salida_222()
         salida["afirmaciones"].pop()
         generador = GeneradorFalso([json.dumps(salida)] * 2)
         self.consultar(recuperador=RecuperadorFalso(conflicto=True), generador=generador)
         mensaje = generador.llamadas[1][0][-1]["content"]
-        self.assertIn("Desajuste: falta citar un fragmento de otro documento: F2.", mensaje)
+        self.assertNotIn("falta citar un fragmento", mensaje)
+        self.assertNotIn("F2", mensaje)
         self.assertNotIn("INSTITUTO", mensaje)
+        self.assertIn("si el otro documento trata el mismo dato", mensaje)
+        self.assertIn("agrega una afirmación con lo que dice ese documento", mensaje)
+        self.assertIn("abstén", mensaje)
+
+    def test_c13_relleno_con_el_otro_documento_no_publica(self):
+        propia = {"texto": "Las bases fijan el lugar de recepción de ofertas.", "datos": [],
+                  "citas": [{"fragmento": "F1", "cita": "La recepción de ofertas se llevará a cabo el 31 de julio de 2023"}]}
+        relleno = {**propia, "citas": [{"fragmento": "F2", "cita": "INSTITUTO, el día 06 de octubre de 2023"}]}
+        primera = {**salida_222(), "afirmaciones": [propia]}
+        segunda = {**salida_222(), "afirmaciones": [propia, relleno]}
+        generador = GeneradorFalso([json.dumps(primera), json.dumps(segunda)])
+        r = self.consultar(recuperador=RecuperadorFalso(conflicto=True), generador=generador)
+        self.assertTrue(r.abstained)
+        self.assertEqual(self.eventos[0]["validacion"], "fallida")
+
+    def test_c13_tramo_de_mas_de_200_caracteres_regenera_sin_lanzar(self):
+        lista = ", ".join(str(1000 + i) for i in range(45))
+        mala = salida_222()
+        mala["afirmaciones"] = [{"texto": "Las extensiones son " + lista + ".",
+                                 "citas": [{"fragmento": "F1", "cita": "Las extensiones son " + lista}], "datos": []}]
+        recuperador = RecuperadorFalso()
+        recuperador.busqueda["fragmentos"][0]["texto"] += " Las extensiones son " + lista
+        generador = GeneradorFalso([json.dumps(mala), json.dumps(salida_222())])
+        r = self.consultar(recuperador=recuperador, generador=generador)
+        self.assertEqual(len(generador.llamadas), 2)
+        self.assertFalse(r.abstained)
+        self.assertEqual(self.eventos[0]["validacion"], "regenerada_ok")
+        self.assertNotEqual(self.eventos[0]["error"], "contrato_invalido")
+
+    def test_c13_generador_con_la_firma_del_protocolo_regenera(self):
+        class SoloProtocolo(GeneradorFalso):
+            def generar(self, mensajes, esquema, semilla_extra: int = 0):
+                return super().generar(mensajes, esquema, semilla_extra)
+
+        mala = salida_222()
+        mala["afirmaciones"][0]["texto"] = "Las bases indican recepción el 30 de julio de 2023."
+        generador = SoloProtocolo([json.dumps(mala), json.dumps(salida_222())])
+        r = self.consultar(generador=generador)
+        self.assertFalse(r.abstained)
+        self.assertEqual(generador.semillas, [0, 1])
 
     def test_c10_datos_desde_la_cita_van_a_la_auditoria_como_numero(self):
         salida = salida_222()

@@ -72,6 +72,9 @@ class EnrutadorTests(unittest.TestCase):
             ("Dame la lista de documentos de la plica", "extraer_requisitos"),
             ("Dame el cronograma del evento", "extraer_requisitos"),
             ("¿Cuál es la fecha de recepción de ofertas y qué documentos presento?", "extraer_requisitos"),
+            ("¿Cuál es la fecha de recepción de ofertas y la de apertura de plicas?", "extraer_requisitos"),
+            ("¿Cuál es la fecha de recepción de ofertas y cuándo se adjudica?", "extraer_requisitos"),
+            ("¿Cuál es la fecha de recepción de ofertas, la de apertura y la de adjudicación?", "extraer_requisitos"),
         ):
             with self.subTest(pregunta=pregunta):
                 siguiente = decidir(*EnrutadorReglas().clasificar(pregunta))

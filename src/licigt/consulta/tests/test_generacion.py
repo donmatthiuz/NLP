@@ -10,7 +10,7 @@ from datetime import date
 
 from pydantic import ValidationError
 
-from licigt.consulta.generacion import VERSION_PROMPT, SalidaModelo, construir_prompt, esquema_salida
+from licigt.consulta.generacion import VERSION_PROMPT, ClienteGenerador, SalidaModelo, construir_prompt, esquema_salida
 from licigt.consulta.lectura import FragmentoRecuperado
 from licigt.consulta.requisitos import FechaCandidata
 
@@ -152,7 +152,9 @@ class GeneracionTests(unittest.TestCase):
     def test_prompt_pide_datos_literales_con_ejemplo_y_marcadores(self):
         mensajes, _, esquema, _ = construir_prompt("dato", fragmentos_222())
         sistema = mensajes[0]["content"]
-        self.assertEqual(VERSION_PROMPT, "f4-v7")
+        self.assertEqual(VERSION_PROMPT, "f4-v8")
+        self.assertIn("de 10 a 300 caracteres", sistema)
+        self.assertNotIn("de 10 a 200 caracteres", sistema)
         for texto in ("{1}", '"datos"', "una sola cita", "marcador", "código IGSS", "numeral", "concentración", "NOG",
                       "número de evento", "solo y separado", "una sola vez", "Colapsa", "unidad", "dentro del literal",
                       "Entre dos marcadores", "aparecer seguidos"):
@@ -261,3 +263,7 @@ assert not any(n == p or n.startswith(p + '.') for n in sys.modules
         r = subprocess.run([sys.executable, "-c", codigo], capture_output=True, text=True,
                            env={**os.environ, "PYTHONPATH": "src"})
         self.assertEqual(r.returncode, 0, r.stderr)
+
+    def test_c13_el_protocolo_del_generador_lleva_la_semilla_extra(self):
+        parametro = inspect.signature(ClienteGenerador.generar).parameters["semilla_extra"]
+        self.assertEqual((parametro.default, parametro.annotation), (0, int))

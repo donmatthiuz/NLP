@@ -18,6 +18,7 @@ PATRONES_COMPARACION = (r"\bcambi(?:o|os)\b", r"\bmodific\w*", r"\bdiferencia\w*
 # Si la pregunta suma otra fecha, la hora, una lista o los documentos, sigue siendo extraer_requisitos.
 PATRON_DATO_UNICO = (r"\bcual es (?:la|el) (?:fecha|plazo|hora) (?:de|del)\b"
                      r"(?!.*\b(?:y|e)\s+(?:la\s+|el\s+)?(?:hora|fecha|plazo)\w*)"
+                     r"(?!.*(?:,|\by)\s+(?:la|el)\s+de\b)(?!.*\by\s+cuando\b)"
                      r"(?!.*\b(?:requisito|lista|cronograma|documento)\w*)")
 PATRONES_REQUISITOS = (r"\brequisito\w*", r"\blista\w*", r"\b(?:fecha|plazo|hora)s?\b",
                        r"\bcronograma\b", r"\bcuando\b",

@@ -177,8 +177,7 @@ def _ejecutar(ctx, evento_id, evento_salida, pregunta, herramienta, presupuesto,
         for intento in range(2):
             try:
                 # La regeneración cambia la semilla: con temperatura 0 la misma semilla repite la misma salida.
-                crudo = (generador.generar(mensajes, esquema, semilla_extra=intento) if intento
-                         else generador.generar(mensajes, esquema))
+                crudo = generador.generar(mensajes, esquema, semilla_extra=intento)
                 cortada = False
             except FallaGenerador as exc:
                 if exc.codigo != "respuesta_cortada":
@@ -221,9 +220,6 @@ def _ejecutar(ctx, evento_id, evento_salida, pregunta, herramienta, presupuesto,
                 continue
             errores = json.dumps([e.model_dump(exclude_none=True) for e in verificada], ensure_ascii=False)
             desajustes = _desajustes(crudo, verificada)
-            faltan = _por_citar(crudo, verificada, evidencia, conflictos, herramienta)
-            if faltan:
-                desajustes.append("falta citar un fragmento de otro documento: " + ", ".join(faltan))
             mensajes = [*mensajes, {"role": "assistant", "content": crudo}, {"role": "user", "content": (
                 "La salida anterior no pasó la validación: " + errores + "\n"
                 + "".join(f"Desajuste: {d}.\n" for d in desajustes) +
@@ -234,6 +230,9 @@ def _ejecutar(ctx, evento_id, evento_salida, pregunta, herramienta, presupuesto,
                 "- dato_no_literal: el literal debe ser un tramo exacto de la cita indicada, sin cambiar ceros ni formato.\n"
                 "  Entre dos marcadores solo van ', ', ' y ', ' o ', ' ni ', ' a ', ' al ', ', y ' o ' y el '; un tramo corto (sin palabras de 4 o más letras) con otro texto, ese texto y los dos literales deben aparecer seguidos en la cita; si no, un solo literal.\n"
                 "- unidad_fuera_de_literal: la unidad (días, meses, por ciento, mg, Q, US$) va dentro del literal, no junto al marcador.\n"
+                "- falta_segunda_fuente: si el otro documento trata el mismo dato, agrega una afirmación con lo que dice ese documento citándolo; si no lo trata, abstén (\"abstener\": true).\n"
+                "- afirmacion_duplicada: no repitas una afirmación; cada una dice algo distinto.\n"
+                "- cita_ajena: la afirmación debe tratar lo que dice su cita; si la cita no habla de ese dato, quítala.\n"
                 "- datos_de_varias_citas: divide en dos afirmaciones, cada una con datos de una sola cita.\n"
                 "- dato_fuera_de_literal: quita del texto todo dígito y nombre de mes; ponlo como marcador {n} con su literal en datos. Tampoco escribas letras que parecen cifras (lO, lOO, l.S, S.O).\n"
                 '- texto_invalido: usa solo letras latinas, espacios y . , ; : ( ) ¿ ? ¡ ! \" \' - y la barra de y/o, sin saltos de línea ni [n], y cada marcador {n} con su dato y cada dato con su marcador.\n'
@@ -245,26 +244,6 @@ def _ejecutar(ctx, evento_id, evento_salida, pregunta, herramienta, presupuesto,
     finally:
         ejecucion.resultado, ejecucion.fragmentos = resultado, fragmentos
         ejecucion.error, ejecucion.validacion = error, validacion
-
-
-def _por_citar(crudo, errores, evidencia, conflictos, herramienta):
-    """Alias (F1..Fn) de los fragmentos de los documentos que falta citar ante falta_segunda_fuente; sin texto."""
-    if not any(e.codigo == "falta_segunda_fuente" for e in errores):
-        return []
-    try:
-        citados = {evidencia[c["fragmento"]].doc_id
-                   for a in json.loads(crudo)["afirmaciones"] for c in a["citas"]}
-    except (TypeError, ValueError, KeyError):
-        return []
-    disponibles = {f.doc_id for f in evidencia.values()}
-    faltan = set()
-    if herramienta == "comparar_versiones" and len(citados) < 2:
-        faltan |= disponibles - citados
-    for grupo in conflictos:
-        presentes = set(grupo) & disponibles
-        if len(presentes) >= 2 and not presentes <= citados:
-            faltan |= presentes - citados
-    return [alias for alias, f in evidencia.items() if f.doc_id in faltan]
 
 
 def _desajustes(crudo, errores):

@@ -77,6 +77,14 @@ PARECE_DIGITO = re.compile(r"l[OISZB]|[OISZB]l")
 PARECE_CIFRA_SUELTA = re.compile(r"(?<![^\W\d_])[lOISZB](?:[.,/][lOISZB])+(?![^\W\d_])")
 # Palabra de solo I y O que parece una cifra: con dos O o con un signo interno ("IOO", "IO.OOO"); "SI", "ISO" y "III" no.
 PARECE_CIFRA_IO = re.compile(r"(?<![^\W\d_])[IO]+(?:[.,][IO]+)*(?![^\W\d_])")
+# Un tramo que no cabe en Dato.literal (200) no se convierte en dato: el texto falla con las reglas de siempre.
+MAX_DATO = 200
+# Palabra de 5 o más letras que no cuenta como contenido compartido entre una afirmación y su cita.
+PALABRAS_VACIAS = frozenset({
+    "entre", "sobre", "desde", "hasta", "segun", "cuando", "donde", "puede", "pueden", "deben", "estos", "estas",
+    "otros", "otras", "tiene", "tienen", "sera", "seran", "cuales", "ambos", "mismo", "misma", "dicho", "dicha",
+    "bases", "modificacion", "aclaracion", "documento", "documentos", "version", "evento", "licitacion"})
+UNIDAD_SIGUE = re.compile(r"\s+(?:" + UNIDADES + r")(?![^\W\d_])", re.IGNORECASE)
 PALABRA_LL = re.compile(r"(?<![^\W\d_])ll(?![^\W\d_])")
 TIPOS_QUE_ESCALAN = {"modificacion", "aclaracion"}
 
@@ -179,15 +187,19 @@ def _aislado(texto: str) -> bool:
     return True
 
 
-def _compuestos(afirmacion) -> list[list[str]]:
-    """Los tramos de marcadores unidos por un texto que no es una unión simple, con el compuesto que deben formar en la cita."""
+def _compuestos(afirmacion, colocados=frozenset(), creados=frozenset()) -> list[list[str]]:
+    """Los tramos de marcadores unidos por un texto que no es una unión simple, con el compuesto que deben formar en la cita.
+
+    Entre un marcador que puso el código y un dato creado desde la cita la unión simple no exime: el compuesto debe estar en la cita."""
     compuestos, actual = [], None
     marcadores = list(MARCADOR.finditer(afirmacion.texto))
     for previo, m in zip(marcadores, marcadores[1:]):
         union = afirmacion.texto[previo.end():m.start()]
         union_nfkc = unicodedata.normalize("NFKC", union).lower()
+        a, b = int(previo.group()[1:-1]), int(m.group()[1:-1])
+        mixto = (a in colocados and b in creados) or (a in creados and b in colocados)
         # Un tramo con una palabra de 4 o más letras es contenido propio del modelo y no se exige en la cita.
-        if union_nfkc in UNIONES or any(len(p) >= 4 for p in re.findall(r"[^\W\d_]+", union_nfkc)):
+        if (union_nfkc in UNIONES and not mixto) or any(len(p) >= 4 for p in re.findall(r"[^\W\d_]+", union_nfkc)):
             actual = None
         elif actual is None:
             actual = [previo.group(), union, m.group()]
@@ -228,6 +240,11 @@ def _error_texto(afirmacion) -> str | None:
     return None
 
 
+def _palabras_de_contenido(texto: str) -> set[str]:
+    """Palabras de 5 o más letras sin tilde ni mayúsculas, salvo las vacías y el nombre del documento."""
+    return {p for p in re.findall(r"[^\W\d_]{5,}", normalizar_cita(texto)) if p not in PALABRAS_VACIAS}
+
+
 def _armar(afirmacion, literales: list[str]) -> tuple[str, str | None]:
     """Sustituye cada marcador por su literal y revisa la línea armada fuera de los tramos de literal."""
     partes = MARCADOR.split(afirmacion.texto)
@@ -240,14 +257,15 @@ def _armar(afirmacion, literales: list[str]) -> tuple[str, str | None]:
     return linea, None
 
 
-def _poner_marcadores(afirmacion: Afirmacion) -> tuple[Afirmacion, int]:
-    """Sustituye por {n} el literal copiado en el texto y descarta el dato que no aparece; devuelve los descartados.
+def _poner_marcadores(afirmacion: Afirmacion) -> tuple[Afirmacion, int, frozenset[int]]:
+    """Sustituye por {n} el literal copiado en el texto y descarta el dato que no aparece; devuelve los descartados
+    y los números (tras renumerar) de los marcadores que puso.
 
     Solo actúa sobre datos sin marcador y con marcadores válidos; lo demás lo decide el validador sin cambios."""
     n = len(afirmacion.datos)
     usados = [int(m[1:-1]) for m in MARCADOR.findall(afirmacion.texto)]
     if len(usados) != len(set(usados)) or not set(usados) <= set(range(1, n + 1)):
-        return afirmacion, 0
+        return afirmacion, 0, frozenset()
     # Se busca solo entre marcadores, para que un literal como "1" no caiga dentro de un "{1}".
     trozos = [[parte] for parte in MARCADOR.split(afirmacion.texto)]
     colocados = set()
@@ -265,7 +283,7 @@ def _poner_marcadores(afirmacion: Afirmacion) -> tuple[Afirmacion, int]:
                 break
     vigentes = [i for i in range(1, n + 1) if i in usados or i in colocados]
     if len(vigentes) == n and not colocados:
-        return afirmacion, 0
+        return afirmacion, 0, frozenset()
     nuevo = {viejo: indice for indice, viejo in enumerate(vigentes, 1)}
     texto = ""
     for k, trozo in enumerate(trozos):
@@ -273,7 +291,7 @@ def _poner_marcadores(afirmacion: Afirmacion) -> tuple[Afirmacion, int]:
             texto += "{%d}" % nuevo[usados[k - 1]]
         texto += "".join("{%d}" % nuevo[t] if isinstance(t, int) else t for t in trozo)
     ajustada = afirmacion.model_copy(update={"texto": texto, "datos": [afirmacion.datos[i - 1] for i in vigentes]})
-    return ajustada, n - len(vigentes)
+    return ajustada, n - len(vigentes), frozenset(nuevo[i] for i in colocados)
 
 
 def _es_dato(palabra: str) -> bool:
@@ -300,10 +318,34 @@ def _tramos_de_datos(texto: str) -> list[tuple[int, int]]:
     return tramos
 
 
-def _en_identificador(fragmento: FragmentoRecuperado | None, literal: str) -> bool:
-    """El literal está, con límites de palabra, en el identificador de versión del fragmento (metadato de ingesta, no del modelo)."""
+def _identificador(fragmento: FragmentoRecuperado | None) -> str | None:
+    """El identificador de versión del fragmento (metadato de ingesta, no del modelo), con los espacios colapsados."""
     identificador = fragmento.identificador_version_oficial if fragmento else None
-    return identificador is not None and _buscar(_espaciar(identificador), _espaciar(literal)) != -1
+    return _espaciar(identificador) if identificador else None
+
+
+def _en_identificador(fragmento: FragmentoRecuperado | None, literal: str) -> bool:
+    """El literal es el identificador de versión del fragmento entero: una parte suelta ("1") no vale."""
+    identificador = _identificador(fragmento)
+    return identificador is not None and _espaciar(literal) == identificador
+
+
+def _con_identificadores(texto: str, tramos: list[tuple[int, int]], identificadores: list[str]) -> list[tuple[int, int]]:
+    """Cada tramo que toca un identificador completo del texto (con límites de palabra) se extiende a todo el identificador."""
+    ocupados = []
+    for identificador in identificadores:
+        patron = r"(?<!\w)" + r"\s+".join(map(re.escape, identificador.split())) + r"(?!\w|[^\w\s]\d)"
+        ocupados += [m.span() for m in re.finditer(patron, texto)]
+    nuevos = []
+    for inicio, fin in tramos:
+        for a, b in ocupados:
+            if inicio < b and a < fin:
+                inicio, fin = min(inicio, a), max(fin, b)
+        if not nuevos or inicio >= nuevos[-1][1]:
+            nuevos.append((inicio, fin))
+        else:
+            nuevos[-1] = (nuevos[-1][0], max(fin, nuevos[-1][1]))
+    return nuevos
 
 
 def _datos_desde_cita(afirmacion: Afirmacion, evidencia: dict[str, FragmentoRecuperado]) -> tuple[Afirmacion, int]:
@@ -316,14 +358,19 @@ def _datos_desde_cita(afirmacion: Afirmacion, evidencia: dict[str, FragmentoRecu
     if len(usados) != len(set(usados)) or set(usados) != set(range(1, n + 1)):
         return afirmacion, 0
     citas = [_espaciar(c.cita) for c in afirmacion.citas]
+    identificadores = [i for i in (_identificador(evidencia.get(c.fragmento)) for c in afirmacion.citas) if i]
     datos = list(afirmacion.datos)
     partes, marcadores = MARCADOR.split(afirmacion.texto), MARCADOR.findall(afirmacion.texto)
     texto = ""
     for k, parte in enumerate(partes):
         previo = 0
-        for inicio, fin in _tramos_de_datos(parte):
+        for inicio, fin in _con_identificadores(parte, _tramos_de_datos(parte), identificadores):
+            # La unidad que sigue al dato entra en el tramo si la cita la trae seguida.
+            unidad = UNIDAD_SIGUE.match(parte, fin)
+            if unidad and any(_buscar(c, _espaciar(parte[inicio:unidad.end()])) != -1 for c in citas):
+                fin = unidad.end()
             literal = _espaciar(parte[inicio:fin])
-            if SALTOS.search(parte[inicio:fin]) or any(c in literal for c in "[]{}"):
+            if SALTOS.search(parte[inicio:fin]) or any(c in literal for c in "[]{}") or len(literal) > MAX_DATO:
                 continue
             donde = [j for j, cita in enumerate(citas, 1)
                      if _buscar(cita, literal) != -1
@@ -365,13 +412,20 @@ def validar(salida_cruda: str, evidencia: dict[str, FragmentoRecuperado],
         return [ErrorValidacion(codigo="sin_afirmaciones")]
 
     ajustadas = [_poner_marcadores(a) for a in salida.afirmaciones]
-    salida = salida.model_copy(update={"afirmaciones": [a for a, _ in ajustadas]})
+    salida = salida.model_copy(update={"afirmaciones": [a for a, _, _ in ajustadas]})
     if informe is not None:
-        informe["datos_descartados"] = sum(d for _, d in ajustadas)
-    creadas = [_datos_desde_cita(a, evidencia) for a in salida.afirmaciones]
+        informe["datos_descartados"] = sum(d for _, d, _ in ajustadas)
+    antes = [len(a.datos) for a in salida.afirmaciones]
+    try:
+        creadas = [_datos_desde_cita(a, evidencia) for a in salida.afirmaciones]
+    except ValidationError:
+        return [ErrorValidacion(codigo="esquema_invalido")]
     salida = salida.model_copy(update={"afirmaciones": [a for a, _ in creadas]})
     if informe is not None:
         informe["datos_desde_cita"] = sum(d for _, d in creadas)
+    # Por afirmación: los marcadores que puso el código y los datos que creó desde la cita.
+    colocados = [c for _, _, c in ajustadas]
+    creados = [frozenset(range(n + 1, n + d + 1)) for n, (_, d) in zip(antes, creadas)]
 
     errores = []
     for i, afirmacion in enumerate(salida.afirmaciones, 1):
@@ -441,12 +495,34 @@ def validar(salida_cruda: str, evidencia: dict[str, FragmentoRecuperado],
         if errores and errores[-1].afirmacion == i:
             continue
         # Entre dos marcadores, salvo una unión simple, el tramo con sus literales debe aparecer seguido en la cita.
-        for compuesto in _compuestos(afirmacion):
+        for compuesto in _compuestos(afirmacion, colocados[i - 1], creados[i - 1]):
             piezas = [neutrales[int(p[1:-1]) - 1] if MARCADOR.fullmatch(p) else p for p in compuesto]
             cita = afirmacion.datos[int(compuesto[0][1:-1]) - 1].cita
             if _buscar(normalizar_cita(neutros[i, cita]), normalizar_cita("".join(piezas))) == -1:
                 errores.append(ErrorValidacion(codigo="dato_no_literal", afirmacion=i, cita=cita))
                 break
+    if errores:
+        return errores
+
+    lineas_armadas = [_armar(a, literales[i])[0] for i, a in enumerate(salida.afirmaciones, 1)]
+    vistas = set()
+    for i, linea in enumerate(lineas_armadas, 1):
+        clave = normalizar_cita(linea)
+        if clave in vistas:
+            errores.append(ErrorValidacion(codigo="afirmacion_duplicada", afirmacion=i))
+        vistas.add(clave)
+    if errores:
+        return errores
+    # Con conflicto, la cita de un documento del grupo debe compartir una palabra de contenido con su afirmación:
+    # así el modelo no rellena la segunda fuente repitiendo la afirmación con un fragmento ajeno.
+    en_conflicto = {d for grupo in conflictos if len(set(grupo) & {f.doc_id for f in evidencia.values()}) >= 2
+                    for d in grupo}
+    for i, (afirmacion, linea) in enumerate(zip(salida.afirmaciones, lineas_armadas), 1):
+        propias = _palabras_de_contenido(linea)
+        for j, cita in enumerate(afirmacion.citas, 1):
+            if (evidencia[cita.fragmento].doc_id in en_conflicto
+                    and not propias & _palabras_de_contenido(neutros[i, j])):
+                errores.append(ErrorValidacion(codigo="cita_ajena", afirmacion=i, cita=j))
     if errores:
         return errores
 
