@@ -73,17 +73,21 @@ Decisiones del 16 de noviembre, tras los cinco porqués ([encargo](delegacion/F3
 - La comparación de fechas por actividad detecta el conflicto de recepción del 222 (31 de julio en la portada de las bases, 06 de octubre en la modificación), que la alerta del rol 2 no marca.
 
 ### F4. Generación y validación de salida — 2 días
-- [ ] Prompt aumentado: instrucciones del sistema, evidencia y pregunta separadas; la evidencia se marca como datos no confiables.
-- [ ] El modelo cita por `chunk_id`; instrucción de abstención explícita y manejo de la trampa "si no está en el contexto, dilo".
-- [ ] Validador determinista posterior: esquema, que cada `chunk_id` exista, pertenezca al evento y al usuario, coincidencia de página, versión y texto citado.
-- [ ] Una regeneración si falla; si vuelve a fallar, abstención controlada.
-- [ ] `needs_human_review` ante contradicción, fecha o condición crítica ambigua.
+
+Cerrada tras siete pasadas del adversario ([Auditoria_F4](Auditoria_F4.md)).
+- [x] Prompt aumentado: instrucciones del sistema, evidencia y pregunta separadas; la evidencia se marca como datos no confiables.
+- [x] El modelo cita por `chunk_id`; instrucción de abstención explícita y manejo de la trampa "si no está en el contexto, dilo".
+- [x] Validador determinista posterior: esquema, que cada `chunk_id` exista, pertenezca al evento y al usuario, coincidencia de página, versión y texto citado.
+- [x] Una regeneración si falla; si vuelve a fallar, abstención controlada.
+- [x] `needs_human_review` ante contradicción, fecha o condición crítica ambigua.
 
 ### F5. Lista de verificación — 1 día
-- [ ] Modelos de la lista de verificación: ítem con cita, categoría, carácter fundamental o no, estado (pendiente, preparado, revisado) y cambio de estado con usuario, momento y confirmación explícita.
-- [ ] Derivar la propuesta de ítems de la respuesta citada de `extraer_requisitos`.
-- [ ] Guardar solo tras confirmación explícita del usuario (acción crítica que no ejecuta el modelo).
-- [ ] Marcar ítems y señalar contradicciones para revisión humana.
+
+Hecha con un repositorio en memoria ([F5](delegacion/F5_lista_de_verificacion.md)). El SQL de Postgres queda para F5b.
+- [x] Modelos de la lista de verificación: ítem con cita, categoría, carácter fundamental o no, estado (pendiente, preparado, revisado) y cambio de estado con usuario, momento y confirmación explícita.
+- [x] Derivar la propuesta de ítems de la respuesta citada de `extraer_requisitos`.
+- [x] Guardar solo tras confirmación explícita del usuario (acción crítica que no ejecuta el modelo).
+- [x] Marcar ítems y señalar contradicciones para revisión humana.
 
 ### F6. Interfaz web y demo
 - [ ] Interfaz web desde el inicio: React, Vite y TypeScript, con pnpm, sobre FastAPI. Decisión del 16 de noviembre. El curso solo exige la demo en vivo ([I3](investigacion/I3_lista_e_interfaz.md)); la vista web la promete el anteproyecto (`Anteproyecto.md:146`, `:222`).
