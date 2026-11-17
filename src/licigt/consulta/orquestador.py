@@ -101,36 +101,18 @@ def _atributo_seguro(objeto, nombre):
         return None
 
 
-def consultar(ctx, evento_id, pregunta, *, enrutador, recuperador, generador,
-              cliente_jev=None, auditar=lambda evento: None) -> RespuestaEstructurada:
-    inicio = time.monotonic()
-    usuario = _atributo_seguro(ctx, "usuario")
-    tenant_id = _atributo_seguro(ctx, "tenant_id")
-    # Incluso un id inválido debe producir una respuesta compatible con TextoNoVacio.
-    evento_salida = evento_id if isinstance(evento_id, str) and evento_id.strip() else "sin_evento"
-    respuesta = _abstencion(evento_salida)
-    resultado, herramienta, error = None, None, None
-    fragmentos = []
-    intencion = None
-    validacion = "no_aplica"
-    try:
-        presupuesto = Presupuesto()
-        if evento_salida != evento_id:
-            error = "parametros_invalidos"
-            return respuesta
-        juicios, clasificacion = enrutador.clasificar(pregunta)
-        siguiente = decidir(juicios, clasificacion)
-        intencion = {"accion": siguiente.accion, "motivo": siguiente.motivo, "variante": clasificacion.variante}
-        if siguiente.accion == "abstener":
-            return respuesta
-        if siguiente.accion == "aclarar":
-            respuesta = RespuestaEstructurada(
-                answer=siguiente.pregunta_aclaratoria, sources=[], abstained=False, tool_used=None,
-                needs_human_review=False, evento_id=evento_salida, coverage_status="sin_faltantes_detectados",
-                needs_clarification=True, clarification_question=siguiente.pregunta_aclaratoria)
-            return respuesta
+class _Ejecucion:
+    """Lo que la ejecución de una herramienta deja para la auditoría y para quien la llamó."""
+    def __init__(self):
+        self.resultado, self.fragmentos, self.error, self.validacion = None, [], None, "no_aplica"
 
-        herramienta = siguiente.herramienta
+
+def _ejecutar(ctx, evento_id, evento_salida, pregunta, herramienta, presupuesto, *, recuperador,
+              generador, cliente_jev, ejecucion, categoria=None):
+    """Ejecuta una herramienta ya elegida, genera y valida; devuelve la respuesta y deja el resto en ejecucion."""
+    respuesta = _abstencion(evento_salida)
+    resultado, fragmentos, error, validacion = None, [], None, "no_aplica"
+    try:
         try:
             config = obtener_configuracion_llm()
         except ValidationError:
@@ -146,7 +128,7 @@ def consultar(ctx, evento_id, pregunta, *, enrutador, recuperador, generador,
             params = CompararVersionesParams(tema=pregunta, evento_id=evento_id)
             resultado = comparar_versiones(ctx, params, observado)
         elif herramienta == "extraer_requisitos":
-            params = ExtraerRequisitosParams(evento_id=evento_id)
+            params = ExtraerRequisitosParams(evento_id=evento_id, categoria=categoria)
             resultado = extraer_requisitos(ctx, params, observado, cliente_jev=cliente_jev)
         else:
             error = "sin_herramienta"
@@ -219,6 +201,69 @@ def consultar(ctx, evento_id, pregunta, *, enrutador, recuperador, generador,
                 'Si no queda ninguna afirmación respaldada, devuelve "abstener": true.')}]
         respuesta = _abstencion(evento_salida, resultado, "citas_no_validas")
         return respuesta
+    finally:
+        ejecucion.resultado, ejecucion.fragmentos = resultado, fragmentos
+        ejecucion.error, ejecucion.validacion = error, validacion
+
+
+def _registrar(auditar, usuario, tenant_id, evento_salida, intencion, respuesta, fragmentos,
+               validacion, inicio, error, generador):
+    """Evento de auditoría de una consulta; si el registro falla, la respuesta no cambia."""
+    try:
+        auditar({
+            "momento": datetime.now(timezone.utc).isoformat(),
+            "usuario": usuario, "tenant_id": tenant_id,
+            "evento_id": evento_salida, "intencion": intencion, "herramienta": respuesta.tool_used,
+            "chunk_ids": [f.chunk_id for f in fragmentos], "abstained": respuesta.abstained,
+            "needs_human_review": respuesta.needs_human_review, "validacion": validacion,
+            "latencia_ms": (time.monotonic() - inicio) * 1000, "error": error,
+            "chunk_ids_citados": list(dict.fromkeys(f.chunk_id for f in respuesta.sources)),
+            "modelo_generador": _atributo_seguro(generador, "modelo_generador"),
+            "version_prompt": VERSION_PROMPT,
+        })
+    except Exception:
+        pass
+
+
+def consultar(ctx, evento_id, pregunta, *, enrutador, recuperador, generador,
+              cliente_jev=None, auditar=lambda evento: None) -> RespuestaEstructurada:
+    inicio = time.monotonic()
+    usuario = _atributo_seguro(ctx, "usuario")
+    tenant_id = _atributo_seguro(ctx, "tenant_id")
+    # Incluso un id inválido debe producir una respuesta compatible con TextoNoVacio.
+    evento_salida = evento_id if isinstance(evento_id, str) and evento_id.strip() else "sin_evento"
+    respuesta = _abstencion(evento_salida)
+    resultado, herramienta, error = None, None, None
+    fragmentos = []
+    intencion = None
+    validacion = "no_aplica"
+    try:
+        presupuesto = Presupuesto()
+        if evento_salida != evento_id:
+            error = "parametros_invalidos"
+            return respuesta
+        juicios, clasificacion = enrutador.clasificar(pregunta)
+        siguiente = decidir(juicios, clasificacion)
+        intencion = {"accion": siguiente.accion, "motivo": siguiente.motivo, "variante": clasificacion.variante}
+        if siguiente.accion == "abstener":
+            return respuesta
+        if siguiente.accion == "aclarar":
+            respuesta = RespuestaEstructurada(
+                answer=siguiente.pregunta_aclaratoria, sources=[], abstained=False, tool_used=None,
+                needs_human_review=False, evento_id=evento_salida, coverage_status="sin_faltantes_detectados",
+                needs_clarification=True, clarification_question=siguiente.pregunta_aclaratoria)
+            return respuesta
+
+        herramienta = siguiente.herramienta
+        ejecucion = _Ejecucion()
+        try:
+            respuesta = _ejecutar(ctx, evento_id, evento_salida, pregunta, herramienta, presupuesto,
+                                  recuperador=recuperador, generador=generador, cliente_jev=cliente_jev,
+                                  ejecucion=ejecucion)
+            return respuesta
+        finally:
+            resultado, fragmentos = ejecucion.resultado, ejecucion.fragmentos
+            error, validacion = ejecucion.error or error, ejecucion.validacion
     except LimiteAgotado:
         error = "presupuesto_agotado"
         respuesta = _abstencion(evento_salida, resultado, "citas_no_validas", herramienta)
@@ -232,17 +277,5 @@ def consultar(ctx, evento_id, pregunta, *, enrutador, recuperador, generador,
         respuesta = _abstencion(evento_salida, resultado, herramienta=herramienta)
         return respuesta
     finally:
-        try:
-            auditar({
-                "momento": datetime.now(timezone.utc).isoformat(),
-                "usuario": usuario, "tenant_id": tenant_id,
-                "evento_id": evento_salida, "intencion": intencion, "herramienta": respuesta.tool_used,
-                "chunk_ids": [f.chunk_id for f in fragmentos], "abstained": respuesta.abstained,
-                "needs_human_review": respuesta.needs_human_review, "validacion": validacion,
-                "latencia_ms": (time.monotonic() - inicio) * 1000, "error": error,
-                "chunk_ids_citados": list(dict.fromkeys(f.chunk_id for f in respuesta.sources)),
-                "modelo_generador": _atributo_seguro(generador, "modelo_generador"),
-                "version_prompt": VERSION_PROMPT,
-            })
-        except Exception:
-            pass
+        _registrar(auditar, usuario, tenant_id, evento_salida, intencion, respuesta, fragmentos,
+                   validacion, inicio, error, generador)

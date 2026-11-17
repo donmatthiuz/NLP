@@ -6,7 +6,7 @@ from typing import Literal, Protocol
 from pydantic import BaseModel, ConfigDict, StrictBool, ValidationError
 
 from .esquemas import (
-    BuscarDocumentosParams, CompararVersionesParams, ExtraerRequisitosParams, NombreHerramienta,
+    BuscarDocumentosParams, Categoria, CompararVersionesParams, ExtraerRequisitosParams, NombreHerramienta,
 )
 from .jev import ClienteJev, FallaJev, validar_respuesta
 from .lectura import (
@@ -38,6 +38,8 @@ class ResultadoHerramienta(BaseModel):
     fragmentos: list[FragmentoRecuperado]
     documentos: list[DocumentoComparado] = []
     fechas: list[FechaCandidata] = []
+    # Del chunk_id a la categoría de la primera consulta fija que lo recuperó; el cronograma no asigna.
+    categorias: dict[str, Categoria] = {}
     abstener: StrictBool
     needs_human_review: StrictBool
     coverage_status: Literal["parcial", "sin_faltantes_detectados"]
@@ -152,10 +154,10 @@ def comparar_versiones(ctx, params: CompararVersionesParams,
 def extraer_requisitos(ctx, params: ExtraerRequisitosParams, recuperador: Recuperador,
                        cliente_jev: ClienteJev | None = None) -> ResultadoHerramienta:
     """Reúne requisitos y fechas; compara actividades sin decidir la vigencia documental."""
-    consultas = ([CONSULTAS_POR_CATEGORIA[params.categoria]] if params.categoria is not None
-                 else list(CONSULTAS_POR_CATEGORIA.values()))
-    resultados = []
-    for consulta in [*consultas, CONSULTA_CRONOGRAMA]:
+    consultas = ([(params.categoria, CONSULTAS_POR_CATEGORIA[params.categoria])]
+                 if params.categoria is not None else list(CONSULTAS_POR_CATEGORIA.items()))
+    resultados, categorias = [], {}
+    for categoria, consulta in [*consultas, (None, CONSULTA_CRONOGRAMA)]:
         try:
             crudo = recuperador.buscar(ctx, params.evento_id, consulta, variante="mejorada", k=5)
         except Exception:
@@ -164,6 +166,9 @@ def extraer_requisitos(ctx, params: ExtraerRequisitosParams, recuperador: Recupe
             resultados.append(ResultadoBusqueda.model_validate(crudo))
         except ValidationError:
             return _fallo("extraer_requisitos", params.evento_id, "contrato_invalido")
+        if categoria is not None:
+            for fragmento in resultados[-1].fragmentos:
+                categorias.setdefault(fragmento.chunk_id, categoria)
 
     fragmentos, alertas = {}, {}
     for resultado in resultados:
@@ -236,7 +241,8 @@ def extraer_requisitos(ctx, params: ExtraerRequisitosParams, recuperador: Recupe
             avisos.append(f"fechas_distintas: {actividad}")
     return ResultadoHerramienta(
         herramienta="extraer_requisitos", evento_id=params.evento_id,
-        fragmentos=list(fragmentos.values()), fechas=fechas, abstener=abstener,
+        fragmentos=list(fragmentos.values()), fechas=fechas, categorias=categorias,
+        abstener=abstener,
         needs_human_review=revisar,
         coverage_status="parcial" if parcial else "sin_faltantes_detectados",
         warnings=avisos, error=None)

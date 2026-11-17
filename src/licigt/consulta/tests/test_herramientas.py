@@ -6,8 +6,9 @@ import sys
 import unittest
 from pathlib import Path
 
-from licigt.consulta.esquemas import BuscarDocumentosParams, CompararVersionesParams
-from licigt.consulta.herramientas import buscar_documentos, comparar_versiones
+from licigt.consulta.esquemas import BuscarDocumentosParams, CompararVersionesParams, ExtraerRequisitosParams
+from licigt.consulta.herramientas import buscar_documentos, comparar_versiones, extraer_requisitos
+from licigt.consulta.requisitos import CONSULTAS_POR_CATEGORIA, CONSULTA_CRONOGRAMA
 
 
 def fragmento(**cambios):
@@ -283,6 +284,41 @@ class ErroresTests(unittest.TestCase):
         resultado = comparar_versiones(None, params_comparar(), recuperador)
         self.assertEqual(resultado.error, "contrato_invalido")
         self.assertTrue(resultado.abstener)
+
+
+class CategoriasTests(unittest.TestCase):
+    """F5: la categoría de cada fragmento sale de la consulta fija que lo recuperó."""
+
+    def extraer(self, por_consulta, categoria=None):
+        class Recuperador:
+            def buscar(self, ctx, evento_id, pregunta, variante="mejorada", k=5, conn=None):
+                return {"evento_id": "222", "variante": "mejorada", "suficiente": True,
+                        "fragmentos": por_consulta.get(pregunta, []), "alertas": []}
+        return extraer_requisitos(None, ExtraerRequisitosParams(evento_id="222", categoria=categoria),
+                                  Recuperador())
+
+    def test_fragmento_de_la_consulta_legal_queda_legal(self):
+        legal = fragmento(chunk_id="a", texto="Constancia.")
+        r = self.extraer({CONSULTAS_POR_CATEGORIA["legal"]: [legal]})
+        self.assertEqual(r.categorias, {"a": "legal"})
+
+    def test_fragmento_en_dos_consultas_conserva_la_primera(self):
+        f = fragmento(chunk_id="a", texto="Constancia.")
+        r = self.extraer({CONSULTAS_POR_CATEGORIA["legal"]: [f], CONSULTAS_POR_CATEGORIA["tecnica"]: [f]})
+        self.assertEqual(r.categorias, {"a": "legal"})
+        r = self.extraer({CONSULTAS_POR_CATEGORIA["administrativa"]: [f], CONSULTAS_POR_CATEGORIA["legal"]: [f]},
+                         categoria="legal")
+        self.assertEqual(r.categorias, {"a": "legal"})
+
+    def test_fragmento_solo_del_cronograma_no_tiene_categoria(self):
+        r = self.extraer({CONSULTA_CRONOGRAMA: [fragmento(chunk_id="c", texto="Cronograma.")]})
+        self.assertEqual(r.categorias, {})
+        self.assertEqual(len(r.fragmentos), 1)
+
+    def test_otras_herramientas_dejan_el_campo_vacio(self):
+        r = buscar_documentos(None, BuscarDocumentosParams(query="x", evento_id="222"),
+                              RecuperadorFalso(busqueda=busqueda_222()))
+        self.assertEqual(r.categorias, {})
 
 
 class ImportacionesTests(unittest.TestCase):
