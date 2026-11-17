@@ -208,10 +208,12 @@ def consultar(ctx, evento_id, pregunta, *, enrutador, recuperador, generador,
                 "La salida anterior no pasó la validación: " + errores + "\n"
                 "Corrige esos puntos: copia tramos exactos o elimina la afirmación.\n"
                 "- cita_no_literal: copia la cita completa desde el fragmento, sin empezar ni terminar a mitad de una palabra o número.\n"
+                "- esquema_invalido: la cita, con los espacios y saltos de línea colapsados a uno, mide como máximo 200 caracteres; acórtala.\n"
+                "- marcador_pegado: cada marcador {n} va solo, entre espacios o antes de . , ; ), sin letras, dígitos ni símbolos pegados, sin otro marcador contiguo y una sola vez.\n"
                 "- dato_no_literal: el literal debe ser un tramo exacto de la cita indicada, sin cambiar ceros ni formato.\n"
                 "- datos_de_varias_citas: divide en dos afirmaciones, cada una con datos de una sola cita.\n"
                 "- dato_fuera_de_literal: quita del texto todo dígito y nombre de mes; ponlo como marcador {n} con su literal en datos.\n"
-                '- texto_invalido: usa solo letras latinas, sin saltos de línea, sin [n], y cada marcador {n} con su dato y cada dato con su marcador.\n'
+                '- texto_invalido: usa solo letras latinas, espacios y . , ; : ( ) ¿ ? ¡ ! \" \' -, sin saltos de línea ni [n], y cada marcador {n} con su dato y cada dato con su marcador.\n'
                 'Si no queda ninguna afirmación respaldada, devuelve "abstener": true.')}]
         respuesta = _abstencion(evento_salida, resultado, "citas_no_validas")
         return respuesta

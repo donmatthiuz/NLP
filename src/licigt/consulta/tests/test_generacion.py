@@ -152,8 +152,9 @@ class GeneracionTests(unittest.TestCase):
     def test_prompt_pide_datos_literales_con_ejemplo_y_marcadores(self):
         mensajes, _, esquema, _ = construir_prompt("dato", fragmentos_222())
         sistema = mensajes[0]["content"]
-        self.assertEqual(VERSION_PROMPT, "f4-v3")
-        for texto in ("{1}", '"datos"', "una sola cita", "marcador"):
+        self.assertEqual(VERSION_PROMPT, "f4-v4")
+        for texto in ("{1}", '"datos"', "una sola cita", "marcador", "código IGSS", "numeral", "concentración", "NOG",
+                      "número de evento", "solo y separado", "una sola vez", "Colapsa"):
             self.assertIn(texto, sistema)
         ejemplo = sistema[sistema.index('{"abstener"'):sistema.index("\n", sistema.index('{"abstener"'))]
         SalidaModelo.model_validate_json(ejemplo)
@@ -195,6 +196,7 @@ class GeneracionTests(unittest.TestCase):
         for modelo in [esquema, *esquema["$defs"].values()]:
             self.assertFalse(modelo["additionalProperties"])
             self.assertEqual(set(modelo["required"]), set(modelo["properties"]))
+        self.assertNotIn("maxLength", esquema["$defs"]["CitaModelo"]["properties"]["cita"])
         dato = esquema["$defs"]["Dato"]
         self.assertEqual(set(dato["properties"]), {"cita", "literal"})
         self.assertIn("datos", esquema["$defs"]["Afirmacion"]["required"])

@@ -139,7 +139,8 @@ class OrquestadorTests(unittest.TestCase):
         self.assertFalse(r.abstained)
         mensaje = generador.llamadas[1][0][-1]["content"]
         self.assertIn("datos_de_varias_citas", mensaje)
-        for codigo in ("dato_no_literal", "dato_fuera_de_literal", "texto_invalido"):
+        for codigo in ("dato_no_literal", "dato_fuera_de_literal", "texto_invalido", "marcador_pegado",
+                       "esquema_invalido", "cita_no_literal"):
             self.assertIn(codigo, mensaje)
         self.assertIn("dos afirmaciones", mensaje)
         self.assertNotIn("julio", mensaje)
