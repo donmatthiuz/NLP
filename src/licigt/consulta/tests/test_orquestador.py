@@ -398,6 +398,27 @@ class OrquestadorTests(unittest.TestCase):
         self.assertTrue(r.abstained)
         self.assertIn("falta_segunda_fuente", generador.llamadas[1][0][-1]["content"])
 
+    def test_c10_falta_segunda_fuente_nombra_el_alias_del_documento_sin_citar(self):
+        salida = salida_222()
+        salida["afirmaciones"].pop()
+        generador = GeneradorFalso([json.dumps(salida)] * 2)
+        self.consultar(recuperador=RecuperadorFalso(conflicto=True), generador=generador)
+        mensaje = generador.llamadas[1][0][-1]["content"]
+        self.assertIn("Desajuste: falta citar un fragmento de otro documento: F2.", mensaje)
+        self.assertNotIn("INSTITUTO", mensaje)
+
+    def test_c10_datos_desde_la_cita_van_a_la_auditoria_como_numero(self):
+        salida = salida_222()
+        salida["afirmaciones"][0]["texto"] = "Las bases indican recepción el 31 de julio de 2023."
+        salida["afirmaciones"][0]["datos"] = []
+        self.consultar(generador=GeneradorFalso([json.dumps(salida)]))
+        self.assertEqual(self.eventos[0]["datos_desde_cita"], 1)
+        self.assertNotIn("31 de julio", repr(self.eventos[0]))
+
+    def test_c10_sin_datos_desde_la_cita_no_hay_campo(self):
+        self.consultar()
+        self.assertNotIn("datos_desde_cita", self.eventos[0])
+
     def test_comparacion_ordena_por_documento_y_deduplica(self):
         r = self.consultar("¿Qué cambió en la recepción de ofertas?")
         self.assertFalse(r.abstained)

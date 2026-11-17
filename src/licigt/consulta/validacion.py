@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, ValidationError
 
 from .entrada import normalizar
 from .esquemas import RespuestaEstructurada, TEXTO_ABSTENCION
-from .generacion import Afirmacion, SalidaModelo, _neutralizar
+from .generacion import Afirmacion, Dato, SalidaModelo, _neutralizar
 from .herramientas import ResultadoHerramienta
 from .lectura import FragmentoRecuperado, fuente_desde_fragmento
 from .requisitos import ABREVIATURAS, MESES
@@ -272,12 +272,67 @@ def _poner_marcadores(afirmacion: Afirmacion) -> tuple[Afirmacion, int]:
     return ajustada, n - len(vigentes)
 
 
+def _es_dato(palabra: str) -> bool:
+    """Una palabra con dígito, otro carácter numérico o nombre de mes."""
+    nfkc = unicodedata.normalize("NFKC", palabra)
+    return any(unicodedata.category(c).startswith("N") for c in palabra + nfkc) or _con_mes(nfkc)
+
+
+def _tramos_de_datos(texto: str) -> list[tuple[int, int]]:
+    """Posiciones de los tramos máximos de palabras con dígitos o mes, unidos solo por tramos cortos (sin palabras de 4 o más letras)."""
+    tramos, actual = [], None
+    for m in re.finditer(r"\S+", texto):
+        palabra = m.group()
+        sin_inicio = palabra.lstrip("(¿¡\"'«“‘")
+        nucleo = sin_inicio.rstrip(".,;:)?!\"'»”’")
+        if _es_dato(nucleo):
+            inicio = m.start() + len(palabra) - len(sin_inicio)
+            actual = [actual[0] if actual else inicio, inicio + len(nucleo)]
+            if tramos and tramos[-1][0] == actual[0]:
+                tramos.pop()
+            tramos.append((actual[0], actual[1]))
+        elif actual and any(len(p) >= 4 for p in re.findall(r"[^\W\d_]+", palabra)):
+            actual = None
+    return tramos
+
+
+def _datos_desde_cita(afirmacion: Afirmacion) -> tuple[Afirmacion, int]:
+    """Sustituye por {n} el tramo con dígitos del texto que aparece tal cual en una cita de la afirmación; devuelve los creados.
+
+    Lo que no aparece queda en el texto y lo rechaza _error_texto; las demás reglas corren después sobre el texto nuevo."""
+    n = len(afirmacion.datos)
+    usados = [int(m[1:-1]) for m in MARCADOR.findall(afirmacion.texto)]
+    if len(usados) != len(set(usados)) or set(usados) != set(range(1, n + 1)):
+        return afirmacion, 0
+    citas = [_espaciar(c.cita) for c in afirmacion.citas]
+    datos = list(afirmacion.datos)
+    partes, marcadores = MARCADOR.split(afirmacion.texto), MARCADOR.findall(afirmacion.texto)
+    texto = ""
+    for k, parte in enumerate(partes):
+        previo = 0
+        for inicio, fin in _tramos_de_datos(parte):
+            literal = _espaciar(parte[inicio:fin])
+            if SALTOS.search(parte[inicio:fin]) or any(c in literal for c in "[]{}"):
+                continue
+            donde = [j for j, cita in enumerate(citas, 1) if _buscar(cita, literal) != -1]
+            if not donde:
+                continue
+            propias = {d.cita for d in datos}
+            datos.append(Dato(cita=next((j for j in donde if j in propias), donde[0]), literal=literal))
+            texto += parte[previo:inicio] + "{%d}" % len(datos)
+            previo = fin
+        texto += parte[previo:] + (marcadores[k] if k < len(marcadores) else "")
+    if len(datos) == n:
+        return afirmacion, 0
+    return afirmacion.model_copy(update={"texto": texto, "datos": datos}), len(datos) - n
+
+
 def validar(salida_cruda: str, evidencia: dict[str, FragmentoRecuperado],
             resultado_herramienta: ResultadoHerramienta, *, evento_id: str,
             conflictos=(), informe: dict | None = None) -> RespuestaEstructurada | list[ErrorValidacion]:
     """Ocho etapas en orden; los errores solo llevan código y posiciones desde uno.
 
-    En informe deja datos_descartados, el número de datos que el código quitó antes de validar."""
+    En informe deja datos_descartados (los que el código quitó antes de validar) y datos_desde_cita (los que creó desde la cita)."""
     try:
         salida = SalidaModelo.model_validate_json(salida_cruda, strict=True)
     except ValidationError as exc:
@@ -298,6 +353,10 @@ def validar(salida_cruda: str, evidencia: dict[str, FragmentoRecuperado],
     salida = salida.model_copy(update={"afirmaciones": [a for a, _ in ajustadas]})
     if informe is not None:
         informe["datos_descartados"] = sum(d for _, d in ajustadas)
+    creadas = [_datos_desde_cita(a) for a in salida.afirmaciones]
+    salida = salida.model_copy(update={"afirmaciones": [a for a, _ in creadas]})
+    if informe is not None:
+        informe["datos_desde_cita"] = sum(d for _, d in creadas)
 
     errores = []
     for i, afirmacion in enumerate(salida.afirmaciones, 1):

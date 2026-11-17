@@ -106,7 +106,7 @@ class _Ejecucion:
     """Lo que la ejecución de una herramienta deja para la auditoría y para quien la llamó."""
     def __init__(self):
         self.resultado, self.fragmentos, self.error, self.validacion = None, [], None, "no_aplica"
-        self.citas_jev, self.datos_descartados = None, 0
+        self.citas_jev, self.datos_descartados, self.datos_desde_cita = None, 0, 0
 
 
 def _ejecutar(ctx, evento_id, evento_salida, pregunta, herramienta, presupuesto, *, recuperador,
@@ -198,6 +198,7 @@ def _ejecutar(ctx, evento_id, evento_salida, pregunta, herramienta, presupuesto,
                 verificada = validar(crudo, evidencia, resultado, evento_id=evento_id, conflictos=conflictos,
                                      informe=informe)
                 ejecucion.datos_descartados = informe.get("datos_descartados", 0)
+                ejecucion.datos_desde_cita = informe.get("datos_desde_cita", 0)
             if isinstance(verificada, RespuestaEstructurada):
                 respuesta = verificada
                 validacion = "regenerada_ok" if intento else "ok"
@@ -218,6 +219,9 @@ def _ejecutar(ctx, evento_id, evento_salida, pregunta, herramienta, presupuesto,
                 continue
             errores = json.dumps([e.model_dump(exclude_none=True) for e in verificada], ensure_ascii=False)
             desajustes = _desajustes(crudo, verificada)
+            faltan = _por_citar(crudo, verificada, evidencia, conflictos, herramienta)
+            if faltan:
+                desajustes.append("falta citar un fragmento de otro documento: " + ", ".join(faltan))
             mensajes = [*mensajes, {"role": "assistant", "content": crudo}, {"role": "user", "content": (
                 "La salida anterior no pasó la validación: " + errores + "\n"
                 + "".join(f"Desajuste: {d}.\n" for d in desajustes) +
@@ -239,6 +243,26 @@ def _ejecutar(ctx, evento_id, evento_salida, pregunta, herramienta, presupuesto,
     finally:
         ejecucion.resultado, ejecucion.fragmentos = resultado, fragmentos
         ejecucion.error, ejecucion.validacion = error, validacion
+
+
+def _por_citar(crudo, errores, evidencia, conflictos, herramienta):
+    """Alias (F1..Fn) de los fragmentos de los documentos que falta citar ante falta_segunda_fuente; sin texto."""
+    if not any(e.codigo == "falta_segunda_fuente" for e in errores):
+        return []
+    try:
+        citados = {evidencia[c["fragmento"]].doc_id
+                   for a in json.loads(crudo)["afirmaciones"] for c in a["citas"]}
+    except (TypeError, ValueError, KeyError):
+        return []
+    disponibles = {f.doc_id for f in evidencia.values()}
+    faltan = set()
+    if herramienta == "comparar_versiones" and len(citados) < 2:
+        faltan |= disponibles - citados
+    for grupo in conflictos:
+        presentes = set(grupo) & disponibles
+        if len(presentes) >= 2 and not presentes <= citados:
+            faltan |= presentes - citados
+    return [alias for alias, f in evidencia.items() if f.doc_id in faltan]
 
 
 def _desajustes(crudo, errores):
@@ -263,7 +287,8 @@ def _desajustes(crudo, errores):
 
 
 def _registrar(auditar, usuario, tenant_id, evento_salida, intencion, respuesta, fragmentos,
-               validacion, inicio, error, generador, citas_jev=None, jev_sustituida=None, datos_descartados=0):
+               validacion, inicio, error, generador, citas_jev=None, jev_sustituida=None, datos_descartados=0,
+               datos_desde_cita=0):
     """Evento de auditoría de una consulta; si el registro falla, la respuesta no cambia."""
     try:
         auditar({
@@ -279,6 +304,7 @@ def _registrar(auditar, usuario, tenant_id, evento_salida, intencion, respuesta,
             **({"citas_jev": citas_jev} if citas_jev else {}),
             **({"herramienta_jev_sustituida": jev_sustituida} if jev_sustituida else {}),
             **({"datos_descartados": datos_descartados} if datos_descartados else {}),
+            **({"datos_desde_cita": datos_desde_cita} if datos_desde_cita else {}),
         })
     except Exception:
         pass
@@ -293,7 +319,7 @@ def consultar(ctx, evento_id, pregunta, *, enrutador, recuperador, generador,
     evento_salida = evento_id if isinstance(evento_id, str) and evento_id.strip() else "sin_evento"
     respuesta = _abstencion(evento_salida)
     resultado, herramienta, error, citas_jev = None, None, None, None
-    jev_sustituida, datos_descartados = None, 0
+    jev_sustituida, datos_descartados, datos_desde_cita = None, 0, 0
     fragmentos = []
     intencion = None
     validacion = "no_aplica"
@@ -326,6 +352,7 @@ def consultar(ctx, evento_id, pregunta, *, enrutador, recuperador, generador,
             resultado, fragmentos = ejecucion.resultado, ejecucion.fragmentos
             error, validacion = ejecucion.error or error, ejecucion.validacion
             citas_jev, datos_descartados = ejecucion.citas_jev, ejecucion.datos_descartados
+            datos_desde_cita = ejecucion.datos_desde_cita
     except LimiteAgotado:
         error = "presupuesto_agotado"
         respuesta = _abstencion(evento_salida, resultado, "citas_no_validas", herramienta)
@@ -340,4 +367,5 @@ def consultar(ctx, evento_id, pregunta, *, enrutador, recuperador, generador,
         return respuesta
     finally:
         _registrar(auditar, usuario, tenant_id, evento_salida, intencion, respuesta, fragmentos,
-                   validacion, inicio, error, generador, citas_jev, jev_sustituida, datos_descartados)
+                   validacion, inicio, error, generador, citas_jev, jev_sustituida, datos_descartados,
+                   datos_desde_cita)

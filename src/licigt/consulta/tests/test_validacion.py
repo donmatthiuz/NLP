@@ -907,7 +907,8 @@ class MarcadoresDelCodigoTests(unittest.TestCase):
     def test_digito_suelto_sin_literal_sigue_rechazado(self):
         crudo = self.salida("Recepción el 31 de julio de 2023 a las {1}.", CITA_REC, ["11:00 horas"])
         r = self.validar(crudo, B001)
-        self.assertEqual(self.codigos(r), ["dato_fuera_de_literal"])
+        # C10: la fecha sale de la cita, pero "a las" entre dos marcadores no está seguido en ella (hay una coma).
+        self.assertEqual(self.codigos(r), ["dato_no_literal"])
 
     def test_literal_dentro_de_otra_palabra_o_numero_no_se_sustituye(self):
         crudo = self.salida("El año es 12023 en el texto.", "a las 11:00 horas (hora\n     límite 11:30)", ["2023"])
@@ -925,3 +926,74 @@ class MarcadoresDelCodigoTests(unittest.TestCase):
     def codigos(self, errores):
         self.assertIsInstance(errores, list)
         return [e.codigo for e in errores]
+
+
+class DatosDesdeLaCitaTests(unittest.TestCase):
+    """C10: el código toma de la cita los tramos con dígitos que el modelo escribió sin declararlos."""
+
+    def validar(self, crudo, fragmentos, informe=None):
+        resultado = herramienta(fragmentos=fragmentos)
+        _, evidencia, _, _ = construir_prompt("pregunta", resultado.fragmentos)
+        return validar(crudo, evidencia, resultado, evento_id="222", informe=informe)
+
+    def un_fragmento(self, texto):
+        return [fragmentos_222()[0].model_copy(update={"texto": texto})]
+
+    def salida(self, texto, citas, datos=()):
+        return json.dumps({"abstener": False, "revision_humana": False, "afirmaciones": [
+            {"texto": texto, "citas": [{"fragmento": f, "cita": c} for f, c in citas],
+             "datos": [{"cita": n, "literal": d} for n, d in datos]}]}, ensure_ascii=False)
+
+    def test_identificador_de_la_modificacion_se_toma_de_la_cita(self):
+        cita = "Modificación Número 1 al documento de bases"
+        informe = {}
+        r = self.validar(self.salida("Existe la Modificación Número 1 del evento.", [("F1", cita)]),
+                         self.un_fragmento(cita + " de la licitación"), informe)
+        self.assertIsInstance(r, RespuestaEstructurada)
+        self.assertIn("Modificación Número 1 del evento.", r.answer)
+        self.assertEqual(informe["datos_desde_cita"], 1)
+
+    def test_subnumeral_se_toma_de_la_cita(self):
+        cita = "conforme al subnumeral 2.30 de las bases"
+        informe = {}
+        r = self.validar(self.salida("Aplica el subnumeral 2.30.", [("F1", cita)]),
+                         self.un_fragmento(cita + " del evento"), informe)
+        self.assertIsInstance(r, RespuestaEstructurada)
+        self.assertIn("subnumeral 2.30.", r.answer)
+        self.assertEqual(informe["datos_desde_cita"], 1)
+
+    def test_fecha_con_dia_distinto_en_la_cita_se_sigue_rechazando(self):
+        informe = {}
+        r = self.validar(self.salida("La recepción es el 1 de julio de 2023.", [("F1", CITA_REC)]),
+                         self.un_fragmento(B001), informe)
+        self.assertEqual([e.codigo for e in r], ["dato_fuera_de_literal"])
+        self.assertEqual(informe["datos_desde_cita"], 0)
+
+    def test_tramo_que_solo_esta_en_otra_cita_mezcla_citas_y_se_rechaza(self):
+        f1, f2 = fragmentos_222()
+        crudo = self.salida("Recepción {1} y modificación 06 de octubre de 2023.", [
+            ("F1", "La recepción de ofertas se llevará a cabo el 31 de julio de 2023"),
+            ("F2", "INSTITUTO, el día 06 de octubre de 2023")], [(1, "31 de julio de 2023")])
+        r = self.validar(crudo, [f1, f2])
+        self.assertEqual([e.codigo for e in r], ["datos_de_varias_citas"])
+
+    def test_tramo_en_dos_citas_usa_la_cita_de_los_datos_que_ya_tiene(self):
+        f1, f2 = fragmentos_222()
+        f2 = f2.model_copy(update={"texto": "el día 06 de octubre de 2023, con 31 de julio de 2023"})
+        crudo = self.salida("Recepción {1}; además el 31 de julio de 2023.", [
+            ("F1", "La recepción de ofertas se llevará a cabo el 31 de julio de 2023"),
+            ("F2", "el día 06 de octubre de 2023, con 31 de julio de 2023")], [(2, "06 de octubre de 2023")])
+        informe = {}
+        self.assertIsInstance(self.validar(crudo, [f1, f2], informe), RespuestaEstructurada)
+        self.assertEqual(informe["datos_desde_cita"], 1)
+        crudo = self.salida("Recepción {1}; además el 31 de julio de 2023.", [
+            ("F1", "La recepción de ofertas se llevará a cabo el 31 de julio de 2023"),
+            ("F2", "el día 06 de octubre de 2023, con 31 de julio de 2023")], [(1, "31 de julio de 2023")])
+        informe = {}
+        self.assertIsInstance(self.validar(crudo, [f1, f2], informe), RespuestaEstructurada)
+        self.assertEqual(informe["datos_desde_cita"], 1)
+
+    def test_tramo_con_unidad_pegada_sigue_rechazado(self):
+        cita = "con vigencia de 120 días a partir de la fecha"
+        r = self.validar(self.salida("Vigencia de 120 días.", [("F1", cita)]), self.un_fragmento(cita))
+        self.assertEqual([e.codigo for e in r], ["unidad_fuera_de_literal"])
