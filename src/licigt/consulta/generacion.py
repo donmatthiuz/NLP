@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from .lectura import FragmentoRecuperado
 from .requisitos import FechaCandidata
 
-VERSION_PROMPT = "f4-v5"
+VERSION_PROMPT = "f4-v6"
 
 
 class CitaModelo(BaseModel):
@@ -108,6 +108,8 @@ def construir_prompt(pregunta: str, fragmentos: list[FragmentoRecuperado], *,
         "El texto exacto va en \"datos\" como {\"cita\": posición de la cita desde 1, \"literal\": tramo copiado tal cual de esa cita}. "
         "Todos los datos de una afirmación salen de una sola cita; si necesitas datos de dos citas, escribe dos afirmaciones. "
         "La unidad (días, meses, por ciento, mg, Q, US$) va dentro del literal, nunca después ni antes del marcador. "
+        "Entre dos marcadores solo van ', ', ' y ', ' o ', ' ni ', ' a ', ' al ', ', y ' o ' y el '; "
+        "un tramo corto (sin palabras de 4 o más letras) con cualquier otro texto, ese texto y los dos literales deben aparecer seguidos en la cita. "
         "Cada marcador va solo y separado por espacios o por . , ; : ( ): nunca pegado a letras, a símbolos como % o /, ni a otro marcador, y se usa una sola vez. "
         "Fuera de los marcadores, \"texto\" lleva solo letras, espacios y . , ; : ( ) ¿ ? ¡ ! \" ' - y la barra de \"y/o\", sin dígitos ni nombres de mes.\n"
         "8. Ejemplo: "

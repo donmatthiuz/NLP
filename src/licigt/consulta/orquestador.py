@@ -211,10 +211,10 @@ def consultar(ctx, evento_id, pregunta, *, enrutador, recuperador, generador,
                 "- esquema_invalido: la cita, con los espacios y saltos de línea colapsados a uno, mide como máximo 200 caracteres; acórtala.\n"
                 "- marcador_pegado: cada marcador {n} va solo, entre espacios o antes de . , ; : ), sin letras, dígitos ni símbolos pegados, sin otro marcador contiguo y una sola vez.\n"
                 "- dato_no_literal: el literal debe ser un tramo exacto de la cita indicada, sin cambiar ceros ni formato.\n"
-                "  Si dos marcadores van unidos solo por de, del, comas, a las, a la o guiones, sus literales con el conector deben aparecer seguidos en la cita; si no, un solo literal.\n"
+                "  Entre dos marcadores solo van ', ', ' y ', ' o ', ' ni ', ' a ', ' al ', ', y ' o ' y el '; un tramo corto (sin palabras de 4 o más letras) con otro texto, ese texto y los dos literales deben aparecer seguidos en la cita; si no, un solo literal.\n"
                 "- unidad_fuera_de_literal: la unidad (días, meses, por ciento, mg, Q, US$) va dentro del literal, no junto al marcador.\n"
                 "- datos_de_varias_citas: divide en dos afirmaciones, cada una con datos de una sola cita.\n"
-                "- dato_fuera_de_literal: quita del texto todo dígito y nombre de mes; ponlo como marcador {n} con su literal en datos.\n"
+                "- dato_fuera_de_literal: quita del texto todo dígito y nombre de mes; ponlo como marcador {n} con su literal en datos. Tampoco escribas letras que parecen cifras (lO, lOO, l.S, S.O).\n"
                 '- texto_invalido: usa solo letras latinas, espacios y . , ; : ( ) ¿ ? ¡ ! \" \' - y la barra de y/o, sin saltos de línea ni [n], y cada marcador {n} con su dato y cada dato con su marcador.\n'
                 'Si no queda ninguna afirmación respaldada, devuelve "abstener": true.')}]
         respuesta = _abstencion(evento_salida, resultado, "citas_no_validas")

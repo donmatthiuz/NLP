@@ -143,6 +143,8 @@ class OrquestadorTests(unittest.TestCase):
                        "esquema_invalido", "cita_no_literal", "unidad_fuera_de_literal"):
             self.assertIn(codigo, mensaje)
         self.assertIn("dos afirmaciones", mensaje)
+        self.assertIn("lOO", mensaje)
+        self.assertIn("aparecer seguidos", mensaje)
         self.assertNotIn("julio", mensaje)
         self.assertNotIn("ofertas", mensaje)
 

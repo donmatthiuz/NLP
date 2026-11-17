@@ -8,6 +8,7 @@ from unittest.mock import patch
 from licigt.consulta.esquemas import RespuestaEstructurada, TEXTO_ABSTENCION
 from licigt.consulta.generacion import Afirmacion, construir_prompt
 from licigt.consulta.herramientas import ResultadoHerramienta
+from licigt.consulta.lectura import DocumentoComparado
 from licigt.consulta.tests.test_generacion import fragmentos_222, salida_222
 from licigt.consulta.validacion import _armar, normalizar_cita, validar
 
@@ -479,7 +480,7 @@ class ValidacionTests(unittest.TestCase):
         self.assertNotEqual(self.codigos(r) if isinstance(r, list) else [], ["unidad_fuera_de_literal"])
 
     def test_c6_ha3_letras_que_parecen_digitos(self):
-        for texto in ("El seguro es del lOO por ciento.", "El plazo es de lO dias.", "Plazo de SO dias.", "Plazo ZB."):
+        for texto in ("El seguro es del lOO por ciento.", "El plazo es de lO dias.", "Plazo de lS dias.", "Plazo lOo."):
             with self.subTest(texto=texto):
                 self.assertEqual(self.codigos(self.armar(texto, "Recepción durante la semana")),
                                  ["dato_fuera_de_literal"])
@@ -487,19 +488,30 @@ class ValidacionTests(unittest.TestCase):
             with self.subTest(texto=texto):
                 self.assertIsInstance(self.armar(texto, "Recepción durante la semana"), RespuestaEstructurada)
 
-    def test_c6_ha4_mas_formas_de_decidir_la_vigencia(self):
-        textos = ("La fecha de recepción de las bases, el {1}, ya no aplica.",
-                  "La fecha correcta ya no es el {1}; la que rige es otra.",
-                  "La fecha de recepción del {1} quedó sin validez por la modificación.",
-                  "La fecha válida es el {1}.", "Queda sin uso el {1}.", "La fecha anterior es el {1}.",
-                  "La fecha actualizada es el {1}.", "Hay que regir el {1}.")
-        for texto in textos:
+    def test_c7_a3_vigencia_por_la_evidencia(self):
+        # Con la modificación en la evidencia, citar solo las bases escala sin importar las palabras.
+        frases = ("La fecha de recepción del {1} es inválida.", "La modificación corrige la fecha del {1}.",
+                  "La fecha de recepción del {1} fue modificada.", "La fecha de recepción del {1} cambió.",
+                  "La fecha de recepción se mantiene en el {1}.", "La fecha definitiva de recepción es el {1}.",
+                  "La fecha que aplica para la recepción es el {1}.", "La fecha de recepción sigue siendo el {1}.",
+                  "La fecha oficial de recepción es el {1}.", "Hay que usar la fecha del {1}.",
+                  "La fecha del {1} quedó invalidada.", "La fecha del {1} ya no cuenta.",
+                  "La fecha de recepción ya no es el {1}; se pospuso.", "La nueva fecha de recepción es el {1}.")
+        cita = "se llevará a cabo el 31 de julio de 2023, a las 11:00 horas"
+        for texto in frases:
             with self.subTest(texto=texto):
-                r = self.armar_en(B001, texto, "se llevará a cabo el 31 de julio de 2023, a las 11:00 horas", ["31 de julio de 2023"])
+                salida = {"abstener": False, "revision_humana": False, "afirmaciones": [
+                    {"texto": texto, "datos": [{"cita": 1, "literal": "31 de julio de 2023"}],
+                     "citas": [{"fragmento": "F1", "cita": cita}]}]}
+                r = self.verificar(salida)
                 self.assertIsInstance(r, RespuestaEstructurada)
                 self.assertTrue(r.needs_human_review)
-        r = self.armar_en(B001, "La fecha es el {1}.", "se llevará a cabo el 31 de julio de 2023, a las 11:00 horas", ["31 de julio de 2023"])
-        self.assertFalse(r.needs_human_review)
+        # Sin modificaciones en la evidencia, el texto honesto con "anterior" o "no aplica" no escala.
+        for texto in ("La certificación se emite con dos meses anteriores a la fecha.", "Esta excepción no aplica aquí.",
+                      "La fecha de recepción se mantiene en el {1}."):
+            with self.subTest(texto=texto, sin_modificacion=True):
+                datos = ["31 de julio de 2023"] if "{1}" in texto else []
+                self.assertFalse(self.armar_en(B001, texto, cita, datos).needs_human_review)
 
     def test_c6_ha7_mas_separadores_numericos(self):
         texto = "El monto máximo es de Q 1'500'000 por renglón, ubicado en la zona 1."
@@ -540,6 +552,115 @@ class ValidacionTests(unittest.TestCase):
             with self.subTest(texto=texto):
                 self.assertEqual(self.codigos(self.armar(texto, "Recepción durante la semana")),
                                  ["dato_fuera_de_literal"])
+
+    # C7: reglas que fallan cerrado.
+    def test_c7_a1_a4_entre_marcadores_el_tramo_debe_estar_en_la_cita(self):
+        fuente = B001 + "\n" + B115
+        casos = [("La recepción es el {1} DE {2} DE {3}.", self.CITA_AV, ["1", "julio", "2023"]),
+                 ("La recepción es el {1} ｄｅ {2}.", self.CITA_AV, ["1", "julio de 2023"]),
+                 ("La recepción es el día {1} del mes de {2}.", self.CITA_AV, ["1", "julio de 2023"]),
+                 ("El seguro es del {1} ({2}) del valor.", CITA_PCT, ["uno por ciento", "5%"]),
+                 ("La recepción es {1}: {2}.", CITA_REC, ["31 de julio de 2023", "11:00 horas"]),
+                 ("La recepción es el {1} De {2}, A LAS {3}.", self.CITA_AV, ["1", "julio de 2023", "11:00 horas"]),
+                 ("La recepción es el {1} De {2}, A LAS {3}.", self.CITA_AV, ["31", "julio", "2023"])]
+        for texto, cita, datos in casos:
+            with self.subTest(texto=texto, datos=datos):
+                self.assertEqual(self.codigos(self.armar_en(fuente, texto, cita, datos)), ["dato_no_literal"])
+
+    def test_c7_a1_a4_excepciones_y_tramos_presentes_pasan(self):
+        fuente = B001 + "\n" + B115 + "\nLa atención es de 8:00 a 16:00 horas y el plazo es 15 o 20 días hábiles."
+        r = self.armar_en("Se citan los artículos 65, 69 y 70 del reglamento.", "Se citan los artículos {1}, {2}.",
+                          "Se citan los artículos 65, 69 y 70 del reglamento", ["65", "69"])
+        self.assertIsInstance(r, RespuestaEstructurada)
+        for texto, cita, datos in [("La atención es de {1} a {2}.", "atención es de 8:00 a 16:00 horas", ["8:00", "16:00 horas"]),
+                                   ("No menor del {1} ni mayor del {2}.", CITA_PCT, ["uno por ciento (1%)", "cinco por ciento (5%)"]),
+                                   ("Es de entre {1} y {2}.", CITA_PCT, ["1%", "5%"]),
+                                   ("Es {1} o {2}.", "es 15 o 20 días hábiles", ["15", "20 días hábiles"]),
+                                   ("Es del {1}, a las {2}.", CITA_REC, ["31 de julio de 2023", "11:00 horas"]),
+                                   ("Es el {1}, a las {2} (hora límite {3}).", CITA_REC, ["31 de julio de 2023", "11:00 horas", "11:30"])]:
+            with self.subTest(texto=texto):
+                self.assertIsInstance(self.armar_en(fuente, texto, cita, datos), RespuestaEstructurada)
+        r = self.armar_en(fuente, "Es el {1}, a las {2}.", CITA_REC, ["31 de julio de 2023", "11:00 horas"])
+        self.assertIn("31 de julio de 2023, a las 11:00 horas", r.answer)
+
+    def test_c7_tramo_con_palabra_de_contenido_queda_libre_de_contiguidad(self):
+        casos = [("Polvo para uso parenteral 150 mg, vial, Código IGSS 10527", "Es de {1}, vial, con código IGSS {2}.", ["150 mg", "10527"]),
+                 ("(Artículo 2 numeral 5 del Acuerdo Gubernativo", "Artículo {1}, numeral {2}, del Acuerdo.", ["2", "5"]),
+                 ("10527 Omalizumab 1,096", "El código {1} corresponde a Omalizumab, con una cantidad total de {2}.", ["10527", "1,096"])]
+        for cita, texto, datos in casos:
+            with self.subTest(texto=texto):
+                self.assertIsInstance(self.armar_en(cita + " en total del lote", texto, cita, datos), RespuestaEstructurada)
+        # La unidad pegada al marcador sigue fallando aunque el tramo sea libre.
+        r = self.armar_en(self.CITA_AV, "El plazo es de {1} meses de {2}.", self.CITA_AV, ["31", "2023"])
+        self.assertEqual(self.codigos(r), ["unidad_fuera_de_literal"])
+
+    def test_c7_a2_unidades_con_nfkc_minusculas_y_ampliadas(self):
+        cita = "El plazo contractual es de dieciocho (18) meses contados a partir"
+        for unidad in ("semana", "semanas", "trimestre", "semestres", "quincenas", "millón", "millones", "mil",
+                       "centavo", "gramos", "miligramos", "microgramos", "mcg", "tabletas", "frascos", "ampollas",
+                       "litros", "cc", "DÍAS", "Meses", "ｄｉａｓ", "días"):
+            with self.subTest(unidad=unidad):
+                self.assertEqual(self.codigos(self.armar(f"El plazo es de {{1}} {unidad}.", cita, ["dieciocho (18)"])),
+                                 ["unidad_fuera_de_literal"])
+        for texto in ("El monto es de Q. {1}.", "El monto es de Q  {1}.", "El monto es de Ｑ {1}.", "El monto es de GTQ {1}.",
+                      "El monto es de gtq {1}.", "El monto es de US$ {1}.", "El monto es de us$ {1}.", "El monto es de $ {1}."):
+            with self.subTest(texto=texto):
+                self.assertEqual(self.codigos(self.armar(texto, cita, ["(18)"])), ["unidad_fuera_de_literal"])
+        self.assertIsInstance(self.armar("El plazo es de {1}.", cita, ["dieciocho (18) meses"]), RespuestaEstructurada)
+
+    def test_c7_a6_a7_letras_que_parecen_digitos_sin_rechazar_siglas(self):
+        for texto in ("El seguro es del lOO por ciento.", "El plazo es de lO dias.", "Plazo de lS dias.", "Es lOo.",
+                      "Plazo de IlI dias.", "Plazo de l.S dias.", "Plazo de l,S dias.", "Plazo de l/Z dias.",
+                      "Plazo de S.O dias.", "Plazo de O,I dias."):
+            with self.subTest(texto=texto):
+                self.assertEqual(self.codigos(self.armar(texto, "Recepción durante la semana")),
+                                 ["dato_fuera_de_literal"])
+        for texto in ("SI EL OFERENTE NO PRESENTA LA MUESTRA SE RECHAZA LA OFERTA.", "Se aplica la norma ISO.",
+                      "Plazo OS III IGSS.", "El lo y los os aplican."):
+            with self.subTest(texto=texto):
+                self.assertIsInstance(self.armar(texto, "Recepción durante la semana"), RespuestaEstructurada)
+        r = self.armar("Se exige la norma ISO {1}.", "se exige la norma ISO 9001 en el producto", ["9001"])
+        self.assertIsInstance(r, RespuestaEstructurada)
+
+    def test_c7_a8_cualquier_signo_en_el_borde_con_digito_al_otro_lado(self):
+        for sep in ("‒", "−", "⸺", "․", "‧", "٫", "٬", "＇", "ʼ", "∙", "⋅", "~", "_", "*", "#"):
+            with self.subTest(sep=sep):
+                fuente = f"El descuento aplicado del 0{sep}5% en total de la oferta presentada"
+                self.assertEqual(self.codigos(self.armar_en(fuente, "Dato documental.", f"{sep}5% en total de la oferta")),
+                                 ["cita_no_literal"])
+                # La "ʼ" es una letra no latina y el literal se rechaza antes por texto_invalido.
+                if sep != "ʼ":
+                    self.assertEqual(self.codigos(self.armar_en(fuente, "El descuento es {1}.", "El descuento aplicado del 0" + sep + "5% en total",
+                                                               [f"{sep}5%"])), ["dato_no_literal"])
+        for sep in ("‒", "⸺", "ʼ", "~", "_"):
+            with self.subTest(derecha=sep):
+                fuente = f"El monto es de 1{sep}500{sep}000 por renglón, ubicado"
+                self.assertEqual(self.codigos(self.armar_en(fuente, "Dato documental.", f"500{sep}000 por renglón, ubicado")),
+                                 ["cita_no_literal"])
+        # Un cierre con ")" o "." seguido de espacio sigue siendo un borde válido.
+        for cita in ("El plazo (dieciocho meses)", "El plazo es de dieciocho meses."):
+            with self.subTest(cita=cita):
+                self.assertIsInstance(self.armar_en(cita + " contados a partir de la firma", "Dato documental.", cita),
+                                      RespuestaEstructurada)
+
+    def test_c7_a9_comparar_versiones_publica_desde_el_original_de_documentos(self):
+        base, mod = fragmentos_222()
+        fb = base.model_copy(update={"texto": "El contenido de humedad debe ser <5% según las bases del evento y su anexo."})
+        fm = mod.model_copy(update={"texto": "El contenido de humedad debe ser <3% según la modificación número uno."})
+        docs = [DocumentoComparado(doc_id=f.doc_id, tipo_documento=f.tipo_documento,
+                                   identificador_version_oficial=f.identificador_version_oficial, fragmentos=[f])
+                for f in (fb, fm)]
+        resultado = herramienta(herramienta="comparar_versiones", fragmentos=[], documentos=docs, needs_human_review=True)
+        salida = {"abstener": False, "revision_humana": True, "afirmaciones": [
+            {"texto": "Las bases piden humedad {1}.", "datos": [{"cita": 1, "literal": "‹5%"}],
+             "citas": [{"fragmento": "F1", "cita": "El contenido de humedad debe ser ‹5% según las bases"}]},
+            {"texto": "La modificación pide humedad {1}.", "datos": [{"cita": 1, "literal": "‹3%"}],
+             "citas": [{"fragmento": "F2", "cita": "El contenido de humedad debe ser ‹3% según la modificación"}]}]}
+        _, evidencia, _, _ = construir_prompt("humedad", [fb, fm])
+        r = validar(json.dumps(salida, ensure_ascii=False), evidencia, resultado, evento_id="222")
+        self.assertIsInstance(r, RespuestaEstructurada)
+        self.assertEqual(r.answer, "Las bases piden humedad <5%. [1]\nLa modificación pide humedad <3%. [2]")
+        self.assertEqual(r.sources[0].cita, "El contenido de humedad debe ser <5% según las bases")
 
     def verificar(self, salida=None, resultado=None, conflictos=()):
         resultado = resultado or herramienta()
