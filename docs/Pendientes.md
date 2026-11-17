@@ -41,7 +41,8 @@ Los cambios concretos por sección están en [Cambios_pendientes](anteproyecto/C
 ### Diagramas
 
 - [x] Decisión: fuente en HTML autocontenido exportado a PNG, en `docs/arquitectura/diagramas/`. La versión anterior de OneDrive está deprecada y no se usa como referencia. Se borró `arquitectura.jpeg` (GUATECOMPRAS y NOG, sin referencias).
-- [ ] Diagrama general y flujo de consulta: encargo [D1](consulta/delegacion/D1_diagramas.md). Reemplazan a `arquitectura_igss.svg`; al terminar, actualizar las referencias en el anteproyecto (línea 482) y en `DESIGN.md`, y avisar a quien creó el SVG.
+- [x] Diagrama general y flujo de consulta: encargo [D1](consulta/delegacion/D1_diagramas.md), aprobado por el revisor de compuerta (PASS) el 16 de noviembre. Reemplazan a `arquitectura_igss.svg`; referencias actualizadas en el anteproyecto y en `DESIGN.md`.
+- [ ] Avisar a quien creó `arquitectura_igss.svg` que se reemplazó.
 - [ ] Generación, lista de verificación, E2E de comparación, E2E de inyección y experimento de JEV: en la fase que los use (F4, F5, F6, F7).
 - [ ] Ingesta detallada y recuperación: se piden a los roles 1 y 2 (ver sus avisos).
 

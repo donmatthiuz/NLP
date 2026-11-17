@@ -197,6 +197,145 @@ Antes de entregar, añade al script de exportación una comprobación que falle 
 
 Después de exportar, abre y mira cada PNG completo. No entregues si `make diagramas` falla.
 
+## Corrección 2 (auditoría del gestor sobre la segunda entrega)
+
+Las formas y la estructura mejoraron. `make diagramas` da OK, pero los PNG siguen con defectos: la verificación solo mide `.nodo` con 10 px de tolerancia y no ve lo de adentro de los nodos, los paneles ni las líneas. Solo se tocan `docs/arquitectura/diagramas/` y `scripts/exportar_diagramas.sh`; el `Makefile` no, porque otro agente lo está editando.
+
+### Defectos en ambos diagramas
+
+- **Analista tapado:** la insignia `POR IMPLEMENTAR` del analista (rol 4) tapa la palabra "Analista". La persona del revisor (rol 3/4) no tiene nombre: debe decir "Revisor".
+- **Rombos ilegibles:**
+  - el texto se sale del rombo y se corta a mitad de palabra ("herramienta/sí/n o", "suficiente/conflic to"), y el relleno casi no se ve;
+  - dentro del rombo va una pregunta corta de una o dos líneas (por ejemplo "¿Válida?", "¿Concreta?", "¿Qué herramienta?", "¿Suficiente?"), y el nombre de la compuerta encima o debajo, fuera del rombo;
+  - borde visible y nunca cortar palabras (`overflow-wrap: normal; word-break: normal; hyphens: none`).
+- **Marcas sueltas:** hay triángulos oscuros en la esquina superior izquierda de casi todos los nodos y circulitos ("o") junto a algunos conectores. Quítalos.
+- **Estado de las etiquetas:** actualízalo con la tabla de abajo; F2 y F3a ya están hechos.
+
+### Defectos del diagrama general
+
+- **Flechas de JEV:**
+  - cruzan todo el carril de ingesta y pasan por encima de sus nodos;
+  - coloca JEV a la derecha del carril C, fuera del límite del sistema, y lleva las tres líneas discontinuas por el espacio entre carriles o por fuera, nunca sobre un nodo.
+- **Encabezado:** la flecha del Portal al analista atraviesa el subtítulo, y la etiqueta "SISTEMA LICIGT" se encima con él.
+- **Conexión equivocada:** sale una flecha de "Abstención" a "Originales" (carril D). Quítala; las salidas no escriben en los originales. Si quieres mostrar la auditoría, una sola flecha de "Validar salida" a "Auditoría".
+- **Línea que atraviesa un nodo:** la línea vertical de "Recuperar" pasa por encima de "Error controlado". Ninguna línea cruza un nodo que no sea su origen o su destino.
+- **Espacio vacío y paneles cortados:**
+  - el carril C y el D tienen mucho espacio vacío abajo, y el límite del sistema también;
+  - compacta y ajusta el alto del lienzo;
+  - a "Leyenda" le falta el borde inferior y la nota N6 queda cortada.
+
+### Defectos del flujo de consulta
+
+- **Tabla de excepciones cortada:**
+  - la fila de JEV queda a medias y falta la de "Validación / citas inválidas";
+  - en el panel de parámetros se corta `doc_cambio_id?`;
+  - ningún panel lleva `overflow: hidden` que esconda contenido: el panel crece o la letra se ajusta.
+- **Contrato de salida incompleto:** falta `needs_clarification` y `clarification_question` (`esquemas.py`, F2). Añade "Aclaración" como salida en la tabla de excepciones con la condición "Pregunta sin objeto concreto: `needs_clarification = true` y pregunta aclaratoria".
+- **Estado compartido duplicado:** aparece dos veces, en el carril y en un panel. Deja uno solo, conectado.
+- **Etiqueta "3 llamadas" mal puesta:** está sobre la línea de JEV. Va en la rama Enrutador → "Salida controlada". "Salida controlada" recibe solo dos ramas: "3 llamadas" desde el enrutador y "citas inválidas tras 1 regeneración" desde "Validar salida". Quita la línea de "Recuperar" a "Salida controlada", que además cruza otras.
+- **Etiquetas `rol 3` encimadas:** junto a "Enrutador", la etiqueta queda sobre una línea y sobre el nodo vecino.
+
+### Estado para las etiquetas (reemplaza la tabla anterior)
+
+| Componente | Estado |
+|---|---|
+| Ingesta (rol 1) | implementado |
+| Índices y búsqueda, alertas, suficiencia (rol 2) | implementado |
+| Esquemas, guardrail de entrada, ambigüedad, enrutador (rol 3) | implementado |
+| Herramientas: `buscar_documentos`, `extraer_requisitos` (con fechas por actividad) y `comparar_versiones` | implementado |
+| Generación con LLM (cliente local u OpenAI), validador de citas, regeneración, salida, aclaración y abstención (rol 3) | implementado |
+| JEV: cliente hecho, sin calibrar con datos | parcial (insignia nueva `PARCIAL`, en ámbar) |
+| LLM local: servidor listo, modelo sin descargar ni medir | parcial |
+| Lista de verificación e interfaz web (rol 3) | por implementar |
+| Autenticación, contexto, auditoría, banco de evaluación (rol 4) | por implementar |
+
+El nodo "Generar" dice "LLM local u OpenAI" (interruptor por configuración, `DESIGN.md`). Agrega como nodo por implementar la lista de verificación con confirmación del usuario, que sale de "Respuesta" y escribe en PostgreSQL.
+
+### Verificación automática ampliada (obligatoria)
+
+Amplía la comprobación de `?verificar`. La tolerancia baja de 10 a 2 px; para los paralelogramos se mide el elemento de texto interior, no la caja inclinada. La comprobación falla si:
+
+1. cualquier elemento con texto (títulos, subtítulos, insignias, etiquetas de rol, etiquetas de flecha, celdas y paneles) desborda su contenedor;
+2. dos elementos con texto se solapan, incluidos los hijos de un mismo nodo (insignia sobre título o etiqueta sobre nombre);
+3. en un rombo, alguna esquina de la caja del texto queda fuera del rombo inscrito, es decir, si `|dx|/(w/2) + |dy|/(h/2) > 1` desde el centro;
+4. un segmento de línea o flecha corta la caja de un nodo que no es su origen ni su destino (muestrea los segmentos del `path` SVG);
+5. una etiqueta de flecha se solapa con un nodo;
+6. un panel tiene contenido oculto (`scrollHeight > clientHeight + 2`).
+
+El resultado lista cada problema con los ids implicados. Después mira cada PNG completo y, en tu respuesta, recorre esta lista de defectos uno por uno, diciendo cómo quedó cada uno.
+
+## Corrección 3: criterios de diseño (dueño: agentes de diseño)
+
+El usuario revisó los diagramas y los ve mal: flechas con poco espacio entre sí, texto encima de las flechas y una composición apretada. La corrección la hacen los agentes de diseño de `.agentes/`, traídos de `msitarzewski/agency-agents` (MIT, `.agentes/AGENCY-AGENTS-LICENSE.txt`):
+
+- `design-ui-designer`, con los principios de `design-visual-storyteller` y `design-ux-architect`, rediseña;
+- `design-ui-finish-gate-reviewer` valida y devuelve PASS o HOLD.
+
+Las reglas son medibles, y la verificación `?verificar` las comprueba todas.
+
+### Flechas
+
+- Enrutamiento ortogonal (tramos horizontales y verticales) con esquinas redondeadas de 6 a 8 px. Nada de diagonales largas.
+- Dos tramos paralelos de flechas distintas quedan separados al menos 24 px, salvo que compartan origen o destino y se unan a propósito.
+- Las flechas no se cruzan si hay otra ruta posible. Si un cruce es inevitable, se marca con un puente o un hueco.
+- Cada flecha entra y sale por un puerto propio del borde del nodo. Si varias salen por el mismo lado, se reparten con al menos 16 px entre puertos.
+- La punta de una flecha no toca texto, y queda a 4 px o más de su destino.
+- Grosores por tipo: flujo principal, 2 px continua; excepción, 1,5 px discontinua; JEV, 1,5 px discontinua naranja. Se mantiene la leyenda.
+
+### Texto
+
+- **Ningún texto queda encima de una flecha ni de otra línea.** Las etiquetas de flecha ("no", "falla", "conflicto", "3 llamadas") van al lado del tramo, separadas de él al menos 6 px, sobre un fondo del color del lienzo, y nunca cortan otra línea.
+- Tamaño mínimo de letra en el PNG de 1800 px: 13 px en etiquetas y 15 px en nombres de nodo.
+- Entre nodos hay 40 px o más de espacio libre, y entre un nodo y el borde de su carril, 24 px o más.
+- Cada nodo lleva como mucho su nombre (5 palabras como máximo) y una línea de detalle; el resto va a las notas.
+
+### Composición
+
+- Una dirección de lectura por carril (de izquierda a derecha), con las salidas de excepción alineadas en una fila debajo.
+- Jerarquía clara: el flujo principal se reconoce en 5 segundos, y las excepciones quedan en segundo plano visual.
+- Sin huecos grandes: ningún carril tiene más del 30 % de su área vacía.
+
+### Verificación adicional
+
+Además de lo de la Corrección 2, la comprobación falla si:
+
+1. dos tramos paralelos de flechas distintas, sin extremo común, quedan a menos de 24 px;
+2. la caja de una etiqueta de flecha se cruza con cualquier línea, incluida la suya;
+3. dos nodos quedan a menos de 40 px;
+4. un texto del lienzo mide menos de 13 px.
+
+## Corrección 4 (HOLD del revisor de compuerta y del gestor)
+
+La entrega del diseñador cumple las reglas geométricas, y su verificador es real (pasó una prueba de mutación). Queda en HOLD por esto:
+
+### Legibilidad (crítico)
+
+- **Problema:** con 1800 px de ancho, 2881 px de alto y letra de 13 a 15 px, la figura queda en unos 3,5 pt impresa a 17 cm en A4 y no cabe en una diapositiva 16:9.
+- **Se mantienen las dos figuras que eligió el usuario:**
+  - `arquitectura_general`: una vista de toda la arquitectura, compacta (unas 12 a 16 cajas en total), con los cuatro carriles. Debe seguir mostrando lo que exige la sección 6 de las instrucciones: estado compartido, compuertas, excepciones, revisión humana y JEV fuera del sistema.
+  - `flujo_consulta`: el carril C detallado.
+- **Tamaño de cada figura:** lienzo de 1600 px de ancho por 900 a 1100 px de alto, con letra de 18 px o más en los nombres de nodo y de 16 px o más en las etiquetas.
+- **Fuera del PNG:** leyenda completa, principios, fuentes, notas, tabla de excepciones, parámetros y contrato de salida. Pasan como texto a `docs/arquitectura/diagramas/README.md`. En la figura queda solo una leyenda mínima de una línea.
+- **Condición para pasar:** el texto más pequeño se lee a 7 pt o más impreso a 17 cm de ancho, y cada figura cabe en 1920x1080 sin escalar por debajo de 0,8.
+
+### Contenido que debe coincidir con el código (mayor)
+
+- **M1:** la etiqueta "PDF y URL de origen" queda sobre la línea del límite del sistema. Muévela, y amplía el verificador para que mida el texto también contra los bordes de `.limite`, `.carril` y `.marco`.
+- **M2:** la flecha de "Validar salida" a JEV y la "fidelidad de la cita" de la nota N6 no existen en el código; JEV de fidelidad se difirió (I1, sección 6). Dibuja esa flecha con el trazo de "por implementar" o quítala.
+- **M3:** `extraer_requisitos` sí llama a JEV para las fechas por actividad (`herramientas.py`). Añade una flecha de "Herramienta" a JEV.
+- **M4:** un conflicto no detiene la generación. La respuesta sale con ambas fuentes y `needs_human_review = true` (`orquestador.py`, `validacion.py`). Las alertas siguen a "Generar", y la revisión humana sale de "Respuesta" hacia el "Revisor".
+- **m2:** el orden real de `decision.py` es guardrail, después enrutador y después ambigüedad. Ordena así las compuertas.
+- **m1:** "3 llamadas" no se dibuja como una rama larga que cruza la fila principal: va como etiqueta junto a "Salida controlada".
+
+### Composición (menor)
+
+- **Nodo de JEV:** el rectángulo es enorme y casi vacío. Hazlo un nodo compacto del tamaño de los demás.
+- **Tronco azul compartido:** "Recuperar consulta la base" y "la lista se guarda" no comparten trazo. Cada flecha lleva su propio trazo y su propio puerto, separados 24 px.
+- **Auditoría:** recibe una flecha desde el flujo de consulta (`auditar` en todos los caminos); ningún servicio queda flotando.
+- **Estado compartido:** se lee como parte del flujo, con una línea fina hacia los nodos que lo usan o una nota en la leyenda mínima.
+- **PostgreSQL:** se reconoce como cilindro, no como una barra.
+- **Una sola insignia por nodo** (por ejemplo `rol 3 · implementado`), más discreta, para que el flujo se lea antes que las insignias.
+
 ## Al terminar
 
 Responde con los archivos creados o eliminados, la salida de `make diagramas`, cualquier dato del encargo que no coincidiera con el código y las decisiones de diseño que tomaste. No amplíes el alcance.

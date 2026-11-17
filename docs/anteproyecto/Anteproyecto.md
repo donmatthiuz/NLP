@@ -479,4 +479,8 @@ Fuentes identificadas para el diseño del corpus el 14 de noviembre de 2026. La 
 
 La implementación y la documentación del repositorio deberán reflejar el uso del portal del IGSS, `evento_id` como clave operativa, las tres herramientas de solo lectura y las limitaciones de cobertura definidas en este anteproyecto. El diagrama siguiente reproduce esa arquitectura con el portal del IGSS como fuente autorizada.
 
-![Arquitectura general de LiciGT para documentos del IGSS](../arquitectura/arquitectura_igss.svg)
+![Arquitectura general de LiciGT para documentos del IGSS](../arquitectura/diagramas/arquitectura_general.png)
+
+![Flujo de consulta de LiciGT](../arquitectura/diagramas/flujo_consulta.png)
+
+La leyenda, las notas, la tabla de excepciones y el contrato de salida de ambas figuras están en [`docs/arquitectura/diagramas/README.md`](../arquitectura/diagramas/README.md).
