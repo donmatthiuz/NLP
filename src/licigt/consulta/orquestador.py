@@ -1,0 +1,239 @@
+"""Flujo de consulta con una herramienta, una regeneración y auditoría en toda salida."""
+
+import json
+import time
+from datetime import datetime, timezone
+
+from pydantic import ValidationError
+
+from .config import obtener_configuracion_llm
+from .decision import decidir
+from .esquemas import (
+    BuscarDocumentosParams, CompararVersionesParams, ExtraerRequisitosParams,
+    RespuestaEstructurada, TEXTO_ABSTENCION,
+)
+from .generacion import VERSION_PROMPT, construir_prompt
+from .herramientas import buscar_documentos, comparar_versiones, extraer_requisitos
+from .lectura import ResultadoBusqueda
+from .llm import FallaGenerador
+from .presupuesto import LimiteAgotado, Presupuesto
+from .validacion import validar
+
+
+class _RecuperadorObservado:
+    """Retiene alertas para F4 porque ResultadoHerramienta solo conserva sus efectos."""
+    def __init__(self, recuperador, evento_id):
+        self.recuperador = recuperador
+        self.evento_id = evento_id
+        self.evento_distinto = False
+        self.busquedas = []
+
+    def _comprobar_evento(self, crudo):
+        if (isinstance(crudo, dict) and isinstance(crudo.get("evento_id"), str)
+                and crudo["evento_id"] != self.evento_id):
+            self.evento_distinto = True
+            raise ValueError("evento_distinto")
+
+    def buscar(self, *args, **kwargs):
+        crudo = self.recuperador.buscar(*args, **kwargs)
+        self._comprobar_evento(crudo)
+        self.busquedas.append(crudo)
+        return crudo
+
+    def comparar_versiones(self, *args, **kwargs):
+        crudo = self.recuperador.comparar_versiones(*args, **kwargs)
+        self._comprobar_evento(crudo)
+        return crudo
+
+
+def _evidencia(resultado):
+    fragmentos = {}
+    if resultado.herramienta == "comparar_versiones":
+        for documento in resultado.documentos:
+            for f in documento.fragmentos:
+                fragmentos.setdefault(f.chunk_id, f)
+    for f in resultado.fragmentos:
+        fragmentos.setdefault(f.chunk_id, f)
+    valores = list(fragmentos.values())
+    if resultado.herramienta == "comparar_versiones":
+        documentos = list(dict.fromkeys(f.doc_id for f in valores))
+        tipos = {f.doc_id: f.tipo_documento for f in valores}
+        orden = {"bases": 0, "aclaracion": 1, "modificacion": 2}
+        documentos.sort(key=lambda doc: orden.get(tipos[doc], 3))
+        valores.sort(key=lambda f: documentos.index(f.doc_id))
+    return valores
+
+
+def _conflictos(busquedas, fragmentos):
+    por_chunk = {f.chunk_id: f.doc_id for f in fragmentos}
+    grupos = []
+    afectados = set()
+    for crudo in busquedas:
+        busqueda = ResultadoBusqueda.model_validate(crudo)
+        for alerta in busqueda.alertas:
+            if alerta.tipo == "posible_conflicto":
+                afectados.update(alerta.chunk_ids_afectados)
+                grupo = {alerta.doc_id} | {por_chunk[c] for c in alerta.chunk_ids_afectados if c in por_chunk}
+                # Sin ids afectados, conservar ambos lados presentes es la opción prudente.
+                if len(grupo) == 1:
+                    grupo.update(f.doc_id for f in fragmentos if f.tipo_documento == "bases")
+                if grupo not in grupos:
+                    grupos.append(grupo)
+    return grupos, afectados
+
+
+def _abstencion(evento_id, resultado=None, aviso=None, herramienta=None):
+    avisos = list(resultado.warnings) if resultado else []
+    if aviso and aviso not in avisos:
+        avisos.append(aviso)
+    return RespuestaEstructurada(
+        answer=TEXTO_ABSTENCION, sources=[], abstained=True,
+        tool_used=resultado.herramienta if resultado else herramienta, evento_id=evento_id,
+        needs_human_review=resultado.needs_human_review if resultado else False,
+        coverage_status=resultado.coverage_status if resultado else "sin_faltantes_detectados",
+        warnings=avisos)
+
+
+def _atributo_seguro(objeto, nombre):
+    try:
+        return getattr(objeto, nombre, None)
+    except Exception:
+        return None
+
+
+def consultar(ctx, evento_id, pregunta, *, enrutador, recuperador, generador,
+              cliente_jev=None, auditar=lambda evento: None) -> RespuestaEstructurada:
+    inicio = time.monotonic()
+    usuario = _atributo_seguro(ctx, "usuario")
+    tenant_id = _atributo_seguro(ctx, "tenant_id")
+    modelo_generador = _atributo_seguro(generador, "modelo_generador")
+    # Incluso un id inválido debe producir una respuesta compatible con TextoNoVacio.
+    evento_salida = evento_id if isinstance(evento_id, str) and evento_id.strip() else "sin_evento"
+    respuesta = _abstencion(evento_salida)
+    resultado, herramienta, error = None, None, None
+    fragmentos = []
+    intencion = None
+    validacion = "no_aplica"
+    try:
+        presupuesto = Presupuesto()
+        if evento_salida != evento_id:
+            error = "parametros_invalidos"
+            return respuesta
+        juicios, clasificacion = enrutador.clasificar(pregunta)
+        siguiente = decidir(juicios, clasificacion)
+        intencion = {"accion": siguiente.accion, "motivo": siguiente.motivo, "variante": clasificacion.variante}
+        if siguiente.accion == "abstener":
+            return respuesta
+        if siguiente.accion == "aclarar":
+            respuesta = RespuestaEstructurada(
+                answer=siguiente.pregunta_aclaratoria, sources=[], abstained=False, tool_used=None,
+                needs_human_review=False, evento_id=evento_salida, coverage_status="sin_faltantes_detectados",
+                needs_clarification=True, clarification_question=siguiente.pregunta_aclaratoria)
+            return respuesta
+
+        herramienta = siguiente.herramienta
+        try:
+            config = obtener_configuracion_llm()
+        except ValidationError:
+            error = "config_llm_invalida"
+            respuesta = _abstencion(evento_salida, aviso="generador_no_disponible", herramienta=herramienta)
+            return respuesta
+        presupuesto.usar_llamada()
+        observado = _RecuperadorObservado(recuperador, evento_id)
+        if herramienta == "buscar_documentos":
+            params = BuscarDocumentosParams(query=pregunta, evento_id=evento_id)
+            resultado = buscar_documentos(ctx, params, observado)
+        elif herramienta == "comparar_versiones":
+            params = CompararVersionesParams(tema=pregunta, evento_id=evento_id)
+            resultado = comparar_versiones(ctx, params, observado)
+        elif herramienta == "extraer_requisitos":
+            params = ExtraerRequisitosParams(evento_id=evento_id)
+            resultado = extraer_requisitos(ctx, params, observado, cliente_jev=cliente_jev)
+        else:
+            error = "sin_herramienta"
+            return respuesta
+        fragmentos = _evidencia(resultado)
+        error = resultado.error
+        if observado.evento_distinto:
+            error = "evento_distinto"
+            respuesta = _abstencion(evento_salida, resultado, "citas_no_validas")
+            validacion = "fallida"
+            return respuesta
+        if resultado.abstener:
+            respuesta = _abstencion(evento_salida, resultado)
+            return respuesta
+        if resultado.evento_id != evento_id:
+            error = "evento_distinto"
+            respuesta = _abstencion(evento_salida, resultado, "citas_no_validas")
+            validacion = "fallida"
+            return respuesta
+
+        conflictos, afectados = _conflictos(observado.busquedas, fragmentos)
+        # Una comparación necesita preservar los documentos aunque aún no haya alerta.
+        protegidos = conflictos
+        if herramienta == "comparar_versiones":
+            protegidos = [*conflictos, {d.doc_id for d in resultado.documentos}]
+        mensajes, evidencia, esquema, avisos = construir_prompt(
+            pregunta, fragmentos, fechas=resultado.fechas, conflictos=protegidos,
+            chunk_ids_afectados=afectados,
+            max_caracteres=config.max_caracteres_evidencia)
+        resultado = resultado.model_copy(update={"warnings": list(dict.fromkeys([*resultado.warnings, *avisos]))})
+        if not evidencia:
+            respuesta = _abstencion(evento_salida, resultado)
+            return respuesta
+        for intento in range(2):
+            try:
+                crudo = generador.generar(mensajes, esquema)
+            except (FallaGenerador, TimeoutError) as exc:
+                error = exc.codigo if isinstance(exc, FallaGenerador) else "tiempo_agotado"
+                respuesta = _abstencion(evento_salida, resultado, "generador_no_disponible")
+                return respuesta
+            except Exception:
+                error = "api"
+                respuesta = _abstencion(evento_salida, resultado, "generador_no_disponible")
+                return respuesta
+            verificada = validar(crudo, evidencia, resultado, evento_id=evento_id, conflictos=conflictos)
+            if isinstance(verificada, RespuestaEstructurada):
+                respuesta = verificada
+                validacion = "regenerada_ok" if intento else "ok"
+                return respuesta
+            validacion = "fallida"
+            if intento:
+                break
+            try:
+                presupuesto.usar_regeneracion()
+            except LimiteAgotado:
+                break
+            errores = json.dumps([e.model_dump(exclude_none=True) for e in verificada], ensure_ascii=False)
+            mensajes = [*mensajes, {"role": "assistant", "content": crudo}, {"role": "user", "content": (
+                "La salida anterior no pasó la validación: " + errores + "\n"
+                'Corrige esos puntos: copia tramos exactos o elimina la afirmación. Si no queda ninguna afirmación respaldada, devuelve "abstener": true.')}]
+        respuesta = _abstencion(evento_salida, resultado, "citas_no_validas")
+        return respuesta
+    except LimiteAgotado:
+        error = "presupuesto_agotado"
+        respuesta = _abstencion(evento_salida, resultado, "citas_no_validas", herramienta)
+        return respuesta
+    except ValidationError:
+        error = "contrato_invalido" if resultado else "parametros_invalidos"
+        respuesta = _abstencion(evento_salida, resultado, herramienta=herramienta)
+        return respuesta
+    except Exception:
+        error = "falla_consulta"
+        respuesta = _abstencion(evento_salida, resultado, herramienta=herramienta)
+        return respuesta
+    finally:
+        try:
+            auditar({
+                "momento": datetime.now(timezone.utc).isoformat(),
+                "usuario": usuario, "tenant_id": tenant_id,
+                "evento_id": evento_salida, "intencion": intencion, "herramienta": respuesta.tool_used,
+                "chunk_ids": [f.chunk_id for f in fragmentos], "abstained": respuesta.abstained,
+                "needs_human_review": respuesta.needs_human_review, "validacion": validacion,
+                "latencia_ms": (time.monotonic() - inicio) * 1000, "error": error,
+                "chunk_ids_citados": list(dict.fromkeys(f.chunk_id for f in respuesta.sources)),
+                "modelo_generador": modelo_generador,
+                "version_prompt": VERSION_PROMPT,
+            })
+        except Exception:
+            pass
