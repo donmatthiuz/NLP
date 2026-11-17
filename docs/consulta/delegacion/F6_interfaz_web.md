@@ -165,6 +165,7 @@ Se redacta al cerrar F5, con su contrato: `PropuestaLista`, `ItemLista` y las ru
 - **Guion:** `docs/consulta/Demo_222.md` con los seis pasos de `Plan_rol_3.md:93`, la pregunta exacta de cada uno y lo que debe verse.
   - La pregunta sin evidencia se elige comprobando antes la abstención con `make buscar` (I3, pregunta 4).
 - **Corrida real:** la hace el usuario, con `make db-up`, `make importar`, `make llm-servidor`, `make api` y `make web`.
+- **Aclaración sin memoria** (decisión del 17 de noviembre): cuando la respuesta pide aclaración, la web conserva la pregunta original en el cuadro, con el cursor al final y la pregunta aclaratoria visible, para que el usuario la complete y la envíe de nuevo. El backend no guarda nada entre preguntas.
 - **Compuerta:** `design-ui-finish-gate-reviewer` revisa la página corriendo en los cinco estados contra `web/DISENO.md` y devuelve PASS o HOLD. No edita. Con HOLD, el implementador corrige y se repite la revisión.
 
 ## Criterios de aceptación

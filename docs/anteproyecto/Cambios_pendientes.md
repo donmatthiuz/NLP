@@ -36,6 +36,8 @@
   - Las preguntas de prueba las redacta un agente proponente, las revisa un agente revisor y el usuario da el visto bueno; esta limitación se declara en el informe.
   - Origen: decisión del 16 de noviembre y la investigación [I4](../consulta/investigacion/I4_evaluacion_y_jev.md).
 
+- [ ] **Limitación: sin memoria de conversación.** Cada pregunta se responde por sí sola; una pregunta de seguimiento ("¿y en la modificación?") debe escribirse completa. Se declara como limitación y trabajo futuro: la reescritura de seguimientos con el historial abriría una vía de inyección y exigiría su propio banco. Origen: decisión del 17 de noviembre; instrucciones del curso, fase 2.
+
 ## Sección 13. Seguridad
 
 - [ ] Indicar que a los servicios externos (JEV y, si se activa, el LLM en la nube de OpenAI) solo se envían la pregunta y textos de documentos públicos; nunca datos de la empresa ni credenciales. OpenAI no entrena con los datos de la API y los guarda 30 días para vigilar abusos ([política de datos](https://developers.openai.com/api/docs/guides/your-data)). Origen: decisión del 16 de noviembre; instrucciones, sección 15 (gobernanza de datos).

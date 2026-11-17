@@ -25,6 +25,7 @@ Abiertas:
 - [ ] **Revisiones de modelos:** anotar la revisión exacta de cada modelo en la tabla de `docs/recuperacion/Recuperacion.md` tras la primera descarga (`make models-status`); el rol 2 debe fijarla con `revision=` (ver sus avisos). El LLM local y JEV se anotan cuando se elijan.
 - [ ] **Almacenamiento:** MinIO o Google Cloud Storage (ver Pendientes_rol_1).
 - [ ] Respuestas del asesor a las preguntas de validación del resumen (documentos privados, LLM externo, tiempo de revisión con usuarios reales).
+- [x] **Sin memoria de conversación** (decisión del 17 de noviembre): cada pregunta se responde por sí sola, con el evento como único contexto. El curso propone un "prompt estructurado sin memoria" como línea base (instrucciones, fase 2) y no exige memoria; el banco cubre las preguntas compuestas y la ambigüedad dentro de una sola pregunta. Se declara como limitación y trabajo futuro en el informe. Si se hiciera, la reescritura de preguntas de seguimiento sería del rol 3, y el historial del rol 4.
 
 ## Documentos del curso
 
