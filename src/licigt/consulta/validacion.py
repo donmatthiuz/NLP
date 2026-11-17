@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, ValidationError
 
 from .entrada import normalizar
 from .esquemas import RespuestaEstructurada, TEXTO_ABSTENCION
-from .generacion import SalidaModelo
+from .generacion import SalidaModelo, _neutralizar
 from .herramientas import ResultadoHerramienta
 from .lectura import FragmentoRecuperado, fuente_desde_fragmento
 from .requisitos import ABREVIATURAS, MESES
@@ -33,12 +33,23 @@ MESES_INGLES = {"january", "february", "march", "april", "may", "june", "july", 
                 "sep", "sept", "oct", "nov", "dec"}
 NOMBRES_MES = {*MESES, *ABREVIATURAS, *MESES_INGLES}
 MARCADOR = re.compile(r"\{[1-9][0-9]*\}")
-SEPARADORES = ".,/:-"
+SEPARADORES = ".,/:-–‐‑'’·⁄"
 # El texto fuera de los marcadores: letras latinas con tilde española, espacios y puntuación simple.
-TEXTO_PERMITIDO = re.compile(r"[A-Za-záéíóúüñÁÉÍÓÚÜÑ .,;:()¿?¡!\"'—–“”‘’«»-]*")
+# La "/" solo entre dos letras ("y/o"); se revisa aparte porque aquí no distingue el vecino.
+TEXTO_PERMITIDO = re.compile(r"[A-Za-záéíóúüñÁÉÍÓÚÜÑ .,;:()¿?¡!\"'—–“”‘’«»/-]*")
+BARRA_SUELTA = re.compile(r"(?<![^\W\d_])/|/(?![^\W\d_])")
 SALTOS = re.compile(r"[\n\r\v\f\x1c-\x1e\x85\u2028\u2029]")
 FALSO_FUENTE = re.compile(r"\[\s*\d+\s*\]")
-VIGENCIA = re.compile(r"\b(?:vigent|vigenc|prevalec|sustitu|reemplaz|deroga|anula|sin efecto)")
+VIGENCIA = re.compile(r"\b(?:vigent|vigenc|prevalec|sustitu|reemplaz|deroga|anula|sin efecto|rige|regir|no aplica|"
+                      r"valid|correct|queda sin|anterior|actualizad)")
+# Un tramo entre dos marcadores que solo lleva conectores obliga a que el compuesto aparezca seguido en la cita.
+CONECTOR = re.compile(r"(?:\s|,|-|–|—|\bde\b|\bdel\b|\ba las\b|\ba la\b)*")
+UNIDADES = ("día|días|mes|meses|año|años|hora|horas|minutos|semanas|por ciento|porcentaje|mg|ml|g|kg|unidades|"
+            "viales|quetzales|dólares")
+UNIDAD_DESPUES = re.compile(r"\{[1-9][0-9]*\} (?:" + normalizar(UNIDADES) + r")(?![^\W\d_])")
+UNIDAD_ANTES = re.compile(r"(?<![\w$])(?:Q|US\$|\$) \{[1-9][0-9]*\}")
+# Parecen dígitos: l, I, O, S, Z y B; en minúscula solo la l cuenta como sospechosa.
+PARECE_DIGITO = frozenset("lIOSZB")
 TIPOS_QUE_ESCALAN = {"modificacion", "aclaracion"}
 
 
@@ -91,15 +102,24 @@ def _mapa(texto: str, plegar: bool) -> tuple[str, list[int]]:
     return "".join(salida), indices
 
 
-def _original(texto: str, tramo: str, plegar: bool) -> str | None:
-    """El tramo del texto original que corresponde al tramo normalizado, con los espacios colapsados."""
+def _original(texto: str, tramo: str, plegar: bool, publicar: str | None = None) -> str | None:
+    """El tramo del texto original que corresponde al tramo normalizado, con los espacios colapsados.
+
+    Se busca en texto y se publica desde publicar (el mismo texto sin neutralizar, con los mismos índices)."""
+    texto = unicodedata.normalize("NFC", texto)
+    publicar = unicodedata.normalize("NFC", publicar) if publicar is not None else texto
+    if len(publicar) != len(texto):
+        publicar = texto
     plano, indices = _mapa(texto, plegar)
     if plano != (normalizar_cita(texto) if plegar else _espaciar(texto)):
         return None
     inicio = _buscar(plano, tramo)
     if inicio == -1:
         return None
-    return " ".join(texto[indices[inicio]:indices[inicio + len(tramo) - 1] + 1].split())
+    fin = indices[inicio + len(tramo) - 1] + 1
+    while fin < len(texto) and unicodedata.category(texto[fin]).startswith("M"):
+        fin += 1
+    return " ".join(publicar[indices[inicio]:fin].split())
 
 
 def _prohibido(texto: str) -> bool:
@@ -113,18 +133,35 @@ def _con_mes(texto: str) -> bool:
 
 
 def _aislado(texto: str) -> bool:
-    """Cada marcador va solo: antes, inicio, espacio o (; después, espacio, final o una secuencia de .,;) seguida de espacio o final."""
+    """Cada marcador va solo: antes, inicio, espacio o (; después, espacio, final o una secuencia de .,;:) seguida de espacio o final."""
     marcadores = MARCADOR.findall(texto)
     if len(marcadores) != len(set(marcadores)):
         return False
     for m in MARCADOR.finditer(texto):
         antes = texto[m.start() - 1] if m.start() else " "
-        cierre = len(texto[m.end():]) - len(texto[m.end():].lstrip(".,;)"))
+        cierre = len(texto[m.end():]) - len(texto[m.end():].lstrip(".,;:)"))
         fin = m.end() + cierre
         despues = texto[fin] if fin < len(texto) else " "
         if antes not in " (" or despues != " ":
             return False
     return True
+
+
+def _compuestos(afirmacion) -> list[str]:
+    """Los tramos de marcadores unidos solo por conectores, con el compuesto que deben formar en la cita."""
+    compuestos, actual = [], None
+    marcadores = list(MARCADOR.finditer(afirmacion.texto))
+    for previo, m in zip(marcadores, marcadores[1:]):
+        union = afirmacion.texto[previo.end():m.start()]
+        if CONECTOR.fullmatch(union):
+            if actual is None:
+                actual = [previo.group(), union, m.group()]
+                compuestos.append(actual)
+            else:
+                actual += [union, m.group()]
+        else:
+            actual = None
+    return compuestos
 
 
 def _error_texto(afirmacion) -> str | None:
@@ -143,9 +180,15 @@ def _error_texto(afirmacion) -> str | None:
             return "texto_invalido"
     if not _aislado(afirmacion.texto):
         return "marcador_pegado"
-    if any(unicodedata.category(c).startswith("N") for c in resto) or _con_mes(resto):
+    sin_marcadores = MARCADOR.sub(" ", afirmacion.texto)
+    if UNIDAD_DESPUES.search(normalizar(afirmacion.texto)) or UNIDAD_ANTES.search(afirmacion.texto):
+        return "unidad_fuera_de_literal"
+    # Las de categoría Nl (Ⅻ) son letras para NFKC: se revisan también antes de normalizar.
+    if (any(unicodedata.category(c).startswith("N") for c in sin_marcadores + resto) or _con_mes(resto)
+            or any(len(p) > 1 and set(p) <= PARECE_DIGITO and set(p) != {"l"}
+                   for p in re.findall(r"[^\W\d_]+", resto))):
         return "dato_fuera_de_literal"
-    if not TEXTO_PERMITIDO.fullmatch(resto):
+    if BARRA_SUELTA.search(resto) or not TEXTO_PERMITIDO.fullmatch(resto):
         return "texto_invalido"
     return None
 
@@ -201,7 +244,8 @@ def validar(salida_cruda: str, evidencia: dict[str, FragmentoRecuperado],
     if errores:
         return errores
 
-    tramos = {}
+    originales = {f.chunk_id: f.texto for f in resultado.fragmentos}
+    tramos, neutros = {}, {}
     for i, afirmacion in enumerate(salida.afirmaciones, 1):
         for j, cita in enumerate(afirmacion.citas, 1):
             literal = normalizar_cita(cita.cita)
@@ -210,7 +254,13 @@ def validar(salida_cruda: str, evidencia: dict[str, FragmentoRecuperado],
             elif len(_espaciar(cita.cita)) > 200:
                 errores.append(ErrorValidacion(codigo="esquema_invalido", afirmacion=i, cita=j))
             else:
-                tramos[i, j] = _original(evidencia[cita.fragmento].texto, literal, True)
+                f = evidencia[cita.fragmento]
+                # Se busca en el texto neutralizado que vio el modelo y se publica el del documento, con los mismos índices.
+                original = originales.get(f.chunk_id)
+                if original is None or _neutralizar(original) != f.texto:
+                    original = f.texto
+                neutros[i, j] = _original(f.texto, literal, True)
+                tramos[i, j] = _original(f.texto, literal, True, original)
                 if tramos[i, j] is None:
                     errores.append(ErrorValidacion(codigo="cita_no_literal", afirmacion=i, cita=j))
     if errores:
@@ -224,12 +274,22 @@ def validar(salida_cruda: str, evidencia: dict[str, FragmentoRecuperado],
         literales[i] = []
         for dato in afirmacion.datos:
             en_rango = dato.cita <= len(afirmacion.citas)
-            publicado = _original(tramos[i, dato.cita], _espaciar(dato.literal), False) if en_rango else None
+            publicado = (_original(neutros[i, dato.cita], _espaciar(dato.literal), False, tramos[i, dato.cita])
+                         if en_rango and any(c.isalnum() for c in dato.literal) else None)
             if publicado is None:
                 errores.append(ErrorValidacion(codigo="dato_no_literal", afirmacion=i,
                                                cita=dato.cita if en_rango else None))
                 break
             literales[i].append(publicado)
+        if errores and errores[-1].afirmacion == i:
+            continue
+        # El compuesto de marcadores unidos por conectores debe aparecer seguido en su cita.
+        for compuesto in _compuestos(afirmacion):
+            piezas = [literales[i][int(p[1:-1]) - 1] if MARCADOR.fullmatch(p) else p for p in compuesto]
+            cita = afirmacion.datos[int(compuesto[0][1:-1]) - 1].cita
+            if _buscar(normalizar_cita(neutros[i, cita]), normalizar_cita("".join(piezas))) == -1:
+                errores.append(ErrorValidacion(codigo="dato_no_literal", afirmacion=i, cita=cita))
+                break
     if errores:
         return errores
 
