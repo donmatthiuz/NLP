@@ -406,10 +406,20 @@ class ValidacionTests(unittest.TestCase):
         self.assertLessEqual(len(r.sources[0].cita), 200)
 
     def test_fr2_cita_larga_despues_de_colapsar_da_esquema_invalido(self):
-        relleno = " ".join(["relleno de prueba"] * 12)
+        relleno = " ".join(["relleno de prueba"] * 31)
         cita = "la recepción de OFERTAS. 22-72 zona 1, segundo nivel, " + relleno
-        self.assertGreater(len(" ".join(cita.split())), 200)
+        self.assertGreater(len(" ".join(cita.split())), 500)
         self.assertEqual(self.codigos(self.armar_en(cita, "Recepción.", cita)), ["esquema_invalido"])
+
+    def test_c11_cita_literal_de_450_caracteres_pasa_y_una_de_520_no(self):
+        for largo, publica in [(450, True), (520, False)]:
+            cita = ("relleno de prueba " * 40)[:largo].strip()
+            r = self.armar_en(cita, "Recepción.", cita)
+            with self.subTest(largo=largo):
+                if publica:
+                    self.assertIsInstance(r, RespuestaEstructurada)
+                else:
+                    self.assertEqual(self.codigos(r), ["esquema_invalido"])
 
     # C6: cierre de F4.
     CITA_AV = CITA_REC + ", en Salones Los Volcanes, ubicados en la 7ª. Avenida 22-72 Zona 1"
@@ -997,3 +1007,30 @@ class DatosDesdeLaCitaTests(unittest.TestCase):
         cita = "con vigencia de 120 días a partir de la fecha"
         r = self.validar(self.salida("Vigencia de 120 días.", [("F1", cita)]), self.un_fragmento(cita))
         self.assertEqual([e.codigo for e in r], ["unidad_fuera_de_literal"])
+
+    def test_c11_identificador_de_version_del_fragmento_citado_se_acepta(self):
+        f1, f2 = fragmentos_222()
+        self.assertEqual(f2.identificador_version_oficial, "Modificación Número 1")
+        crudo = self.salida("En la Modificación Número 1, la recepción es el {1}.",
+                            [("F2", "INSTITUTO, el día 06 de octubre de 2023")], [(1, "06 de octubre de 2023")])
+        informe = {}
+        r = self.validar(crudo, [f1, f2], informe)
+        self.assertIsInstance(r, RespuestaEstructurada)
+        self.assertIn("En la Modificación Número 1, la recepción es el 06 de octubre de 2023.", r.answer)
+        self.assertEqual(informe["datos_desde_cita"], 1)
+
+    def test_c11_cita_de_las_bases_sin_identificador_se_rechaza_como_antes(self):
+        f1, f2 = fragmentos_222()
+        self.assertIsNone(f1.identificador_version_oficial)
+        crudo = self.salida("En la Modificación Número 1, la recepción es el {1}.",
+                            [("F1", "La recepción de ofertas se llevará a cabo el 31 de julio de 2023")],
+                            [(1, "31 de julio de 2023")])
+        r = self.validar(crudo, [f1, f2])
+        self.assertEqual([e.codigo for e in r], ["dato_fuera_de_literal"])
+
+    def test_c11_el_identificador_solo_vale_con_limites_de_palabra(self):
+        f1, f2 = fragmentos_222()
+        f2 = f2.model_copy(update={"identificador_version_oficial": "Modificación Número 12"})
+        crudo = self.salida("En la Modificación Número 1, la recepción es el {1}.",
+                            [("F2", "INSTITUTO, el día 06 de octubre de 2023")], [(1, "06 de octubre de 2023")])
+        self.assertEqual([e.codigo for e in self.validar(crudo, [f1, f2])], ["dato_fuera_de_literal"])

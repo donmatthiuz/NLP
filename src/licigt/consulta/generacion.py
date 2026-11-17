@@ -16,7 +16,7 @@ class CitaModelo(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
 
     fragmento: str
-    # El largo máximo (200) se mide en el validador, después de colapsar los espacios del fragmento a dos columnas.
+    # El largo máximo (MAX_CITA, 500) se mide en el validador, después de colapsar los espacios del fragmento a dos columnas.
     cita: str = Field(min_length=10)
 
 

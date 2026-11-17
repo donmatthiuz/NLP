@@ -227,7 +227,7 @@ def _ejecutar(ctx, evento_id, evento_salida, pregunta, herramienta, presupuesto,
                 + "".join(f"Desajuste: {d}.\n" for d in desajustes) +
                 "Corrige esos puntos: copia tramos exactos o elimina la afirmación.\n"
                 "- cita_no_literal: copia la cita completa desde el fragmento, sin empezar ni terminar a mitad de una palabra o número.\n"
-                "- esquema_invalido: la cita, con los espacios y saltos de línea colapsados a uno, mide como máximo 200 caracteres; acórtala.\n"
+                "- esquema_invalido: la cita, con los espacios y saltos de línea colapsados a uno, mide como máximo 500 caracteres; acórtala.\n"
                 "- marcador_pegado: cada marcador {n} va solo, entre espacios o antes de . , ; : ), sin letras, dígitos ni símbolos pegados, sin otro marcador contiguo y una sola vez.\n"
                 "- dato_no_literal: el literal debe ser un tramo exacto de la cita indicada, sin cambiar ceros ni formato.\n"
                 "  Entre dos marcadores solo van ', ', ' y ', ' o ', ' ni ', ' a ', ' al ', ', y ' o ' y el '; un tramo corto (sin palabras de 4 o más letras) con otro texto, ese texto y los dos literales deben aparecer seguidos en la cita; si no, un solo literal.\n"

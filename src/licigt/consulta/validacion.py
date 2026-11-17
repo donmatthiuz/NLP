@@ -21,6 +21,10 @@ class ErrorValidacion(BaseModel):
     cita: int | None = None
 
 
+# Largo máximo de una cita tras colapsar los espacios. La seguridad depende de que la cita sea literal, no de su largo;
+# el tope solo evita copiar el fragmento entero (y cabe en Fuente.cita, de 500).
+MAX_CITA = 500
+
 COMILLAS = str.maketrans({"“": '"', "”": '"', "«": '"', "»": '"', "‘": "'", "’": "'"})
 
 
@@ -296,8 +300,15 @@ def _tramos_de_datos(texto: str) -> list[tuple[int, int]]:
     return tramos
 
 
-def _datos_desde_cita(afirmacion: Afirmacion) -> tuple[Afirmacion, int]:
-    """Sustituye por {n} el tramo con dígitos del texto que aparece tal cual en una cita de la afirmación; devuelve los creados.
+def _en_identificador(fragmento: FragmentoRecuperado | None, literal: str) -> bool:
+    """El literal está, con límites de palabra, en el identificador de versión del fragmento (metadato de ingesta, no del modelo)."""
+    identificador = fragmento.identificador_version_oficial if fragmento else None
+    return identificador is not None and _buscar(_espaciar(identificador), _espaciar(literal)) != -1
+
+
+def _datos_desde_cita(afirmacion: Afirmacion, evidencia: dict[str, FragmentoRecuperado]) -> tuple[Afirmacion, int]:
+    """Sustituye por {n} el tramo con dígitos del texto que aparece tal cual en una cita de la afirmación
+    o en el identificador de versión del fragmento citado; devuelve los creados.
 
     Lo que no aparece queda en el texto y lo rechaza _error_texto; las demás reglas corren después sobre el texto nuevo."""
     n = len(afirmacion.datos)
@@ -314,7 +325,9 @@ def _datos_desde_cita(afirmacion: Afirmacion) -> tuple[Afirmacion, int]:
             literal = _espaciar(parte[inicio:fin])
             if SALTOS.search(parte[inicio:fin]) or any(c in literal for c in "[]{}"):
                 continue
-            donde = [j for j, cita in enumerate(citas, 1) if _buscar(cita, literal) != -1]
+            donde = [j for j, cita in enumerate(citas, 1)
+                     if _buscar(cita, literal) != -1
+                     or _en_identificador(evidencia.get(afirmacion.citas[j - 1].fragmento), literal)]
             if not donde:
                 continue
             propias = {d.cita for d in datos}
@@ -353,7 +366,7 @@ def validar(salida_cruda: str, evidencia: dict[str, FragmentoRecuperado],
     salida = salida.model_copy(update={"afirmaciones": [a for a, _ in ajustadas]})
     if informe is not None:
         informe["datos_descartados"] = sum(d for _, d in ajustadas)
-    creadas = [_datos_desde_cita(a) for a in salida.afirmaciones]
+    creadas = [_datos_desde_cita(a, evidencia) for a in salida.afirmaciones]
     salida = salida.model_copy(update={"afirmaciones": [a for a, _ in creadas]})
     if informe is not None:
         informe["datos_desde_cita"] = sum(d for _, d in creadas)
@@ -387,7 +400,7 @@ def validar(salida_cruda: str, evidencia: dict[str, FragmentoRecuperado],
             literal = normalizar_cita(cita.cita)
             if len(literal) < 10 or sum(c.isalnum() for c in literal) < 10:
                 errores.append(ErrorValidacion(codigo="cita_corta", afirmacion=i, cita=j))
-            elif len(_espaciar(cita.cita)) > 200:
+            elif len(_espaciar(cita.cita)) > MAX_CITA:
                 errores.append(ErrorValidacion(codigo="esquema_invalido", afirmacion=i, cita=j))
             else:
                 f = evidencia[cita.fragmento]
@@ -412,12 +425,17 @@ def validar(salida_cruda: str, evidencia: dict[str, FragmentoRecuperado],
             en_rango = dato.cita <= len(afirmacion.citas)
             publicado = (_original(neutros[i, dato.cita], _espaciar(dato.literal), False, tramos[i, dato.cita])
                          if en_rango and any(c.isalnum() for c in dato.literal) else None)
+            neutral = (_original(neutros[i, dato.cita], _espaciar(dato.literal), False)
+                       if publicado is not None else None)
+            if publicado is None and en_rango and any(c.isalnum() for c in dato.literal) and _en_identificador(
+                    evidencia[afirmacion.citas[dato.cita - 1].fragmento], dato.literal):
+                publicado = neutral = _espaciar(dato.literal)
             if publicado is None:
                 errores.append(ErrorValidacion(codigo="dato_no_literal", afirmacion=i,
                                                cita=dato.cita if en_rango else None))
                 break
             literales[i].append(publicado)
-            neutrales.append(_original(neutros[i, dato.cita], _espaciar(dato.literal), False))
+            neutrales.append(neutral)
         if errores and errores[-1].afirmacion == i:
             continue
         # Entre dos marcadores, salvo una unión simple, el tramo con sus literales debe aparecer seguido en la cita.
