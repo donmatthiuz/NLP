@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict
 from .entrada import JuiciosEntrada
 from .enrutador import Clasificacion
 from .esquemas import NombreHerramienta, TEXTO_ACLARACION, TEXTO_ACLARACION_FECHA
-from .preguntas_jev import CHOICE_MIN, NOUL_NO
+from .preguntas_jev import Umbrales
 
 
 class Siguiente(BaseModel):
@@ -19,7 +19,8 @@ class Siguiente(BaseModel):
     pregunta_aclaratoria: str | None = None
 
 
-def decidir(juicios: JuiciosEntrada, clasificacion: Clasificacion) -> Siguiente:
+def decidir(juicios: JuiciosEntrada, clasificacion: Clasificacion,
+            umbrales: Umbrales = Umbrales()) -> Siguiente:
     if not juicios.longitud_valida:
         return Siguiente(accion="abstener", motivo="longitud_invalida")
     if juicios.inyeccion:
@@ -27,7 +28,7 @@ def decidir(juicios: JuiciosEntrada, clasificacion: Clasificacion) -> Siguiente:
     if juicios.fuera_de_alcance:
         return Siguiente(accion="abstener", motivo="fuera_de_alcance")
     if (clasificacion.variante == "jev" and clasificacion.prob_aplica is not None
-            and clasificacion.prob_aplica < NOUL_NO):
+            and clasificacion.prob_aplica < umbrales.noul_no):
         return Siguiente(accion="abstener", motivo="sin_herramienta")
     if clasificacion.herramienta is None:
         return Siguiente(accion="abstener", motivo="sin_herramienta")
@@ -36,6 +37,6 @@ def decidir(juicios: JuiciosEntrada, clasificacion: Clasificacion) -> Siguiente:
                          pregunta_aclaratoria=TEXTO_ACLARACION_FECHA if juicios.menciona_fecha else TEXTO_ACLARACION)
     herramienta = clasificacion.herramienta
     if (clasificacion.variante == "jev" and clasificacion.prob_herramienta is not None
-            and clasificacion.prob_herramienta < CHOICE_MIN):
+            and clasificacion.prob_herramienta < umbrales.choice_min):
         herramienta = juicios.herramienta_reglas
     return Siguiente(accion="usar_herramienta", motivo="ok", herramienta=herramienta)

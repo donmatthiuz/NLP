@@ -31,7 +31,7 @@ EVENTO ?= 222-IGSS-2023
 
 .PHONY: help setup env-init keys-init keys-status key-set db-up db-down db-password-sync \
         importar buscar models-status claude opencode codex test-consulta test-ingesta test-recuperacion \
-        diagramas llm-descargar llm-servidor llm-estado deps-consulta sondeo-jev api
+        diagramas llm-descargar llm-servidor llm-estado deps-consulta sondeo-jev api experimento-jev
 
 help: ## Muestra esta ayuda
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(firstword $(MAKEFILE_LIST)) \
@@ -103,6 +103,9 @@ deps-consulta: ## Instala las dependencias del rol 3, incluido el SDK de JEV
 
 sondeo-jev: ## Vista previa del sondeo de JEV; CONFIRMAR=1 autoriza el envío
 	@PYTHONPATH=src $(PYTHON) -m licigt.consulta.sondeo_jev $(if $(filter 1,$(CONFIRMAR)),--confirmar-envio)
+
+experimento-jev: ## Experimento de JEV: CONJUNTO=desarrollo|prueba; CONFIRMAR=1 autoriza el envío
+	@PYTHONPATH=src $(PYTHON) -m licigt.consulta.experimento correr $(CONJUNTO) $(if $(filter 1,$(CONFIRMAR)),--confirmar-envio)
 
 api: ## Arranca el adaptador de consulta (demo, sin autenticación) en 127.0.0.1:8000
 	@$(WITH_DB) PYTHONPATH=src $(PYTHON) -m uvicorn licigt.consulta.api:app --host 127.0.0.1 --port 8000

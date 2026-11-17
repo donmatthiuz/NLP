@@ -10,7 +10,7 @@ from .config import Configuracion, obtener_configuracion
 from .entrada import JuiciosEntrada, evaluar_entrada, normalizar
 from .esquemas import NombreHerramienta
 from .jev import ClienteJev, ClienteJevSdk, FallaJev, Probabilidad, validar_respuesta
-from .preguntas_jev import NOUL_NO, NOUL_SI, PREGUNTAS_ENTRADA
+from .preguntas_jev import PREGUNTAS_ENTRADA, Umbrales
 
 PATRONES_COMPARACION = (r"\bcambi(?:o|os)\b", r"\bmodific\w*", r"\bdiferencia\w*",
                         r"\bversion\w*", r"\bantes y despues\b", r"\bvigente\w*")
@@ -65,8 +65,9 @@ class EnrutadorReglas:
 
 
 class EnrutadorJev:
-    def __init__(self, cliente: ClienteJev | None = None, config: Configuracion | None = None):
-        self.cliente, self.config = cliente, config
+    def __init__(self, cliente: ClienteJev | None = None, config: Configuracion | None = None,
+                 umbrales: Umbrales = Umbrales()):
+        self.cliente, self.config, self.umbrales = cliente, config, umbrales
 
     def clasificar(self, pregunta: str) -> tuple[JuiciosEntrada, Clasificacion]:
         juicios, reglas = EnrutadorReglas().clasificar(pregunta)
@@ -84,9 +85,9 @@ class EnrutadorJev:
                 prob_herramienta=eleccion["probabilities"][eleccion["choice"]],
                 prob_aplica=datos["aplica"]["noul"])
             juicios = juicios.model_copy(update={
-                "inyeccion": juicios.inyeccion or datos["inyeccion"]["noul"] >= NOUL_SI,
-                "fuera_de_alcance": juicios.fuera_de_alcance or datos["fuera_de_alcance"]["noul"] >= NOUL_SI,
-                "especifica": juicios.especifica and datos["concreta"]["noul"] >= NOUL_NO,
+                "inyeccion": juicios.inyeccion or datos["inyeccion"]["noul"] >= self.umbrales.noul_si,
+                "fuera_de_alcance": juicios.fuera_de_alcance or datos["fuera_de_alcance"]["noul"] >= self.umbrales.noul_si,
+                "especifica": juicios.especifica and datos["concreta"]["noul"] >= self.umbrales.noul_no,
             })
             return juicios, clasificacion
         except (FallaJev, TimeoutError, ValidationError):

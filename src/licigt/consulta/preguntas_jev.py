@@ -1,8 +1,19 @@
 """Preguntas y umbrales iniciales; pendientes de calibración con datos separados."""
 
-NOUL_SI = 0.7
-NOUL_NO = 0.3
-CHOICE_MIN = 0.5
+from pydantic import BaseModel, ConfigDict
+
+
+class Umbrales(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    noul_si: float = 0.7
+    noul_no: float = 0.3
+    choice_min: float = 0.5
+
+
+NOUL_SI = Umbrales().noul_si
+NOUL_NO = Umbrales().noul_no
+CHOICE_MIN = Umbrales().choice_min
 
 MAX_CANDIDATAS_JEV = 20
 
