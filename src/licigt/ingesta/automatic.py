@@ -7,9 +7,12 @@ sin rastrear masivamente el portal ni seguir enlaces a otras plataformas.
 from __future__ import annotations
 
 import json
+import os
 import re
+import sqlite3
 import tempfile
 import uuid
+from contextlib import closing
 from dataclasses import dataclass
 from datetime import datetime
 from html.parser import HTMLParser
@@ -19,9 +22,12 @@ from urllib.parse import urljoin, urlparse
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 from zoneinfo import ZoneInfo
 
-from .pipeline import IngestionService, SourceMetadata
+from .pipeline import KINDS, IngestionService, SourceMetadata
 
 PORTAL = "https://www.igssgt.org/proveedores/"
+TIPOS_CON_RELACION = {"modificacion", "aclaracion", "anexo"}
+PARECE_MODIFICACION = re.compile(r"MODIFICACI[ÓO]N", re.I)
+AVISO_MODIFICACION = "El PDF parece una modificación; revisar el tipo documental"
 
 
 def official_url(url: str) -> bool:
@@ -145,12 +151,44 @@ def event_id_for(tenant_id: str, event: PortalEvent) -> str:
     return uuid.uuid5(uuid.NAMESPACE_URL, key).hex
 
 
+def _revisar_si_es_modificacion(service: IngestionService, result: dict) -> dict:
+    """Si la portada dice MODIFICACIÓN y se declaró bases, retiene los fragmentos hasta revisarlo."""
+    if AVISO_MODIFICACION in result["warnings"]:
+        return result
+    portada = "\n".join(page["text"] for page in result["pages"][:2])
+    if not PARECE_MODIFICACION.search(portada):
+        return result
+    result["warnings"].append(AVISO_MODIFICACION)
+    result["status"] = "requiere_revision"
+    for chunk in result["chunks"]:
+        chunk["indexable"] = False
+    path = service.data_dir / "manifiestos_igss" / f"{result['doc_id']}.json"
+    temporary = path.with_suffix(".tmp")
+    with temporary.open("w", encoding="utf-8") as stream:
+        json.dump(result, stream, ensure_ascii=False, indent=2)
+    os.chmod(temporary, 0o600)
+    temporary.replace(path)
+    with closing(sqlite3.connect(service.database)) as connection, connection:
+        connection.execute("UPDATE documents SET status=? WHERE doc_id=?", (result["status"], result["doc_id"]))
+    return result
+
+
 def ingest_event(numero_evento: str, tenant_id: str, service: IngestionService, *,
+                 tipo_documento: str | None = None, document_key: str | None = None,
+                 relacion_documental: str | None = None,
                  evento_id: str | None = None, fetcher=None) -> dict:
     if not re.fullmatch(r"\d{1,5}-IGSS-\d{4}", numero_evento, re.I):
         raise ValueError("Número institucional esperado, por ejemplo 399-IGSS-2026")
     if not re.fullmatch(r"[A-Za-z0-9_-]{1,80}", tenant_id):
         raise ValueError("tenant_id inválido")
+    if not tipo_documento:
+        raise ValueError("tipo_documento es obligatorio; el conector no asume que el PDF sea bases")
+    if tipo_documento not in KINDS:
+        raise ValueError(f"tipo_documento debe ser uno de: {', '.join(sorted(KINDS))}")
+    if not document_key:
+        raise ValueError("document_key es obligatorio; el conector no asume bases_integradas")
+    if tipo_documento in TIPOS_CON_RELACION and not relacion_documental:
+        raise ValueError(f"relacion_documental es obligatoria para tipo_documento={tipo_documento}")
     fetcher = fetcher or OfficialFetcher()
     html_bytes, _ = fetcher.get(PORTAL, 8 * 1024 * 1024)
     event = next((item for item in parse_portal(html_bytes.decode("utf-8", "replace"))
@@ -163,7 +201,8 @@ def ingest_event(numero_evento: str, tenant_id: str, service: IngestionService, 
     metadata = SourceMetadata(
         tenant_id=tenant_id, evento_id=evento_id or event_id_for(tenant_id, event),
         numero_evento=event.numero_evento, anio=event.anio,
-        modalidad=event.modalidad, document_key="bases_integradas", tipo_documento="bases",
+        modalidad=event.modalidad, document_key=document_key, tipo_documento=tipo_documento,
+        relacion_documental=relacion_documental,
         titulo=event.titulo, entidad="IGSS", unidad_requirente=event.unidad_requirente,
         codigos_producto_igss=(event.codigo_igss,) if event.codigo_igss else (),
         fecha_ficha=event.fecha_publicacion,
@@ -174,6 +213,8 @@ def ingest_event(numero_evento: str, tenant_id: str, service: IngestionService, 
         path = Path(temporary) / "igss.pdf"
         path.write_bytes(pdf_bytes)
         result = service.ingest(path, metadata)
+    if tipo_documento == "bases":
+        result = _revisar_si_es_modificacion(service, result)
     return {"evento_id": metadata.evento_id, "numero_evento": event.numero_evento,
             "doc_id": result["doc_id"], "version_ingesta": result["version_ingesta"],
             "status": result["status"], "paginas": len(result["pages"]),
@@ -187,11 +228,16 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Descargar e ingerir un evento del portal Proveedores IGSS")
     parser.add_argument("--numero-evento", required=True, help="Ejemplo: 399-IGSS-2026")
     parser.add_argument("--tenant-id", required=True, help="Identificador de empresa autorizado")
+    parser.add_argument("--tipo-documento", required=True, choices=sorted(KINDS))
+    parser.add_argument("--document-key", required=True, help="Ejemplo: bases_integradas, modificacion_1")
+    parser.add_argument("--relacion-documental", help="document_key del documento que complementa; obligatorio en modificacion, aclaracion y anexo")
     parser.add_argument("--evento-id", help="ID interno existente; si se omite se genera uno estable")
     parser.add_argument("--data-dir", type=Path, default=Path("data/ingesta"))
     args = parser.parse_args()
     try:
-        result = ingest_event(args.numero_evento, args.tenant_id, IngestionService(args.data_dir), evento_id=args.evento_id)
+        result = ingest_event(args.numero_evento, args.tenant_id, IngestionService(args.data_dir),
+                              tipo_documento=args.tipo_documento, document_key=args.document_key,
+                              relacion_documental=args.relacion_documental, evento_id=args.evento_id)
     except (ValueError, RuntimeError) as exc:
         parser.exit(2, f"No se completó la descarga: {exc}\n")
     print(json.dumps(result, ensure_ascii=False, indent=2))

@@ -1,7 +1,9 @@
+import sqlite3
 import tempfile
 import unittest
 import hashlib
 import json
+from contextlib import closing
 from pathlib import Path
 from unittest.mock import patch
 
@@ -26,9 +28,27 @@ ROW3 = '''<tr data-prov-id="12001" data-pub="2023-07-15"><td>
 <td><a href="https://www.igssgt.org/wp-content/uploads/222-IGSS-2023-modificacion.pdf">Descargar</a></td></tr>'''
 
 
+BASES = {"tipo_documento": "bases", "document_key": "bases_integradas"}
+MODIFICACION = {"tipo_documento": "modificacion", "document_key": "modificacion_1",
+                "relacion_documental": "bases_integradas"}
+
+
 class FakeFetcher:
     def get(self, url, max_bytes):
         return (ROW.encode(), url) if url.endswith("/proveedores/") else (b"%PDF-1.4\nfake", url)
+
+
+class PdfPorEvento:
+    """Portal con el evento 222 y un PDF distinto en cada llamada de descarga."""
+
+    def __init__(self):
+        self.descargas = 0
+
+    def get(self, url, max_bytes):
+        if url.endswith("/proveedores/"):
+            return ROW3.encode(), url
+        self.descargas += 1
+        return b"%PDF-1.4\n" + str(self.descargas).encode(), url
 
 
 class FakeBatchFetcher:
@@ -55,14 +75,96 @@ class AutomaticTests(unittest.TestCase):
                 patch("licigt.ingesta.pipeline.extract_pages", return_value=[page]), \
                 patch("licigt.ingesta.pipeline.extract_hidden_text", return_value={}):
             service = IngestionService(Path(temporary))
-            first = ingest_event("399-IGSS-2026", "empresa_demo", service, fetcher=FakeFetcher())
-            second = ingest_event("399-IGSS-2026", "empresa_demo", service, fetcher=FakeFetcher())
+            first = ingest_event("399-IGSS-2026", "empresa_demo", service, fetcher=FakeFetcher(), **BASES)
+            second = ingest_event("399-IGSS-2026", "empresa_demo", service, fetcher=FakeFetcher(), **BASES)
             self.assertEqual(first["doc_id"], second["doc_id"])
             self.assertEqual(first["status"], "completo")
             self.assertEqual(first["version_ingesta"], 1)
             manifest = json.loads((Path(temporary) / "manifiestos_igss" / f"{first['doc_id']}.json").read_text())
             self.assertEqual(manifest["metadata"]["fecha_ficha"], "2026-11-13")
             self.assertIsNone(manifest["metadata"]["fecha_publicacion"])
+
+    def _paginas(self, *textos):
+        return [Page(n, texto, "text", "ok") for n, texto in enumerate(textos, 1)]
+
+    def _ingerir(self, textos, fetcher=None, **tipo):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        with patch("licigt.ingesta.pipeline.extract_pages", return_value=self._paginas(*textos)), \
+                patch("licigt.ingesta.pipeline.extract_hidden_text", return_value={}):
+            service = IngestionService(Path(temporary.name))
+            numero = "222-IGSS-2023" if fetcher else "399-IGSS-2026"
+            return service, ingest_event(numero, "empresa_demo", service,
+                                         fetcher=fetcher or FakeFetcher(), **tipo)
+
+    def test_sin_tipo_explicito_falla(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            service = IngestionService(Path(temporary))
+            with self.assertRaisesRegex(ValueError, "tipo_documento"):
+                ingest_event("399-IGSS-2026", "empresa_demo", service, fetcher=FakeFetcher(),
+                             document_key="bases_integradas")
+            with self.assertRaisesRegex(ValueError, "document_key"):
+                ingest_event("399-IGSS-2026", "empresa_demo", service, fetcher=FakeFetcher(),
+                             tipo_documento="bases")
+
+    def test_modificacion_sin_relacion_falla(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            service = IngestionService(Path(temporary))
+            for tipo in ("modificacion", "aclaracion", "anexo"):
+                with self.assertRaisesRegex(ValueError, "relacion_documental"):
+                    ingest_event("399-IGSS-2026", "empresa_demo", service, fetcher=FakeFetcher(),
+                                 tipo_documento=tipo, document_key=f"{tipo}_1")
+
+    def test_portada_de_modificacion_declarada_como_bases_no_se_indexa(self):
+        service, result = self._ingerir(
+            ["MODIFICACIÓN No. 1\n399-IGSS-2026\nSe modifica el plazo.", "Texto 399-IGSS-2026", "Más texto"], **BASES)
+        self.assertEqual(result["status"], "requiere_revision")
+        self.assertIn("El PDF parece una modificación; revisar el tipo documental", result["warnings"])
+        manifest = json.loads((service.data_dir / "manifiestos_igss" / f"{result['doc_id']}.json").read_text())
+        self.assertTrue(manifest["chunks"])
+        self.assertFalse(any(chunk["indexable"] for chunk in manifest["chunks"]))
+        self.assertIn("El PDF parece una modificación; revisar el tipo documental", manifest["warnings"])
+        with closing(sqlite3.connect(service.database)) as connection:
+            estado = connection.execute("SELECT status FROM documents WHERE doc_id=?", (result["doc_id"],)).fetchone()[0]
+        self.assertEqual(estado, "requiere_revision")
+
+    def test_modificacion_declarada_correctamente_queda_indexable(self):
+        service, result = self._ingerir(
+            ["MODIFICACIÓN No. 1\n399-IGSS-2026\nSe modifica el plazo.", "Texto", "Más texto"], **MODIFICACION)
+        manifest = json.loads((service.data_dir / "manifiestos_igss" / f"{result['doc_id']}.json").read_text())
+        self.assertTrue(all(chunk["indexable"] for chunk in manifest["chunks"]))
+        self.assertNotIn("El PDF parece una modificación; revisar el tipo documental", result["warnings"])
+
+    def test_evento_con_bases_y_modificacion(self):
+        fetcher = PdfPorEvento()
+        paginas = [
+            self._paginas("BASES DE LICITACIÓN 222-IGSS-2023\nPlazo 30 días", "p2", "p3"),
+            self._paginas("MODIFICACIÓN No. 1 222-IGSS-2023\nNuevo plazo", "p2", "p3"),
+        ]
+        with tempfile.TemporaryDirectory() as temporary, \
+                patch("licigt.ingesta.pipeline.extract_pages", side_effect=paginas), \
+                patch("licigt.ingesta.pipeline.extract_hidden_text", return_value={}):
+            service = IngestionService(Path(temporary))
+            bases = ingest_event("222-IGSS-2023", "empresa_demo", service, fetcher=fetcher, **BASES)
+            modificacion = ingest_event("222-IGSS-2023", "empresa_demo", service, fetcher=fetcher, **MODIFICACION)
+            self.assertEqual(bases["evento_id"], modificacion["evento_id"])
+            self.assertEqual(modificacion["status"], "completo")
+            manifest = json.loads((Path(temporary) / "manifiestos_igss" / f"{modificacion['doc_id']}.json").read_text())
+            self.assertEqual(manifest["metadata"]["tipo_documento"], "modificacion")
+            self.assertEqual(manifest["metadata"]["relacion_documental"], "bases_integradas")
+            self.assertEqual(manifest["cobertura"]["tipos_cargados"], ["bases", "modificacion"])
+
+    def test_evento_sin_codigo_igss_sigue_funcionando(self):
+        sin_codigo = ROW.replace("<span>Código: 432</span>", "")
+        class SinCodigo(FakeFetcher):
+            def get(self, url, max_bytes):
+                return (sin_codigo.encode(), url) if url.endswith("/proveedores/") else (b"%PDF-1.4\nfake", url)
+        with tempfile.TemporaryDirectory() as temporary, \
+                patch("licigt.ingesta.pipeline.extract_pages", return_value=self._paginas("DOCUMENTOS DE LICITACIÓN 399-IGSS-2026")), \
+                patch("licigt.ingesta.pipeline.extract_hidden_text", return_value={}):
+            result = ingest_event("399-IGSS-2026", "empresa_demo", IngestionService(Path(temporary)),
+                                  fetcher=SinCodigo(), **BASES)
+            self.assertEqual(result["status"], "completo")
 
     def test_batch_download_saves_pdf_and_provenance_without_ingesting(self):
         with tempfile.TemporaryDirectory() as temporary:

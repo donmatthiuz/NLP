@@ -75,10 +75,11 @@ El descargador consulta la vista del año correspondiente (`?y=2023` o `?y=2026`
 ```bash
 PYTHONPATH=src python -m licigt.ingesta.automatic \
   --numero-evento 399-IGSS-2026 --tenant-id empresa_demo \
+  --tipo-documento bases --document-key bases_integradas \
   --data-dir data/ingesta
 ```
 
-El conector lee la fila del evento en el portal, registra número, año, modalidad, descripción, unidad y código IGSS cuando aparecen, descarga el PDF oficial y llama al mismo pipeline. Si el portal cambia de estructura o enlaza a otra plataforma, informa el error; no inventa metadatos ni sigue redirecciones fuera de `igssgt.org`. Si se omite `--evento-id`, genera uno estable para esa empresa y evento. Para documentos adicionales del mismo expediente, usa carga manual con **el mismo** `evento_id`.
+El conector lee la fila del evento en el portal, registra número, año, modalidad, descripción, unidad y código IGSS cuando aparecen, descarga el PDF oficial y llama al mismo pipeline. El tipo documental es obligatorio (`--tipo-documento`, `--document-key` y, para modificación, aclaración o anexo, `--relacion-documental`); si un PDF declarado como bases tiene portada de modificación, queda en revisión y sin fragmentos indexables. Si el portal cambia de estructura o enlaza a otra plataforma, informa el error; no inventa metadatos ni sigue redirecciones fuera de `igssgt.org`. Si se omite `--evento-id`, genera uno estable para esa empresa y evento. Para documentos adicionales del mismo expediente, usa carga manual con **el mismo** `evento_id`.
 
 ## Entrega al rol 2
 
