@@ -66,6 +66,12 @@ class EnrutadorTests(unittest.TestCase):
             ("¿Cuál es el código IGSS del medicamento?", "buscar_documentos"),
             ("¿Qué fecha está vigente para la recepción?", "comparar_versiones"),
             ("¿Cuándo se paga?", "extraer_requisitos"),
+            ("¿Cuál es la fecha de recepción de ofertas?", "buscar_documentos"),
+            ("¿Cuál es el plazo de entrega?", "buscar_documentos"),
+            ("¿Qué requisitos tiene la plica?", "extraer_requisitos"),
+            ("Dame la lista de documentos de la plica", "extraer_requisitos"),
+            ("Dame el cronograma del evento", "extraer_requisitos"),
+            ("¿Cuál es la fecha de recepción de ofertas y qué documentos presento?", "extraer_requisitos"),
         ):
             with self.subTest(pregunta=pregunta):
                 siguiente = decidir(*EnrutadorReglas().clasificar(pregunta))
@@ -203,7 +209,7 @@ class EnrutadorTests(unittest.TestCase):
         for probabilidad, herramienta in ((0.49, "extraer_requisitos"), (0.5, "buscar_documentos")):
             with self.subTest(probabilidad=probabilidad):
                 cliente = JevFalso(respuesta_jev(probabilidad=probabilidad))
-                siguiente = decidir(*EnrutadorJev(cliente).clasificar("¿Cuál es la fecha de recepción?"))
+                siguiente = decidir(*EnrutadorJev(cliente).clasificar("¿Cuál es la fecha y hora de recepción?"))
                 self.assertEqual(siguiente.herramienta, herramienta)
 
     def test_sin_herramienta_precede_aclaracion(self):
@@ -213,7 +219,7 @@ class EnrutadorTests(unittest.TestCase):
 
     def test_falla_jev_degrada(self):
         cliente = JevFalso(error=FallaJev("api"))
-        juicios, clasificacion = EnrutadorJev(cliente).clasificar("¿Cuál es la fecha de recepción?")
+        juicios, clasificacion = EnrutadorJev(cliente).clasificar("¿Cuál es la fecha y hora de recepción?")
         self.assertTrue(clasificacion.degradado)
         self.assertEqual(clasificacion.variante, "reglas")
         self.assertIsNone(clasificacion.modelo)

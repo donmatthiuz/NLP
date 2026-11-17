@@ -14,6 +14,11 @@ from .preguntas_jev import PREGUNTAS_ENTRADA, Umbrales
 
 PATRONES_COMPARACION = (r"\bcambi(?:o|os)\b", r"\bmodific\w*", r"\bdiferencia\w*",
                         r"\bversion\w*", r"\bantes y despues\b", r"\bvigente\w*")
+# Una sola fecha o plazo ("¿cuál es la fecha de ...?"): lo contesta una búsqueda, no la extracción de todo el cronograma.
+# Si la pregunta suma otra fecha, la hora, una lista o los documentos, sigue siendo extraer_requisitos.
+PATRON_DATO_UNICO = (r"\bcual es (?:la|el) (?:fecha|plazo|hora) (?:de|del)\b"
+                     r"(?!.*\b(?:y|e)\s+(?:la\s+|el\s+)?(?:hora|fecha|plazo)\w*)"
+                     r"(?!.*\b(?:requisito|lista|cronograma|documento)\w*)")
 PATRONES_REQUISITOS = (r"\brequisito\w*", r"\blista\w*", r"\b(?:fecha|plazo|hora)s?\b",
                        r"\bcronograma\b", r"\bcuando\b",
                        r"\bdocumentos\b.{0,50}\b(?:presentar|contener|plica)\b")
@@ -66,6 +71,8 @@ class EnrutadorReglas:
             texto = normalizar(pregunta)
             if any(re.search(p, texto) for p in PATRONES_COMPARACION):
                 herramienta = "comparar_versiones"
+            elif re.search(PATRON_DATO_UNICO, texto):
+                herramienta = "buscar_documentos"
             elif any(re.search(p, texto) for p in PATRONES_REQUISITOS):
                 herramienta = "extraer_requisitos"
             else:

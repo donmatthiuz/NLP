@@ -48,7 +48,7 @@ class LlmTests(unittest.TestCase):
                 c = obtener_configuracion_llm()
                 self.assertEqual((c.perfil, c.url, c.modelo), (perfil, url, modelo))
                 self.assertEqual((c.tiempo_espera, c.max_tokens, c.semilla, c.max_caracteres_evidencia),
-                                 (20, 1024, 42, 36000))
+                                 (20, 3072, 42, 36000))
         env = {"LICIGT_LLM": "openai", "LICIGT_LLM_URL": "http://servidor/v1",
                "LICIGT_LLM_MODELO": "personalizado", "LICIGT_LLM_API_KEY_FILE": "/tmp/llave-falsa",
                "LICIGT_LLM_TIEMPO_ESPERA": "3", "LICIGT_LLM_MAX_TOKENS": "50",
@@ -76,7 +76,7 @@ class LlmTests(unittest.TestCase):
                 argumentos = crear.call_args.kwargs
                 self.assertEqual(argumentos["temperature"], 0)
                 self.assertEqual(argumentos["seed"], 42)
-                self.assertEqual(argumentos["max_tokens"], 1024)
+                self.assertEqual(argumentos["max_tokens"], 3072)
                 enviado = argumentos["response_format"]["json_schema"]["schema"]
                 self.assertEqual(argumentos["response_format"]["type"], "json_schema")
                 self.assertEqual(argumentos["response_format"]["json_schema"]["name"], "salida_licigt")
@@ -94,6 +94,25 @@ class LlmTests(unittest.TestCase):
                     leer.assert_called_once()
                     self.assertNotIn("extra_body", argumentos)
                 c.cerrar()
+
+    def test_c9_respuesta_cortada_es_un_error_propio(self):
+        sdk, crear = sdk_falso()
+        crear.return_value = SimpleNamespace(model="m", choices=[SimpleNamespace(
+            finish_reason="length", message=SimpleNamespace(content='{"abstener": fal', refusal=None))])
+        with patch.dict(sys.modules, {"openai": sdk}):
+            c = ClienteGeneradorOpenAI(ConfiguracionLlm())
+            with self.assertRaises(FallaGenerador) as fallo:
+                c.generar([], esquema_salida(["F1"]))
+        self.assertEqual(fallo.exception.codigo, "respuesta_cortada")
+        self.assertNotIn("abstener", str(fallo.exception))
+
+    def test_c9_semilla_extra_cambia_la_semilla_enviada(self):
+        sdk, crear = sdk_falso()
+        with patch.dict(sys.modules, {"openai": sdk}):
+            c = ClienteGeneradorOpenAI(ConfiguracionLlm(semilla=42))
+            c.generar([], esquema_salida(["F1"]))
+            c.generar([], esquema_salida(["F1"]), semilla_extra=1)
+        self.assertEqual([x.kwargs["seed"] for x in crear.call_args_list], [42, 43])
 
     def test_a7_openai_no_envia_longitud_ni_rangos_numericos(self):
         sdk, crear = sdk_falso()

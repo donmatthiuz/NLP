@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, ValidationError
 
 from .entrada import normalizar
 from .esquemas import RespuestaEstructurada, TEXTO_ABSTENCION
-from .generacion import SalidaModelo, _neutralizar
+from .generacion import Afirmacion, SalidaModelo, _neutralizar
 from .herramientas import ResultadoHerramienta
 from .lectura import FragmentoRecuperado, fuente_desde_fragmento
 from .requisitos import ABREVIATURAS, MESES
@@ -236,10 +236,48 @@ def _armar(afirmacion, literales: list[str]) -> tuple[str, str | None]:
     return linea, None
 
 
+def _poner_marcadores(afirmacion: Afirmacion) -> tuple[Afirmacion, int]:
+    """Sustituye por {n} el literal copiado en el texto y descarta el dato que no aparece; devuelve los descartados.
+
+    Solo actúa sobre datos sin marcador y con marcadores válidos; lo demás lo decide el validador sin cambios."""
+    n = len(afirmacion.datos)
+    usados = [int(m[1:-1]) for m in MARCADOR.findall(afirmacion.texto)]
+    if len(usados) != len(set(usados)) or not set(usados) <= set(range(1, n + 1)):
+        return afirmacion, 0
+    # Se busca solo entre marcadores, para que un literal como "1" no caiga dentro de un "{1}".
+    trozos = [[parte] for parte in MARCADOR.split(afirmacion.texto)]
+    colocados = set()
+    for i in sorted((i for i in range(1, n + 1) if i not in usados),
+                    key=lambda i: -len(afirmacion.datos[i - 1].literal)):
+        literal = afirmacion.datos[i - 1].literal
+        for trozo in trozos:
+            for t, texto in enumerate(trozo):
+                posicion = -1 if isinstance(texto, int) else _buscar(texto, literal)
+                if posicion != -1:
+                    trozo[t:t + 1] = [texto[:posicion], i, texto[posicion + len(literal):]]
+                    colocados.add(i)
+                    break
+            if i in colocados:
+                break
+    vigentes = [i for i in range(1, n + 1) if i in usados or i in colocados]
+    if len(vigentes) == n and not colocados:
+        return afirmacion, 0
+    nuevo = {viejo: indice for indice, viejo in enumerate(vigentes, 1)}
+    texto = ""
+    for k, trozo in enumerate(trozos):
+        if k:
+            texto += "{%d}" % nuevo[usados[k - 1]]
+        texto += "".join("{%d}" % nuevo[t] if isinstance(t, int) else t for t in trozo)
+    ajustada = afirmacion.model_copy(update={"texto": texto, "datos": [afirmacion.datos[i - 1] for i in vigentes]})
+    return ajustada, n - len(vigentes)
+
+
 def validar(salida_cruda: str, evidencia: dict[str, FragmentoRecuperado],
             resultado_herramienta: ResultadoHerramienta, *, evento_id: str,
-            conflictos=()) -> RespuestaEstructurada | list[ErrorValidacion]:
-    """Ocho etapas en orden; los errores solo llevan código y posiciones desde uno."""
+            conflictos=(), informe: dict | None = None) -> RespuestaEstructurada | list[ErrorValidacion]:
+    """Ocho etapas en orden; los errores solo llevan código y posiciones desde uno.
+
+    En informe deja datos_descartados, el número de datos que el código quitó antes de validar."""
     try:
         salida = SalidaModelo.model_validate_json(salida_cruda, strict=True)
     except ValidationError as exc:
@@ -255,6 +293,11 @@ def validar(salida_cruda: str, evidencia: dict[str, FragmentoRecuperado],
         return RespuestaEstructurada(answer=TEXTO_ABSTENCION, sources=[], abstained=True, **comunes)
     if not salida.afirmaciones:
         return [ErrorValidacion(codigo="sin_afirmaciones")]
+
+    ajustadas = [_poner_marcadores(a) for a in salida.afirmaciones]
+    salida = salida.model_copy(update={"afirmaciones": [a for a, _ in ajustadas]})
+    if informe is not None:
+        informe["datos_descartados"] = sum(d for _, d in ajustadas)
 
     errores = []
     for i, afirmacion in enumerate(salida.afirmaciones, 1):

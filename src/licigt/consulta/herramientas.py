@@ -19,6 +19,34 @@ from .requisitos import (
 )
 
 
+# Orden de comparar al inicio ("compara", "la diferencia entre las bases y la modificación en") y al final
+# ("entre las bases y la modificación"); lo que queda es el tema que el reranker del rol 2 puede puntuar.
+ORDEN_VERBO = re.compile(r"(?:compara(?:r|n|me)?|compare(?:n)?|contrasta(?:r)?)\s+", re.IGNORECASE)
+ORDEN_DIFERENCIA = re.compile(
+    r"(?:cu[aá]l(?:es)?\s+(?:es|son)\s+)?(?:la\s+|las\s+)?diferencias?(?:\s+que\s+hay)?"
+    r"(?:\s+entre\s+(?:las\s+)?(?:bases|versiones|documentos)"
+    r"(?:\s+y\s+(?:la\s+|las\s+)?(?:modificaci[oó]n|modificaciones|aclaraci[oó]n|aclaraciones))?)?"
+    r"(?:\s+(?:en|de|sobre)\b)?\s*", re.IGNORECASE)
+ORDEN_SOLO_DOCUMENTOS = re.compile(
+    r"(?:las?\s+)?(?:bases|(?:dos\s+)?versiones|documentos)"
+    r"(?:\s+y\s+(?:la\s+|las\s+)?(?:modificaci[oó]n|modificaciones|aclaraci[oó]n|aclaraciones))?", re.IGNORECASE)
+ORDEN_COLA = re.compile(r"\s+(?:entre|en)\s+(?:las?\s+|los\s+)?(?:bases|versiones|documentos)\b.*$", re.IGNORECASE)
+ARTICULO = re.compile(r"(?:la|el|las|los)\s+", re.IGNORECASE)
+
+
+def tema_comparacion(pregunta: str) -> str:
+    """El tema sin la orden de comparar; vacío si no queda nada. Sin orden reconocida, la pregunta igual."""
+    texto = re.sub(r"^[¿¡\s]+|[\s?!.]+$", "", pregunta)
+    inicio = ORDEN_VERBO.match(texto) or ORDEN_DIFERENCIA.match(texto)
+    if inicio is None or not inicio.end():
+        return pregunta
+    texto = texto[inicio.end():]
+    if ORDEN_SOLO_DOCUMENTOS.fullmatch(texto):
+        return ""
+    texto = ORDEN_COLA.sub("", ARTICULO.sub("", texto, count=1)).strip()
+    return texto
+
+
 class Recuperador(Protocol):
     """Firmas exactas del rol 2; licigt.recuperacion.busqueda las cumple por tipado estructural."""
 
@@ -156,6 +184,9 @@ def extraer_requisitos(ctx, params: ExtraerRequisitosParams, recuperador: Recupe
     """Reúne requisitos y fechas; compara actividades sin decidir la vigencia documental."""
     consultas = ([(params.categoria, CONSULTAS_POR_CATEGORIA[params.categoria])]
                  if params.categoria is not None else list(CONSULTAS_POR_CATEGORIA.items()))
+    # La pregunta del usuario va primero y sin categoría: sus fragmentos no se etiquetan como requisito de una.
+    if params.pregunta is not None:
+        consultas.insert(0, (None, params.pregunta))
     resultados, categorias = [], {}
     for categoria, consulta in [*consultas, (None, CONSULTA_CRONOGRAMA)]:
         try:

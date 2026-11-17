@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from .lectura import FragmentoRecuperado
 from .requisitos import FechaCandidata
 
-VERSION_PROMPT = "f4-v6"
+VERSION_PROMPT = "f4-v7"
 
 
 class CitaModelo(BaseModel):
@@ -111,14 +111,18 @@ def construir_prompt(pregunta: str, fragmentos: list[FragmentoRecuperado], *,
         "Entre dos marcadores solo van ', ', ' y ', ' o ', ' ni ', ' a ', ' al ', ', y ' o ' y el '; "
         "un tramo corto (sin palabras de 4 o más letras) con cualquier otro texto, ese texto y los dos literales deben aparecer seguidos en la cita. "
         "Cada marcador va solo y separado por espacios o por . , ; : ( ): nunca pegado a letras, a símbolos como % o /, ni a otro marcador, y se usa una sola vez. "
-        "Fuera de los marcadores, \"texto\" lleva solo letras, espacios y . , ; : ( ) ¿ ? ¡ ! \" ' - y la barra de \"y/o\", sin dígitos ni nombres de mes.\n"
+        "Fuera de los marcadores, \"texto\" lleva solo letras, espacios y . , ; : ( ) ¿ ? ¡ ! \" ' - y la barra de \"y/o\", sin dígitos ni nombres de mes. "
+        "El texto puede llevar el dato copiado tal cual o el marcador; un dato que no aparece en el texto no va en \"datos\". "
+        "Una afirmación sin cifras, fechas ni códigos lleva \"datos\": [].\n"
         "8. Ejemplo: "
         '{"abstener": false, "revision_humana": false, "afirmaciones": [{"texto": "El plazo de entrega es de {1}.", '
         '"citas": [{"fragmento": "F1", "cita": "el plazo de entrega será de 15 días calendario"}], '
         '"datos": [{"cita": 1, "literal": "15 días calendario"}]}, '
         '{"texto": "El código {1} es de concentración {2}.", '
         '"citas": [{"fragmento": "F1", "cita": "CÓDIGO IGSS 10527 tableta de 500 mg"}], '
-        '"datos": [{"cita": 1, "literal": "10527"}, {"cita": 1, "literal": "500 mg"}]}]}\n'
+        '"datos": [{"cita": 1, "literal": "10527"}, {"cita": 1, "literal": "500 mg"}]}, '
+        '{"texto": "El OFERENTE presenta la plica en un sobre cerrado y sellado.", '
+        '"citas": [{"fragmento": "F2", "cita": "Sobre cerrado y sellado, dentro del cual el OFERENTE presenta"}], "datos": []}]}\n'
         "9. Responde en español y solo con JSON que cumpla este esquema: "
         + json.dumps(esquema, ensure_ascii=False)
     )

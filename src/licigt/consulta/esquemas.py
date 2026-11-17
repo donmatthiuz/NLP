@@ -78,11 +78,12 @@ class BuscarDocumentosParams(BaseModel):
 
 
 class ExtraerRequisitosParams(BaseModel):
-    """Evento y categoría opcional de los requisitos."""
+    """Evento, categoría opcional y la pregunta del usuario, que se consulta antes que las fijas."""
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     evento_id: TextoNoVacio
     categoria: Categoria | None = None
+    pregunta: TextoRecortado | None = None
 
 
 class CompararVersionesParams(BaseModel):

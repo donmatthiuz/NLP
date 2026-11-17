@@ -47,7 +47,7 @@ class ConfiguracionLlm(BaseModel):
     modelo: str = Field(default="qwen3.5-9b", min_length=1)
     archivo_clave: Path = Path("keys/llm/openai.key")
     tiempo_espera: float = Field(default=20, gt=0)
-    max_tokens: int = Field(default=1024, gt=0)
+    max_tokens: int = Field(default=3072, gt=0)
     semilla: int = Field(default=42, ge=-(2**63), le=2**63 - 1)
     max_caracteres_evidencia: int = Field(default=36000, gt=0)
 

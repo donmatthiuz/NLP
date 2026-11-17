@@ -168,9 +168,9 @@ class _GeneradorContado:
         self._generador = generador
         self.llamadas = 0
 
-    def generar(self, mensajes, esquema):
+    def generar(self, mensajes, esquema, **extra):
         self.llamadas += 1
-        return self._generador.generar(mensajes, esquema)
+        return self._generador.generar(mensajes, esquema, **extra)
 
     def __getattr__(self, nombre):
         return getattr(self._generador, nombre)

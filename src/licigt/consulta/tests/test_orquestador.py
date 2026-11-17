@@ -25,10 +25,11 @@ class GeneradorFalso:
 
     def __init__(self, salidas=None):
         self.salidas = salidas or [json.dumps(salida_222(), ensure_ascii=False)]
-        self.llamadas = []
+        self.llamadas, self.semillas = [], []
 
-    def generar(self, mensajes, esquema):
+    def generar(self, mensajes, esquema, semilla_extra=0):
         self.llamadas.append((deepcopy(mensajes), deepcopy(esquema)))
+        self.semillas.append(semilla_extra)
         salida = self.salidas[len(self.llamadas) - 1]
         if isinstance(salida, Exception):
             raise salida
@@ -103,9 +104,9 @@ class OrquestadorTests(unittest.TestCase):
 
     def test_h7_modelo_se_lee_despues_de_generar(self):
         class GeneradorQueCambia(GeneradorFalso):
-            def generar(self, mensajes, esquema):
+            def generar(self, mensajes, esquema, semilla_extra=0):
                 self.modelo_generador = "modelo-resuelto"
-                return super().generar(mensajes, esquema)
+                return super().generar(mensajes, esquema, semilla_extra)
 
         self.consultar(generador=GeneradorQueCambia())
         self.assertEqual(self.eventos[0]["modelo_generador"], "modelo-resuelto")
@@ -120,9 +121,9 @@ class OrquestadorTests(unittest.TestCase):
                     raise RuntimeError("secreto remoto")
                 return "antes"
 
-            def generar(self, mensajes, esquema):
+            def generar(self, mensajes, esquema, semilla_extra=0):
                 self.roto = True
-                return super().generar(mensajes, esquema)
+                return super().generar(mensajes, esquema, semilla_extra)
 
         self.consultar(generador=GeneradorRotoAlFinal())
         self.assertEqual(len(self.eventos), 1)
@@ -147,6 +148,52 @@ class OrquestadorTests(unittest.TestCase):
         self.assertIn("aparecer seguidos", mensaje)
         self.assertNotIn("julio", mensaje)
         self.assertNotIn("ofertas", mensaje)
+
+    def test_c9_respuesta_cortada_regenera_pidiendo_menos_afirmaciones(self):
+        generador = GeneradorFalso([FallaGenerador("respuesta_cortada"), json.dumps(salida_222())])
+        r = self.consultar(generador=generador)
+        self.assertFalse(r.abstained)
+        self.assertEqual(self.eventos[0]["validacion"], "regenerada_ok")
+        self.assertIn("la respuesta se cortó: usa como máximo 5 afirmaciones", generador.llamadas[1][0][-1]["content"])
+        self.assertEqual(generador.llamadas[1][0][:2], generador.llamadas[0][0][:2])
+
+    def test_c9_dos_respuestas_cortadas_abstienen_con_error_propio(self):
+        generador = GeneradorFalso([FallaGenerador("respuesta_cortada")] * 2)
+        r = self.consultar(generador=generador)
+        self.assertTrue(r.abstained)
+        self.assertEqual(self.eventos[0]["error"], "respuesta_cortada")
+        self.assertEqual(self.eventos[0]["validacion"], "fallida")
+        self.assertEqual(len(generador.llamadas), 2)
+
+    def test_c9_la_regeneracion_cambia_la_semilla(self):
+        invalida = json.dumps({"abstener": False, "revision_humana": False, "afirmaciones": [{
+            "texto": "Recepción {a}.", "citas": salida_222()["afirmaciones"][0]["citas"],
+            "datos": [{"cita": 1, "literal": "31 de julio de 2023"}]}]})
+        generador = GeneradorFalso([invalida, invalida])
+        r = self.consultar(generador=generador)
+        self.assertTrue(r.abstained)
+        self.assertEqual(generador.semillas, [0, 1])
+
+    def test_c9_la_regeneracion_dice_el_desajuste_concreto_sin_texto_del_documento(self):
+        mala = salida_222()
+        mala["afirmaciones"][1]["texto"] = "La modificación indica recepción {a}."
+        generador = GeneradorFalso([json.dumps(mala), json.dumps(salida_222())])
+        r = self.consultar(generador=generador)
+        self.assertFalse(r.abstained)
+        mensaje = generador.llamadas[1][0][-1]["content"]
+        self.assertIn("la afirmación 2 tiene 1 dato y 0 marcadores", mensaje)
+        self.assertNotIn("julio", mensaje)
+
+    def test_c9_datos_descartados_van_a_la_auditoria_como_numero(self):
+        salida = salida_222()
+        salida["afirmaciones"][0]["datos"].append({"cita": 1, "literal": "11:00 horas"})
+        self.consultar(generador=GeneradorFalso([json.dumps(salida)]))
+        self.assertEqual(self.eventos[0]["datos_descartados"], 1)
+        self.assertNotIn("11:00", repr(self.eventos[0]))
+
+    def test_c9_sin_datos_descartados_no_hay_campo(self):
+        self.consultar()
+        self.assertNotIn("datos_descartados", self.eventos[0])
 
     def test_a5_contexto_se_captura_antes_de_enrutar(self):
         clasificar = EnrutadorReglas().clasificar
@@ -311,7 +358,7 @@ class OrquestadorTests(unittest.TestCase):
             self.assertEqual(r.needs_human_review, revision)
 
     def test_222_recepcion_parcial_dos_fuentes_y_fechas(self):
-        r = self.consultar("¿Cuál es la fecha de recepción de ofertas?",
+        r = self.consultar("¿Cuál es la fecha y hora de recepción de ofertas?",
                           recuperador=RecuperadorFalso(conflicto=True, parcial=True))
         self.assertFalse(r.abstained)
         self.assertTrue(r.needs_human_review)
@@ -319,6 +366,29 @@ class OrquestadorTests(unittest.TestCase):
         self.assertEqual(len(r.sources), 2)
         self.assertIn("<fechas>", self.generador.llamadas[0][0][1]["content"])
         self.assertIn("no_verificada", self.generador.llamadas[0][0][1]["content"])
+
+    def test_c9_pregunta_por_una_fecha_va_a_buscar_documentos(self):
+        r = self.consultar("¿Cuál es la fecha de recepción de ofertas?")
+        self.assertEqual(r.tool_used, "buscar_documentos")
+        self.assertEqual([l[1:3] for l in self.recuperador.llamadas],
+                         [("222", "¿Cuál es la fecha de recepción de ofertas?")])
+
+    def test_c9_requisitos_llevan_la_pregunta_como_primera_consulta(self):
+        r = self.consultar("¿Qué requisitos tiene la plica?")
+        self.assertEqual(r.tool_used, "extraer_requisitos")
+        self.assertEqual(self.recuperador.llamadas[0][1:3], ("222", "¿Qué requisitos tiene la plica?"))
+        self.assertGreater(len(self.recuperador.llamadas), 1)
+
+    def test_c9_comparacion_pasa_el_tema_corto_al_rol_2(self):
+        r = self.consultar("Compara la fecha de recepción de ofertas entre las bases y la modificación")
+        self.assertEqual(r.tool_used, "comparar_versiones")
+        self.assertEqual({l[2] for l in self.recuperador.llamadas}, {"fecha de recepción de ofertas"})
+
+    def test_c9_tema_vacio_pide_aclaracion(self):
+        r = self.consultar("Compara las bases y la modificación")
+        self.assertTrue(r.needs_clarification)
+        self.assertIsNone(r.tool_used)
+        self.assertEqual(self.recuperador.llamadas, [])
 
     def test_conflicto_sin_marcador_incluido_por_no_pierde_segunda_fuente(self):
         salida = salida_222()

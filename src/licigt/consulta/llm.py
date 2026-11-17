@@ -62,11 +62,12 @@ class ClienteGeneradorOpenAI:
         except Exception:
             raise FallaGenerador("api") from None
 
-    def generar(self, mensajes: list[dict], esquema: dict) -> str:
+    def generar(self, mensajes: list[dict], esquema: dict, semilla_extra: int = 0) -> str:
+        """semilla_extra se suma a la semilla de la configuración: la regeneración la usa para no repetir la salida."""
         if self.perfil == "openai":
             esquema = _esquema_openai(esquema)
         argumentos = dict(model=self.config.modelo, messages=mensajes, temperature=0,
-                          seed=self.config.semilla, max_tokens=self.config.max_tokens,
+                          seed=self.config.semilla + semilla_extra, max_tokens=self.config.max_tokens,
                           response_format={"type": "json_schema", "json_schema": {
                               "name": "salida_licigt", "schema": esquema, "strict": True}})
         if self.perfil == "local":
@@ -82,6 +83,9 @@ class ClienteGeneradorOpenAI:
         except Exception:
             raise FallaGenerador("api") from None
         try:
+            # Con finish_reason "length" el JSON llega incompleto: es un error propio, no un json_invalido del modelo.
+            if getattr(respuesta.choices[0], "finish_reason", None) == "length":
+                raise FallaGenerador("respuesta_cortada")
             mensaje = respuesta.choices[0].message
             contenido = mensaje.content
             if getattr(mensaje, "refusal", None) or not isinstance(contenido, str) or not contenido.strip():

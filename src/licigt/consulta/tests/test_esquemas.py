@@ -161,6 +161,14 @@ class EsquemasTests(unittest.TestCase):
                     evento_id="222", categoria=categoria).categoria, categoria)
         self.assertIsNone(ExtraerRequisitosParams(evento_id="222").categoria)
 
+    def test_c9_pregunta_opcional_con_el_recorte_de_la_entrada(self):
+        self.assertIsNone(ExtraerRequisitosParams(evento_id="222").pregunta)
+        self.assertEqual(ExtraerRequisitosParams(evento_id="222", pregunta="  ¿Qué requisitos?  ").pregunta,
+                         "¿Qué requisitos?")
+        for pregunta in ("", "   ", "x" * 501):
+            with self.subTest(pregunta=pregunta), self.assertRaises(ValidationError):
+                ExtraerRequisitosParams(evento_id="222", pregunta=pregunta)
+
     def test_comparar_ids(self):
         parametros = CompararVersionesParams(evento_id="222", tema="fecha")
         self.assertIsNone(parametros.doc_base_id)

@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 
 from licigt.consulta.esquemas import BuscarDocumentosParams, CompararVersionesParams, ExtraerRequisitosParams
-from licigt.consulta.herramientas import buscar_documentos, comparar_versiones, extraer_requisitos
+from licigt.consulta.herramientas import buscar_documentos, comparar_versiones, extraer_requisitos, tema_comparacion
 from licigt.consulta.requisitos import CONSULTAS_POR_CATEGORIA, CONSULTA_CRONOGRAMA
 
 
@@ -319,6 +319,57 @@ class CategoriasTests(unittest.TestCase):
         r = buscar_documentos(None, BuscarDocumentosParams(query="x", evento_id="222"),
                               RecuperadorFalso(busqueda=busqueda_222()))
         self.assertEqual(r.categorias, {})
+
+
+class PreguntaEnExtraerTests(unittest.TestCase):
+    """C9-D: la pregunta del usuario es la primera consulta, antes de las fijas y del cronograma."""
+
+    def consultas(self, **params):
+        recuperador = RecuperadorFalso(busqueda=busqueda_222())
+        extraer_requisitos(None, ExtraerRequisitosParams(evento_id="222", **params), recuperador)
+        return [llamada[3] for llamada in recuperador.llamadas]
+
+    def test_con_pregunta_es_la_primera_consulta(self):
+        consultas = self.consultas(pregunta="¿Qué requisitos tiene la plica?")
+        self.assertEqual(consultas[0], "¿Qué requisitos tiene la plica?")
+        self.assertEqual(consultas[1:], [*CONSULTAS_POR_CATEGORIA.values(), CONSULTA_CRONOGRAMA])
+
+    def test_con_categoria_tambien_va_primero(self):
+        consultas = self.consultas(pregunta="plica", categoria="legal")
+        self.assertEqual(consultas, ["plica", CONSULTAS_POR_CATEGORIA["legal"], CONSULTA_CRONOGRAMA])
+
+    def test_sin_pregunta_no_cambia_nada(self):
+        self.assertEqual(self.consultas(), [*CONSULTAS_POR_CATEGORIA.values(), CONSULTA_CRONOGRAMA])
+
+    def test_la_consulta_de_la_pregunta_no_asigna_categoria(self):
+        r = extraer_requisitos(None, ExtraerRequisitosParams(evento_id="222", pregunta="plica"),
+                               RecuperadorFalso(busqueda=busqueda_222()))
+        self.assertEqual(set(r.categorias.values()), {"administrativa"})
+
+
+class TemaComparacionTests(unittest.TestCase):
+    """C9-E: al rol 2 se le pasa el núcleo del tema, sin la orden de comparar."""
+
+    def test_formulaciones_de_la_demo(self):
+        for pregunta, tema in (
+            ("Compara la fecha de recepción de ofertas entre las bases y la modificación", "fecha de recepción de ofertas"),
+            ("Compare el plazo de entrega entre las versiones", "plazo de entrega"),
+            ("¿Cuál es la diferencia entre las bases y la modificación en la fecha de recepción de ofertas?",
+             "fecha de recepción de ofertas"),
+            ("Diferencia entre las versiones en el monto de la garantía", "monto de la garantía"),
+        ):
+            with self.subTest(pregunta=pregunta):
+                self.assertEqual(tema_comparacion(pregunta), tema)
+
+    def test_lo_que_no_tiene_orden_se_deja_igual(self):
+        for pregunta in ("¿Qué cambió en el cronograma con la modificación 1?", "fecha de recepción de ofertas"):
+            with self.subTest(pregunta=pregunta):
+                self.assertEqual(tema_comparacion(pregunta), pregunta)
+
+    def test_sin_nucleo_queda_vacio(self):
+        for pregunta in ("Compara las bases y la modificación", "Compara las versiones", "¿Cuál es la diferencia?"):
+            with self.subTest(pregunta=pregunta):
+                self.assertEqual(tema_comparacion(pregunta), "")
 
 
 class ImportacionesTests(unittest.TestCase):

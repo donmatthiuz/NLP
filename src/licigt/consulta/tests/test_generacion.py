@@ -152,13 +152,17 @@ class GeneracionTests(unittest.TestCase):
     def test_prompt_pide_datos_literales_con_ejemplo_y_marcadores(self):
         mensajes, _, esquema, _ = construir_prompt("dato", fragmentos_222())
         sistema = mensajes[0]["content"]
-        self.assertEqual(VERSION_PROMPT, "f4-v6")
+        self.assertEqual(VERSION_PROMPT, "f4-v7")
         for texto in ("{1}", '"datos"', "una sola cita", "marcador", "código IGSS", "numeral", "concentración", "NOG",
                       "número de evento", "solo y separado", "una sola vez", "Colapsa", "unidad", "dentro del literal",
                       "Entre dos marcadores", "aparecer seguidos"):
             self.assertIn(texto, sistema)
         ejemplo = sistema[sistema.index('{"abstener"'):sistema.index("\n", sistema.index('{"abstener"'))]
         SalidaModelo.model_validate_json(ejemplo)
+        # C9-A: ejemplo sin cifras con datos vacíos, y el dato puede ir copiado tal cual o como marcador.
+        self.assertIn('"datos": []', ejemplo)
+        for texto in ("copiado tal cual o el marcador", 'sin cifras'):
+            self.assertIn(texto, sistema)
 
     def test_orden_delimitadores_y_ausencia_de_contexto(self):
         fragmentos = fragmentos_222()

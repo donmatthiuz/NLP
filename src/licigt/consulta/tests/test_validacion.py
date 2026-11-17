@@ -193,7 +193,7 @@ class ValidacionTests(unittest.TestCase):
 
     def test_marcadores_bien_formados_y_usados(self):
         cita = "La recepción de ofertas se llevará a cabo el 31 de julio de 2023"
-        for texto, codigo in [("Recepción {2}.", "texto_invalido"), ("Recepción.", "texto_invalido"),
+        for texto, codigo in [("Recepción {2}.", "texto_invalido"),
                               ("Recepción {1.", "texto_invalido"), ("Recepción {a} {1}.", "texto_invalido"),
                               ("Recepción {0} {1}.", "texto_invalido"), ("Recepción {01} {1}.", "texto_invalido"),
                               ("Recepción } {1}.", "texto_invalido")]:
@@ -317,8 +317,10 @@ class ValidacionTests(unittest.TestCase):
     def test_n1_cada_dato_se_usa_exactamente_una_vez(self):
         self.assertEqual(self.codigos(self.armar_en(B115, "Vigencia de {1} y {2}.", CITA_VIG, ["120"])),
                          ["texto_invalido"])
-        self.assertEqual(self.codigos(self.armar_en(B115, "Vigencia de {1}.", CITA_VIG, ["120", "días"])),
-                         ["texto_invalido"])
+        # Un dato sin marcador y sin aparición en el texto no se publica: el código lo descarta (C9-A).
+        self.assertIsInstance(self.armar_en(B115, "Vigencia de {1}.", CITA_VIG, ["120", "días"]), RespuestaEstructurada)
+        self.assertIsInstance(self.armar("Recepción.", "La recepción de ofertas se llevará a cabo el 31 de julio de 2023",
+                                         ["31 de julio de 2023"]), RespuestaEstructurada)
 
     def test_n1_segunda_barrera_sobre_la_linea_armada(self):
         def armada(texto, literal):
@@ -808,3 +810,118 @@ class ValidacionTests(unittest.TestCase):
         self.assertIsInstance(self.verificar(salida, herramienta(fragmentos=[f])), RespuestaEstructurada)
         salida["afirmaciones"][0]["citas"][0]["cita"] = f.texto
         self.assertEqual(self.verificar(salida, herramienta(fragmentos=[f]))[0].codigo, "cita_no_literal")
+
+
+ENTREGA = "El CONTRATISTA entregará directamente el producto en la bodega de cada UNIDAD SOLICITANTE"
+CAUCION = "Constituida por una suma equivalente al diez por ciento (10%) del monto del CONTRATO."
+IGSS = ("Adquisición del medicamento Omalizumab, Polvo para uso parenteral 150 mg, vial, Código IGSS 10527, "
+        "requerido por distintas Unidades Médicas del Instituto.")
+# Salidas crudas del modelo real (Qwen3.5-9B) en la primera corrida con servicios, sin tocar.
+CRUDO_ENTREGA = (
+    '{"abstener": false, "afirmaciones": [{"texto": "El lugar de entrega es la bodega de cada UNIDAD SOLICITANTE.", '
+    '"citas": [{"fragmento": "F1", "cita": "' + ENTREGA + '"}], '
+    '"datos": [{"cita": 1, "literal": "bodega de cada UNIDAD SOLICITANTE"}]}], "revision_humana": false}')
+CRUDO_CAUCION = (
+    '{"abstener": false, "afirmaciones": [{"texto": "El monto del Seguro de Caución de Cumplimiento es equivalente '
+    'al diez por ciento del monto del CONTRATO.", "citas": [{"fragmento": "F1", "cita": "' + CAUCION + '"}], '
+    '"datos": [{"cita": 1, "literal": "diez por ciento (10%) del monto del CONTRATO"}]}], "revision_humana": false}')
+CRUDO_IGSS = (
+    '{"abstener": false, "afirmaciones": [{"texto": "El código IGSS del medicamento es {1}.", '
+    '"citas": [{"fragmento": "F1", "cita": "' + IGSS + '"}], "datos": [{"cita": 1, "literal": "10527"}]}], '
+    '"revision_humana": false}')
+
+
+class MarcadoresDelCodigoTests(unittest.TestCase):
+    """C9-A: el código pone el marcador cuando el modelo copia el dato en el texto, sin aflojar la regla."""
+
+    def validar(self, crudo, fragmento, informe=None):
+        f = fragmentos_222()[0].model_copy(update={"texto": fragmento})
+        resultado = herramienta(fragmentos=[f])
+        _, evidencia, _, _ = construir_prompt("pregunta", resultado.fragmentos)
+        return validar(crudo, evidencia, resultado, evento_id="222", informe=informe)
+
+    def salida(self, texto, cita, datos):
+        return json.dumps({"abstener": False, "revision_humana": False, "afirmaciones": [
+            {"texto": texto, "citas": [{"fragmento": "F1", "cita": cita}],
+             "datos": [{"cita": 1, "literal": d} for d in datos]}]}, ensure_ascii=False)
+
+    def test_crudo_real_lugar_de_entrega_publica(self):
+        r = self.validar(CRUDO_ENTREGA, ENTREGA + " según el contrato.")
+        self.assertIsInstance(r, RespuestaEstructurada)
+        self.assertIn("bodega de cada UNIDAD SOLICITANTE", r.answer)
+
+    def test_crudo_real_codigo_igss_sigue_publicando(self):
+        self.assertIsInstance(self.validar(CRUDO_IGSS, IGSS), RespuestaEstructurada)
+
+    def test_crudo_real_caucion_descarta_el_dato_que_no_esta_en_el_texto(self):
+        informe = {}
+        r = self.validar(CRUDO_CAUCION, CAUCION, informe)
+        self.assertIsInstance(r, RespuestaEstructurada)
+        self.assertEqual(informe["datos_descartados"], 1)
+        self.assertNotIn("10%", r.answer)
+
+    def test_fecha_copiada_en_el_texto_se_sustituye(self):
+        crudo = self.salida("La recepción de ofertas es el 31 de julio de 2023.", CITA_REC, ["31 de julio de 2023"])
+        r = self.validar(crudo, B001)
+        self.assertIsInstance(r, RespuestaEstructurada)
+        self.assertTrue(r.answer.startswith("La recepción de ofertas es el 31 de julio de 2023."))
+
+    def test_sustituye_primero_el_literal_mas_largo_y_una_aparicion_por_dato(self):
+        # "31 de julio" está dentro de "31 de julio de 2023": el largo gana y el corto ya no tiene aparición.
+        crudo = self.salida("Es el 31 de julio de 2023.", CITA_REC, ["31 de julio", "31 de julio de 2023"])
+        informe = {}
+        r = self.validar(crudo, B001, informe)
+        self.assertIsInstance(r, RespuestaEstructurada)
+        self.assertEqual(informe["datos_descartados"], 1)
+        # Dos datos iguales usan dos apariciones distintas, una por dato.
+        crudo = self.salida("Del 31 de julio de 2023 al 31 de julio de 2023.", CITA_REC,
+                            ["31 de julio de 2023", "31 de julio de 2023"])
+        informe = {}
+        self.assertIsInstance(self.validar(crudo, B001, informe), RespuestaEstructurada)
+        self.assertEqual(informe.get("datos_descartados", 0), 0)
+
+    def test_marcador_existente_se_respeta_y_se_renumera_si_sobra_un_dato(self):
+        crudo = self.salida("Recepción el {2}.", CITA_REC, ["11:00 horas", "31 de julio de 2023"])
+        informe = {}
+        r = self.validar(crudo, B001, informe)
+        self.assertIsInstance(r, RespuestaEstructurada)
+        self.assertEqual(informe["datos_descartados"], 1)
+        self.assertIn("31 de julio de 2023", r.answer)
+
+    def test_afirmacion_sin_cifras_con_datos_sobrantes_publica(self):
+        crudo = self.salida("La recepción se hace en la sede del Instituto.", "ubicados en la 7ª. Avenida 22-72 Zona 1",
+                            ["31 de julio de 2023"])
+        informe = {}
+        self.assertIsInstance(self.validar(crudo, B001, informe), RespuestaEstructurada)
+        self.assertEqual(informe["datos_descartados"], 1)
+        crudo = self.salida("La recepción se hace en la sede del Instituto.", "ubicados en la 7ª. Avenida 22-72 Zona 1", [])
+        self.assertIsInstance(self.validar(crudo, B001), RespuestaEstructurada)
+
+    def test_fecha_escrita_a_mano_sigue_rechazada(self):
+        # "6 de octubre" no es el literal "06 de octubre de 2023": no se sustituye y el dígito queda en el texto.
+        crudo = self.salida("La recepción es el 6 de octubre.", "INSTITUTO, el día 06 de octubre de 2023",
+                            ["06 de octubre de 2023"])
+        r = self.validar(crudo, M009)
+        self.assertEqual(self.codigos(r), ["dato_fuera_de_literal"])
+
+    def test_digito_suelto_sin_literal_sigue_rechazado(self):
+        crudo = self.salida("Recepción el 31 de julio de 2023 a las {1}.", CITA_REC, ["11:00 horas"])
+        r = self.validar(crudo, B001)
+        self.assertEqual(self.codigos(r), ["dato_fuera_de_literal"])
+
+    def test_literal_dentro_de_otra_palabra_o_numero_no_se_sustituye(self):
+        crudo = self.salida("El año es 12023 en el texto.", "a las 11:00 horas (hora\n     límite 11:30)", ["2023"])
+        informe = {}
+        r = self.validar(crudo, B001, informe)
+        self.assertIsInstance(r, list)
+
+    def test_literal_que_aparece_dentro_de_un_marcador_no_se_toca(self):
+        crudo = self.salida("Recepción el {1}.", CITA_REC, ["31 de julio de 2023", "1"])
+        informe = {}
+        r = self.validar(crudo, B001, informe)
+        self.assertIsInstance(r, RespuestaEstructurada)
+        self.assertEqual(informe["datos_descartados"], 1)
+
+    def codigos(self, errores):
+        self.assertIsInstance(errores, list)
+        return [e.codigo for e in errores]

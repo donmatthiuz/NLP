@@ -11,14 +11,14 @@ from .config import obtener_configuracion_llm
 from .decision import decidir
 from .esquemas import (
     BuscarDocumentosParams, CompararVersionesParams, ExtraerRequisitosParams,
-    RespuestaEstructurada, TEXTO_ABSTENCION,
+    RespuestaEstructurada, TEXTO_ABSTENCION, TEXTO_ACLARACION,
 )
 from .generacion import VERSION_PROMPT, construir_prompt
-from .herramientas import buscar_documentos, comparar_versiones, extraer_requisitos
+from .herramientas import buscar_documentos, comparar_versiones, extraer_requisitos, tema_comparacion
 from .lectura import ResultadoBusqueda
 from .llm import FallaGenerador
 from .presupuesto import LimiteAgotado, Presupuesto
-from .validacion import validar
+from .validacion import MARCADOR, validar
 
 
 class _RecuperadorObservado:
@@ -106,7 +106,7 @@ class _Ejecucion:
     """Lo que la ejecución de una herramienta deja para la auditoría y para quien la llamó."""
     def __init__(self):
         self.resultado, self.fragmentos, self.error, self.validacion = None, [], None, "no_aplica"
-        self.citas_jev = None
+        self.citas_jev, self.datos_descartados = None, 0
 
 
 def _ejecutar(ctx, evento_id, evento_salida, pregunta, herramienta, presupuesto, *, recuperador,
@@ -127,10 +127,17 @@ def _ejecutar(ctx, evento_id, evento_salida, pregunta, herramienta, presupuesto,
             params = BuscarDocumentosParams(query=pregunta, evento_id=evento_id)
             resultado = buscar_documentos(ctx, params, observado)
         elif herramienta == "comparar_versiones":
-            params = CompararVersionesParams(tema=pregunta, evento_id=evento_id)
+            tema = tema_comparacion(pregunta)
+            if not tema:
+                respuesta = RespuestaEstructurada(
+                    answer=TEXTO_ACLARACION, sources=[], abstained=False, tool_used=None,
+                    needs_human_review=False, evento_id=evento_salida, coverage_status="sin_faltantes_detectados",
+                    needs_clarification=True, clarification_question=TEXTO_ACLARACION)
+                return respuesta
+            params = CompararVersionesParams(tema=tema, evento_id=evento_id)
             resultado = comparar_versiones(ctx, params, observado)
         elif herramienta == "extraer_requisitos":
-            params = ExtraerRequisitosParams(evento_id=evento_id, categoria=categoria)
+            params = ExtraerRequisitosParams(evento_id=evento_id, categoria=categoria, pregunta=pregunta)
             resultado = extraer_requisitos(ctx, params, observado, cliente_jev=cliente_jev)
         else:
             error = "sin_herramienta"
@@ -164,18 +171,33 @@ def _ejecutar(ctx, evento_id, evento_salida, pregunta, herramienta, presupuesto,
         if not evidencia:
             respuesta = _abstencion(evento_salida, resultado)
             return respuesta
+        informe, cortada = {}, False
         for intento in range(2):
             try:
-                crudo = generador.generar(mensajes, esquema)
-            except (FallaGenerador, TimeoutError) as exc:
-                error = exc.codigo if isinstance(exc, FallaGenerador) else "tiempo_agotado"
+                # La regeneración cambia la semilla: con temperatura 0 la misma semilla repite la misma salida.
+                crudo = (generador.generar(mensajes, esquema, semilla_extra=intento) if intento
+                         else generador.generar(mensajes, esquema))
+                cortada = False
+            except FallaGenerador as exc:
+                if exc.codigo != "respuesta_cortada":
+                    error = exc.codigo
+                    respuesta = _abstencion(evento_salida, resultado, "generador_no_disponible")
+                    return respuesta
+                cortada = True
+            except TimeoutError:
+                error = "tiempo_agotado"
                 respuesta = _abstencion(evento_salida, resultado, "generador_no_disponible")
                 return respuesta
             except Exception:
                 error = "api"
                 respuesta = _abstencion(evento_salida, resultado, "generador_no_disponible")
                 return respuesta
-            verificada = validar(crudo, evidencia, resultado, evento_id=evento_id, conflictos=conflictos)
+            if cortada:
+                verificada, crudo = [], None
+            else:
+                verificada = validar(crudo, evidencia, resultado, evento_id=evento_id, conflictos=conflictos,
+                                     informe=informe)
+                ejecucion.datos_descartados = informe.get("datos_descartados", 0)
             if isinstance(verificada, RespuestaEstructurada):
                 respuesta = verificada
                 validacion = "regenerada_ok" if intento else "ok"
@@ -189,9 +211,16 @@ def _ejecutar(ctx, evento_id, evento_salida, pregunta, herramienta, presupuesto,
                 presupuesto.usar_regeneracion()
             except LimiteAgotado:
                 break
+            if cortada:
+                mensajes = [*mensajes, {"role": "user", "content": (
+                    "La salida anterior no pasó la validación: respuesta_cortada\n"
+                    "la respuesta se cortó: usa como máximo 5 afirmaciones, cada una breve.")}]
+                continue
             errores = json.dumps([e.model_dump(exclude_none=True) for e in verificada], ensure_ascii=False)
+            desajustes = _desajustes(crudo, verificada)
             mensajes = [*mensajes, {"role": "assistant", "content": crudo}, {"role": "user", "content": (
                 "La salida anterior no pasó la validación: " + errores + "\n"
+                + "".join(f"Desajuste: {d}.\n" for d in desajustes) +
                 "Corrige esos puntos: copia tramos exactos o elimina la afirmación.\n"
                 "- cita_no_literal: copia la cita completa desde el fragmento, sin empezar ni terminar a mitad de una palabra o número.\n"
                 "- esquema_invalido: la cita, con los espacios y saltos de línea colapsados a uno, mide como máximo 200 caracteres; acórtala.\n"
@@ -203,6 +232,8 @@ def _ejecutar(ctx, evento_id, evento_salida, pregunta, herramienta, presupuesto,
                 "- dato_fuera_de_literal: quita del texto todo dígito y nombre de mes; ponlo como marcador {n} con su literal en datos. Tampoco escribas letras que parecen cifras (lO, lOO, l.S, S.O).\n"
                 '- texto_invalido: usa solo letras latinas, espacios y . , ; : ( ) ¿ ? ¡ ! \" \' - y la barra de y/o, sin saltos de línea ni [n], y cada marcador {n} con su dato y cada dato con su marcador.\n'
                 'Si no queda ninguna afirmación respaldada, devuelve "abstener": true.')}]
+        if cortada:
+            error = "respuesta_cortada"
         respuesta = _abstencion(evento_salida, resultado, "citas_no_validas")
         return respuesta
     finally:
@@ -210,8 +241,29 @@ def _ejecutar(ctx, evento_id, evento_salida, pregunta, herramienta, presupuesto,
         ejecucion.error, ejecucion.validacion = error, validacion
 
 
+def _desajustes(crudo, errores):
+    """Datos y marcadores de cada afirmación con texto_invalido, para decirle al modelo qué no cuadra; sin texto."""
+    try:
+        afirmaciones = json.loads(crudo)["afirmaciones"]
+    except (TypeError, ValueError, KeyError):
+        return []
+    lineas = []
+    for e in errores:
+        if e.codigo != "texto_invalido" or e.afirmacion is None or e.afirmacion > len(afirmaciones):
+            continue
+        try:
+            afirmacion = afirmaciones[e.afirmacion - 1]
+            datos, marcadores = len(afirmacion["datos"]), len(MARCADOR.findall(afirmacion["texto"]))
+        except (TypeError, KeyError):
+            continue
+        if datos != marcadores:
+            lineas.append(f"la afirmación {e.afirmacion} tiene {datos} {'dato' if datos == 1 else 'datos'} y "
+                          f"{marcadores} {'marcador' if marcadores == 1 else 'marcadores'}")
+    return lineas
+
+
 def _registrar(auditar, usuario, tenant_id, evento_salida, intencion, respuesta, fragmentos,
-               validacion, inicio, error, generador, citas_jev=None, jev_sustituida=None):
+               validacion, inicio, error, generador, citas_jev=None, jev_sustituida=None, datos_descartados=0):
     """Evento de auditoría de una consulta; si el registro falla, la respuesta no cambia."""
     try:
         auditar({
@@ -226,6 +278,7 @@ def _registrar(auditar, usuario, tenant_id, evento_salida, intencion, respuesta,
             "version_prompt": VERSION_PROMPT,
             **({"citas_jev": citas_jev} if citas_jev else {}),
             **({"herramienta_jev_sustituida": jev_sustituida} if jev_sustituida else {}),
+            **({"datos_descartados": datos_descartados} if datos_descartados else {}),
         })
     except Exception:
         pass
@@ -240,7 +293,7 @@ def consultar(ctx, evento_id, pregunta, *, enrutador, recuperador, generador,
     evento_salida = evento_id if isinstance(evento_id, str) and evento_id.strip() else "sin_evento"
     respuesta = _abstencion(evento_salida)
     resultado, herramienta, error, citas_jev = None, None, None, None
-    jev_sustituida = None
+    jev_sustituida, datos_descartados = None, 0
     fragmentos = []
     intencion = None
     validacion = "no_aplica"
@@ -272,7 +325,7 @@ def consultar(ctx, evento_id, pregunta, *, enrutador, recuperador, generador,
         finally:
             resultado, fragmentos = ejecucion.resultado, ejecucion.fragmentos
             error, validacion = ejecucion.error or error, ejecucion.validacion
-            citas_jev = ejecucion.citas_jev
+            citas_jev, datos_descartados = ejecucion.citas_jev, ejecucion.datos_descartados
     except LimiteAgotado:
         error = "presupuesto_agotado"
         respuesta = _abstencion(evento_salida, resultado, "citas_no_validas", herramienta)
@@ -287,4 +340,4 @@ def consultar(ctx, evento_id, pregunta, *, enrutador, recuperador, generador,
         return respuesta
     finally:
         _registrar(auditar, usuario, tenant_id, evento_salida, intencion, respuesta, fragmentos,
-                   validacion, inicio, error, generador, citas_jev, jev_sustituida)
+                   validacion, inicio, error, generador, citas_jev, jev_sustituida, datos_descartados)
