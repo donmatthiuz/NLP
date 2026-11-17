@@ -140,6 +140,15 @@ Recomendación: `llama-server` como servidor principal, por tres razones con evi
 
 Ollama queda como alternativa documentada para quien la prefiera (respaldo del servidor, no del modelo). Requiere Ollama 0.31.2 o superior por el arreglo de `format` con `think: false` (issue ollama/ollama#14645), un Modelfile con `PARAMETER num_ctx 16384` y `OLLAMA_MODELS` dentro del proyecto. Se descartan vLLM y Transformers en proceso: no aportan nada para un usuario a la vez y complican compartir la GPU.
 
+## Ejecución en WSL con Ubuntu 22.04
+
+El binario oficial de la versión b12441 exige GLIBC 2.38 y Ubuntu 22.04 trae 2.35, así que `llama-server` no arranca de forma nativa. No hay imagen oficial de llama.cpp con esa etiqueta, de modo que `scripts/llm.sh` corre el mismo binario dentro de un contenedor (`docker/llm/Dockerfile`, base `nvidia/cuda:12.8.1-runtime-ubuntu24.04` fijada por digest, con `libgomp1` y `curl`).
+
+- El binario y `models/` se montan de solo lectura, sin copiarlos a la imagen, para conservar el sha256 verificado. Los argumentos de `llama-server` son los mismos que en modo nativo.
+- `LICIGT_LLM_MODO=auto|nativo|docker` elige el modo; `auto` usa el nativo si `llama-server --version` corre y si no, docker.
+- En modo docker `make llm-servidor` regresa en cuanto arranca el contenedor `licigt-llm` (puerto publicado solo en 127.0.0.1); `make llm-detener` lo elimina y `make llm-estado` informa modo y contenedor.
+- Medido el 17 de noviembre: con el modelo cargado y contexto de 16384, la GPU queda en 8309 MiB usados de 12227; antes de arrancar estaba entre 2531 y 2756 MiB (escritorio de Windows), así que el LLM ocupa unos 5,6 GiB.
+
 ## 4. Recomendación final y cómo fijarla
 
 Modelo principal: Qwen3.5-9B en modo sin razonamiento.

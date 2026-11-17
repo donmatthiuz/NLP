@@ -31,7 +31,7 @@ EVENTO ?= 222-IGSS-2023
 
 .PHONY: help setup env-init keys-init keys-status key-set db-up db-down db-password-sync \
         importar buscar models-status claude opencode codex test-consulta test-ingesta test-recuperacion corpus \
-        diagramas llm-descargar llm-servidor llm-estado deps-consulta sondeo-jev api experimento-jev web web-build lista-schema test-consulta-sql
+        diagramas llm-descargar llm-servidor llm-estado llm-detener deps-consulta sondeo-jev api experimento-jev web web-build lista-schema test-consulta-sql
 
 help: ## Muestra esta ayuda
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(firstword $(MAKEFILE_LIST)) \
@@ -90,11 +90,14 @@ models-status: ## Lista los modelos descargados en models/ con su revisión exac
 llm-descargar: ## Descarga llama.cpp b12441 y el GGUF del LLM a tools/ y models/ (unos 6 GB)
 	@bash scripts/llm.sh descargar
 
-llm-servidor: ## Arranca llama-server con el LLM local en 127.0.0.1 (en primer plano)
+llm-servidor: ## Arranca llama-server con el LLM local en 127.0.0.1 (nativo: en primer plano; docker: regresa al arrancar el contenedor)
 	@bash scripts/llm.sh servidor
 
 llm-estado: ## Muestra el estado del binario, el modelo, la VRAM y el servidor
 	@bash scripts/llm.sh estado
+
+llm-detener: ## Detiene y elimina el contenedor licigt-llm (modo docker)
+	@bash scripts/llm.sh detener
 
 # --- Consulta (rol 3) -----------------------------------------------------------
 

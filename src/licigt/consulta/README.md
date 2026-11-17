@@ -33,6 +33,7 @@ PYTHONPATH=src python -m unittest discover -s src/licigt/consulta/tests -v
 `LICIGT_ENRUTADOR` elige `reglas` (por defecto), `jev` o `llm`.
 El principio es «JEV juzga, el código decide»; véase [JEV en LiciGT](../../../docs/consulta/JEV.md).
 
+- `make llm-servidor` levanta el LLM local; en WSL con Ubuntu 22.04 corre en Docker (`LICIGT_LLM_MODO`, `make llm-detener`; véase I2).
 - `make deps-consulta` instala las dependencias de consulta y el SDK de JEV.
 - `make sondeo-jev` muestra lo previsto, sin enviar datos ni crear registros.
 - `make sondeo-jev CONFIRMAR=1` envía solo el texto de las preguntas del sondeo a JEV.

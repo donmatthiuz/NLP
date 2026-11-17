@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # LLM generador local (rol 3): binario de llama.cpp y modelo GGUF con versión y sha256 fijados.
-#   bash scripts/llm.sh descargar | servidor | estado
+#   bash scripts/llm.sh descargar | servidor | estado | detener
+# LICIGT_LLM_MODO=auto|nativo|docker (auto: nativo si llama-server corre en este sistema, si no docker).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -25,6 +26,10 @@ ARCHIVO_RESPALDO="Qwen3-8B-Q4_K_M.gguf"
 REVISION_RESPALDO="7c41481f57cb95916b40956ab2f0b139b296d974"
 SHA256_RESPALDO="d98cdcbd03e17ce47681435b5150e34c1417f50b5c0019dd560e4882c5745785"
 
+# Modo docker: imagen con GLIBC 2.38 para el binario precompilado (docker/llm/Dockerfile).
+IMAGEN_LLM="licigt-llm:${VERSION_LLAMACPP}"
+CONTENEDOR_LLM="licigt-llm"
+
 # Rutas. HF_HOME lo exporta el Makefile (o vale models/).
 HF_HOME="${HF_HOME:-models}"
 
@@ -45,6 +50,23 @@ modelo_archivo() {
 # Binario llama-server extraído del tarball.
 binario_llama_server() {
     find "${DIR_BINARIO}" -maxdepth 4 -type f -name llama-server 2>/dev/null | head -n1 || true
+}
+
+# Modo efectivo: nativo si el binario corre aquí (GLIBC suficiente), si no docker.
+modo_llm() {
+    local modo="${LICIGT_LLM_MODO:-auto}" binario
+    case "${modo}" in
+        nativo|docker) printf '%s\n' "${modo}" ;;
+        auto)
+            binario="$(binario_llama_server)"
+            if [ -x "${binario}" ] && "${binario}" --version >/dev/null 2>&1; then
+                printf 'nativo\n'
+            else
+                printf 'docker\n'
+            fi
+            ;;
+        *) printf 'LICIGT_LLM_MODO inválido: %s (usa auto, nativo o docker)\n' "${modo}" >&2; exit 2 ;;
+    esac
 }
 
 descargar_binario() {
@@ -125,6 +147,9 @@ servidor() {
     fi
     [ -f "${modelo}" ] || { printf 'falta el modelo: make llm-descargar\n' >&2; exit 1; }
     printf 'aviso\tcorre make importar con el servidor del LLM apagado (I2, sección 6)\n'
+    if [ "$(modo_llm)" = docker ]; then
+        servidor_docker "${binario}" "${modelo}"
+    fi
     exec "${binario}" \
         --model "${modelo}" \
         --host 127.0.0.1 --port "${LICIGT_LLM_PUERTO:-8080}" \
@@ -137,8 +162,53 @@ servidor() {
         --reasoning-budget 0
 }
 
+# Corre llama-server en un contenedor con los mismos argumentos que el modo nativo.
+# El binario y models/ se montan de solo lectura; el puerto se publica solo en 127.0.0.1.
+servidor_docker() {
+    local binario="$1" modelo="$2" dir_bin dir_modelos ruta_modelo
+    command -v docker >/dev/null || { printf 'falta docker para LICIGT_LLM_MODO=docker\n' >&2; exit 1; }
+    dir_bin="$(cd "$(dirname "${binario}")" && pwd)"
+    dir_modelos="$(cd "${HF_HOME}" && pwd)"
+    ruta_modelo="/models/${modelo#"${HF_HOME}"/}"
+    if ! docker image inspect "${IMAGEN_LLM}" >/dev/null 2>&1; then
+        printf 'construyendo\t%s\n' "${IMAGEN_LLM}"
+        docker build -q -t "${IMAGEN_LLM}" docker/llm >/dev/null
+    fi
+    docker rm -f "${CONTENEDOR_LLM}" >/dev/null 2>&1 || true
+    docker run -d --name "${CONTENEDOR_LLM}" --gpus all \
+        -p "127.0.0.1:${LICIGT_LLM_PUERTO:-8080}:8080" \
+        -v "${dir_bin}:/llama:ro" -v "${dir_modelos}:/models:ro" \
+        "${IMAGEN_LLM}" /llama/llama-server \
+        --model "${ruta_modelo}" \
+        --host 0.0.0.0 --port 8080 \
+        --alias qwen3.5-9b \
+        --ctx-size "${LICIGT_LLM_CTX:-16384}" \
+        -np 1 \
+        --no-mmproj \
+        --flash-attn on \
+        -b 2048 -ub 512 \
+        --reasoning-budget 0 >/dev/null
+    printf 'ok\tcontenedor %s arrancado; el modelo tarda en cargar (espera /health)\n' "${CONTENEDOR_LLM}"
+    exit 0
+}
+
+detener() {
+    if command -v docker >/dev/null && docker container inspect "${CONTENEDOR_LLM}" >/dev/null 2>&1; then
+        docker rm -f "${CONTENEDOR_LLM}" >/dev/null
+        printf 'ok\tcontenedor %s detenido y eliminado\n' "${CONTENEDOR_LLM}"
+    else
+        printf 'ok\tno hay contenedor %s (en modo nativo, detén el proceso con Ctrl+C)\n' "${CONTENEDOR_LLM}"
+    fi
+}
+
 estado() {
     local binario tarball
+    printf 'modo\t%s\n' "$(modo_llm)"
+    if command -v docker >/dev/null && docker container inspect "${CONTENEDOR_LLM}" >/dev/null 2>&1; then
+        printf 'contenedor\t%s (%s)\n' "${CONTENEDOR_LLM}" "$(docker inspect -f '{{.State.Status}}, salud {{if .State.Health}}{{.State.Health.Status}}{{else}}n/a{{end}}' "${CONTENEDOR_LLM}")"
+    else
+        printf 'contenedor\tninguno\n'
+    fi
     binario="$(binario_llama_server)"
     if [ -x "${binario}" ]; then
         printf 'ok\tbinario llama.cpp %s (%s)\n' "${VERSION_LLAMACPP}" "${binario}"
@@ -194,5 +264,6 @@ case "${1:-estado}" in
     descargar) descargar ;;
     servidor) servidor ;;
     estado) estado ;;
-    *) printf 'Uso: %s descargar | servidor | estado\n' "$0" >&2; exit 2 ;;
+    detener) detener ;;
+    *) printf 'Uso: %s descargar | servidor | estado | detener\n' "$0" >&2; exit 2 ;;
 esac
