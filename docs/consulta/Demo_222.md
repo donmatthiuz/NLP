@@ -24,9 +24,10 @@ Pasos de F6 de [`Plan_rol_3.md`](Plan_rol_3.md). Resultados medidos el 17 de nov
 
 ### 3. Comparación del cronograma
 
-- Pregunta: `¿Qué cambió en el cronograma entre las bases y la modificación 1?`
-- Debe verse: comparación con dos fuentes lado a lado y revisión humana.
-- Real (7.4 s): `tool_used = comparar_versiones`, pero `abstained = true` y sin fuentes. No coincide. Hallazgo: la comparación se abstiene en vez de mostrar las dos versiones. La variante `Compara las fechas del cronograma entre las bases y la modificación número 1` pidió aclaración en 0.03 s (el enrutador la tomó por ambigua). Con la pregunta del paso 1 sí salen ambas fechas.
+- Pregunta: `Compara la fecha de recepción de ofertas entre las bases y la modificación`
+- Debe verse: `comparar_versiones`, las dos fechas lado a lado con su documento y página, revisión humana, y el sistema no elige cuál rige.
+- Real (C12, API en 127.0.0.1:8010): responde con las dos fuentes: bases p. 8, 31 de julio de 2023, y Modificación Número 1 p. 1, 06 de octubre de 2023, ambas a las 11:00 con hora límite 11:30. Coincide.
+- Hallazgo resuelto en C12: con `¿Qué cambió en el cronograma entre las bases y la modificación 1?` el tema se recorta a "cronograma"; la recuperación trae fragmentos de los dos documentos y la validación pasa, pero el modelo se abstiene porque un tema tan amplio no da nada concreto que comparar. Por eso la demo usa una pregunta concreta; las comparaciones amplias quedan como limitación.
 
 ### 4. Aclaración
 
