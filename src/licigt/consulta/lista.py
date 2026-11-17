@@ -42,9 +42,12 @@ MIN_TRAMO_ORACION = 40
 LARGO_MINIMO_CITA = 10
 # Columnas intercaladas por la extracción del PDF: tres o más espacios entre dos textos.
 SEPARACION_COLUMNAS = re.compile(r"(?<=\S) {3,}(?=\S)")
+# Los dos puntos solo cierran un tramo si lo que sigue empieza una lista (literal, numeral, viñeta) o es el fin del
+# texto; con texto de la misma oración el tramo sigue. Con los espacios ya colapsados, el salto de línea no se ve.
+INICIO_DE_LISTA = r"(?:[A-Za-z](?:\.\d+)?\)|\d+(?:\.\d+)*[.)]|[•▪-](?=\s))"
 # Un ordinal ("7ª.", "1º.") o una abreviatura ("No.", "Art.") no cierran la oración.
 FIN_ORACION = re.compile(r"(?<![ªº])(?<!\bNo)(?<!\bNúm)(?<!\bArts)(?<!\bArt)(?<!\bInc)(?<!\bLit)(?<!\bLic)(?<!\bSr)"
-                         r"(?<!\bDr)(?<!\bAv)[.!?;:](?=\s|$)")
+                         r"(?<!\bDr)(?<!\bAv)(?:[.!?;]|:(?=\s*$|\s+" + INICIO_DE_LISTA + r"))(?=\s|$)")
 # Fila con numeral; queda el resto, `título | texto`.
 FILA_CON_NUMERAL = re.compile(r"^\|\s*" + NUMERAL_FILA + r"\s*\|\s*(?P<resto>\S.*?)\s*\|?\s*$")
 INICIO_FILA = re.compile(r"^\s*\|\s*" + NUMERAL_FILA + r"\s*\|\s*")
@@ -167,7 +170,7 @@ def _recortar(tramo: str, tope: int = MAX_TRAMO) -> str:
     if len(tramo) <= tope:
         return tramo
     ventana = tramo[:tope + 1]
-    fines = [m.end() for m in FIN_ORACION.finditer(ventana[:tope]) if m.end() >= MIN_TRAMO_ORACION
+    fines = [m.end() for m in FIN_ORACION.finditer(tramo) if MIN_TRAMO_ORACION <= m.end() <= tope
              and not _es_dato(next(iter(tramo[m.end():].split()), None))]
     if fines:
         return ventana[:fines[-1]]

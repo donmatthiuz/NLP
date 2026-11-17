@@ -401,6 +401,33 @@ TEXTO_ESPECIFICACIONES = ("ESPECIFICACIONES   TÉCNICAS,      DISPOSICIONES     
                           "         PLICAS separadas, rotuladas con la siguiente información del OFERENTE.")
 
 
+TEXTO_47 = ("Los OFERENTES deben presentar los documentos requeridos en original y copia, en PLICAS separadas, "
+            "rotuladas con la siguiente información del OFERENTE: Nombre, razón social, NIT, dirección, teléfono y correo "
+            "electrónico del OFERENTE, número de licitación y objeto de la misma, nombre del evento y lugar de entrega de la "
+            "oferta presentada ante la JUNTA de licitación en el acto público de recepción de las ofertas")
+
+
+class PresentacionesTests(unittest.TestCase):
+    """C18: los dos puntos dentro de una oración no la cortan."""
+
+    def propuestos(self, texto, seccion="Sin sección"):
+        fragmentos = [frag("c-0", texto, seccion)]
+        res = resultado(fragmentos, categorias={"c-0": "legal"})
+        return [i.descripcion for i in proponer_items(res, "222")]
+
+    def test_c18_dos_puntos_con_texto_de_la_misma_oracion_no_cortan(self):
+        items = self.propuestos(TEXTO_47)
+        self.assertEqual(len(items), 1)
+        self.assertTrue(items[0].startswith("Los OFERENTES deben presentar"))
+        self.assertIn("Nombre, razón social", items[0])
+
+    def test_c18_dos_puntos_con_lista_o_fin_de_fragmento_siguen_cortando(self):
+        self.assertEqual(self.propuestos("2.8 REQUISITOS FUNDAMENTALES Se consideran Requisitos Fundamentales los siguientes:"), [])
+        larga = ("2.8 REQUISITOS FUNDAMENTALES Se consideran Requisitos Fundamentales los siguientes:\n"
+                 "   a) " + "La presentación del formulario electrónico dentro de la plica sellada " * 6)
+        self.assertEqual(tramo_literal(larga), "2.8 REQUISITOS FUNDAMENTALES Se consideran Requisitos Fundamentales los siguientes:")
+
+
 class RevisionAcotadaTests(unittest.TestCase):
     """C17: solo piden revisión los ítems que una modificación o aclaración puede afectar."""
 

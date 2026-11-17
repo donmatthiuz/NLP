@@ -235,12 +235,12 @@ def _ejecutar(ctx, evento_id, evento_salida, pregunta, herramienta, presupuesto,
                 continue
             errores = json.dumps([e.model_dump(exclude_none=True) for e in verificada], ensure_ascii=False)
             desajustes = _desajustes(crudo, verificada)
-            alias = (_fragmentos_que_faltan(crudo, evidencia, protegidos)
-                     if any(e.codigo == "falta_segunda_fuente" for e in verificada) else [])
+            # Con cualquier error, no solo falta_segunda_fuente: el segundo intento no debe repetir el mismo hueco.
+            alias = _fragmentos_que_faltan(crudo, evidencia, protegidos)
             mensajes = [*mensajes, {"role": "assistant", "content": crudo}, {"role": "user", "content": (
                 "La salida anterior no pasó la validación: " + errores + "\n"
                 + "".join(f"Desajuste: {d}.\n" for d in desajustes)
-                + (f"Fragmentos del documento que falta citar: {', '.join(alias)}.\n" if alias else "") +
+                + (f"Fragmentos del documento que falta citar: {', '.join(alias)}. Si ese documento trata el mismo dato, cítalo; si no, abstén.\n" if alias else "") +
                 "Corrige esos puntos: copia tramos exactos o elimina la afirmación.\n"
                 "- cita_no_literal: copia la cita completa desde el fragmento, sin empezar ni terminar a mitad de una palabra o número.\n"
                 "- cita_cruza_filas: la cita no puede abarcar el final de una fila de la tabla y el inicio de la siguiente; copia solo una fila.\n"
@@ -323,7 +323,7 @@ def _fragmentos_que_faltan(crudo, evidencia, grupos):
     try:
         citados = {evidencia[c["fragmento"]].doc_id for a in json.loads(crudo)["afirmaciones"] for c in a["citas"]}
     except (TypeError, ValueError, KeyError, AttributeError):
-        return []
+        citados = set()  # salida ilegible: se nombran todos los documentos del grupo
     disponibles = {f.doc_id for f in evidencia.values()}
     faltan = set()
     for grupo in grupos:

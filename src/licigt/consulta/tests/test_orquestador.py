@@ -213,6 +213,23 @@ class OrquestadorTests(unittest.TestCase):
                 self.assertIn("afirmaciones_descartadas: 1", r.warnings)
                 self.assertEqual(r.needs_human_review, esperado)
 
+    def test_c18_texto_invalido_sin_citar_la_modificacion_nombra_su_alias(self):
+        invalida = json.dumps({"abstener": False, "revision_humana": False, "afirmaciones": [{
+            "texto": "Recepción {a}.", "citas": salida_222()["afirmaciones"][0]["citas"],
+            "datos": [{"cita": 1, "literal": "31 de julio de 2023"}]}]})
+        generador = GeneradorFalso([invalida, invalida])
+        self.consultar(recuperador=RecuperadorFalso(conflicto=True), generador=generador)
+        mensaje = generador.llamadas[1][0][-1]["content"]
+        self.assertIn("texto_invalido", mensaje.splitlines()[0])
+        self.assertIn("Fragmentos del documento que falta citar: F2.", mensaje)
+        self.assertNotIn("INSTITUTO", mensaje)
+
+    def test_c18_salida_ilegible_nombra_todos_los_documentos_del_grupo(self):
+        generador = GeneradorFalso(["no es json", "no es json"])
+        self.consultar(recuperador=RecuperadorFalso(conflicto=True), generador=generador)
+        mensaje = generador.llamadas[1][0][-1]["content"]
+        self.assertIn("Fragmentos del documento que falta citar: F1, F2.", mensaje)
+
     def test_c17_sin_falta_segunda_fuente_el_mensaje_no_nombra_fragmentos(self):
         invalida = json.dumps({"abstener": False, "revision_humana": False, "afirmaciones": [{
             "texto": "Recepción {a}.", "citas": salida_222()["afirmaciones"][0]["citas"],
