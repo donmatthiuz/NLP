@@ -6,7 +6,7 @@ import { ZonaFuentes } from './componentes/Fuentes'
 import { ListaVerificacion } from './componentes/ListaVerificacion'
 import { SelectorTema } from './componentes/Tema'
 import { EJEMPLOS } from './ejemplos'
-import { ROTULOS, estadoDe } from './estado'
+import { ROTULOS, alAclarar, estadoDe } from './estado'
 import type { RespuestaEstructurada } from './tipos'
 
 const MODO_EJEMPLOS = (import.meta.env.VITE_MODO ?? (import.meta.env.DEV ? 'ejemplos' : 'api')) === 'ejemplos'
@@ -32,6 +32,11 @@ export default function App() {
     if (situacion.tipo !== 'resultado') return
     rotuloRef.current?.focus()
     setAnuncio(`Resultado: ${ROTULOS[estadoDe(situacion.respuesta)]}`)
+    if (estadoDe(situacion.respuesta) === 'aclaracion') {
+      const { texto: conservado, cursor } = alAclarar(situacion.pregunta)
+      setTexto(conservado)
+      requestAnimationFrame(() => cajaRef.current?.setSelectionRange(cursor, cursor))
+    }
   }, [situacion])
 
   const elegirEjemplo = (id: string) => {
@@ -135,7 +140,12 @@ export default function App() {
           <>
             <Resultado
               ref={rotuloRef} respuesta={r} pregunta={situacion.tipo === 'resultado' ? situacion.pregunta : ''}
-              alEscribirAclaracion={() => cajaRef.current?.focus()}
+              alEscribirAclaracion={() => {
+                const caja = cajaRef.current
+                if (!caja) return
+                caja.focus()
+                caja.setSelectionRange(caja.value.length, caja.value.length)
+              }}
             />
             {estado !== 'aclaracion' && (
               <ZonaFuentes fuentes={r.sources} abstencion={r.abstained} conflicto={r.needs_human_review} />

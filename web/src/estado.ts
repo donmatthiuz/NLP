@@ -31,3 +31,9 @@ export function esHttps(url: string): boolean {
     return false
   }
 }
+
+// El backend no guarda memoria entre preguntas: ante una aclaración la caja
+// conserva la pregunta original, con el cursor al final, para completarla.
+export function alAclarar(pregunta: string): { texto: string; cursor: number } {
+  return { texto: pregunta, cursor: pregunta.length }
+}

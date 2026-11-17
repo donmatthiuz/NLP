@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { EJEMPLOS } from './ejemplos'
-import { agruparPorDocumento, esHttps, estadoDe } from './estado'
+import { agruparPorDocumento, alAclarar, esHttps, estadoDe } from './estado'
 
 const estadoEjemplo = (id: string) => estadoDe(EJEMPLOS.find((e) => e.id === id)!.respuesta)
 
@@ -30,5 +30,13 @@ describe('auxiliares', () => {
     expect(esHttps('http://x.org/a.pdf')).toBe(false)
     expect(esHttps('javascript:alert(1)')).toBe(false)
     expect(esHttps('03791a3471c04c0f9cc260814564756e')).toBe(false)
+  })
+})
+
+describe('aclaración sin memoria', () => {
+  it('conserva la pregunta y deja el cursor al final', () => {
+    const r = alAclarar('  ¿Cuál es la fecha?  ')
+    expect(r.texto).toBe('  ¿Cuál es la fecha?  ')
+    expect(r.cursor).toBe(r.texto.length)
   })
 })

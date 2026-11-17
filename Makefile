@@ -14,6 +14,7 @@ LICIGT_DB_PORT ?= 5432
 LICIGT_DB_NAME ?= licigt
 LICIGT_DB_USER ?= licigt
 LICIGT_DB_PASSWORD_FILE ?= keys/database/dev.password
+LICIGT_API_PUERTO ?= 8000
 LICIGT_JEV_API_KEY_FILE ?= keys/jev/api.key
 # Exportar las opciones definidas; las ausentes conservan los valores de config.py.
 VARIABLES_JEV := LICIGT_JEV_API_KEY_FILE LICIGT_JEV_MODELO LICIGT_JEV_REINTENTOS \
@@ -116,11 +117,11 @@ lista-schema: ## Crea las tablas de la lista de verificación (idempotente; requ
 test-consulta-sql: ## Pruebas de la lista en Postgres (requieren make db-up)
 	@$(WITH_DB) PYTHONPATH=src $(PYTHON) -m unittest licigt.consulta.tests.test_lista_sql -v
 
-api: ## Arranca el adaptador de consulta (demo, sin autenticación) en 127.0.0.1:8000
-	@$(WITH_DB) PYTHONPATH=src $(PYTHON) -m uvicorn licigt.consulta.api:app --host 127.0.0.1 --port 8000
+api: ## Arranca el adaptador de consulta (demo, sin autenticación) en 127.0.0.1:$(LICIGT_API_PUERTO) (8000 por defecto)
+	@$(WITH_DB) PYTHONPATH=src $(PYTHON) -m uvicorn licigt.consulta.api:app --host 127.0.0.1 --port $(LICIGT_API_PUERTO)
 
-web: ## Arranca la web de consulta en modo desarrollo (Vite; proxy de /api a 127.0.0.1:8000)
-	@pnpm --dir web dev
+web: ## Arranca la web de consulta en modo desarrollo (Vite; proxy de /api a 127.0.0.1:$(LICIGT_API_PUERTO))
+	@LICIGT_API_PUERTO=$(LICIGT_API_PUERTO) pnpm --dir web dev
 
 web-build: ## Compila la web de consulta (tsc y vite build)
 	@pnpm --dir web build
