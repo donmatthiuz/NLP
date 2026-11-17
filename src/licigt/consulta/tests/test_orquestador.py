@@ -313,6 +313,26 @@ class OrquestadorTests(unittest.TestCase):
         self.assertIn("la afirmación 2 tiene 1 dato y 0 marcadores", mensaje)
         self.assertNotIn("julio", mensaje)
 
+    def test_c19_la_regeneracion_avisa_de_la_url_o_el_correo_sin_copiarlos(self):
+        for sitio in ("https://servicios.igssgt.org", "http://x.igssgt.org", "https://www.igssgt.org", "compras@igssgt.org"):
+            with self.subTest(sitio=sitio):
+                mala = salida_222()
+                mala["afirmaciones"][1]["texto"] = "La modificación indica la recepción en " + sitio + "."
+                generador = GeneradorFalso([json.dumps(mala), json.dumps(salida_222())])
+                self.consultar(generador=generador)
+                mensaje = generador.llamadas[1][0][-1]["content"]
+                self.assertIn("la afirmación 2 contiene una URL o un correo; ponla como dato {n} con su literal o quítala",
+                              mensaje)
+                self.assertNotIn("igssgt", mensaje.split("Desajuste:", 1)[1])
+                del self.eventos[:]
+
+    def test_c19_sin_url_ni_correo_no_hay_desajuste_de_url(self):
+        mala = salida_222()
+        mala["afirmaciones"][1]["texto"] = "La modificación indica recepción {a}."
+        generador = GeneradorFalso([json.dumps(mala), json.dumps(salida_222())])
+        self.consultar(generador=generador)
+        self.assertNotIn("URL o un correo", generador.llamadas[1][0][-1]["content"])
+
     def test_c9_datos_descartados_van_a_la_auditoria_como_numero(self):
         salida = salida_222()
         salida["afirmaciones"][0]["datos"].append({"cita": 1, "literal": "11:00 horas"})

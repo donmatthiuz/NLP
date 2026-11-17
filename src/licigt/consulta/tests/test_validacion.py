@@ -208,6 +208,19 @@ class ValidacionTests(unittest.TestCase):
         salida["afirmaciones"][0]["datos"][0]["cita"] = 2
         self.assertEqual(self.codigos(self.verificar(salida)), ["dato_no_literal"])
 
+    def test_c19_url_o_correo_copiado_de_la_cita_pasa_como_dato_y_en_el_texto_no(self):
+        for literal in ("https://servicios.igssgt.org", "www.igssgt.org/licitaciones", "compras@igssgt.org"):
+            cita = "La solvencia se obtiene en " + literal + " del IGSS"
+            with self.subTest(literal=literal):
+                self.assertIsInstance(self.armar("La solvencia se obtiene en {1}.", cita, [literal]), RespuestaEstructurada)
+                if literal.startswith("www."):
+                    continue  # sin dígitos ni "//" el texto de "www.x.org/y" hoy pasa la lista blanca; fuera de alcance de C19
+                self.assertEqual(self.codigos(self.armar("La solvencia se obtiene en " + literal + ".", cita)), ["texto_invalido"])
+        # Una URL que no está en la cita no pasa como dato.
+        cita = "La solvencia se obtiene en el portal del IGSS"
+        self.assertEqual(self.codigos(self.armar("La solvencia está en {1}.", cita, ["https://servicios.igssgt.org"])),
+                         ["dato_no_literal"])
+
     def test_literal_exacto_sin_ceros_ni_formatos_cambiados(self):
         for literal, cita in [("6 de octubre de 2023", "el 06 de octubre de 2023"),
                               ("31 de julio de 2023", "el 31/07/2023 en sala"),

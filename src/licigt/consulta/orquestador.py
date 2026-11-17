@@ -333,6 +333,9 @@ def _fragmentos_que_faltan(crudo, evidencia, grupos):
     return [alias for alias, f in evidencia.items() if f.doc_id in faltan]
 
 
+URL_O_CORREO = re.compile(r"https?:|www\.|\S@\S", re.IGNORECASE)
+
+
 def _desajustes(crudo, errores):
     """Datos y marcadores de cada afirmación con texto_invalido, para decirle al modelo qué no cuadra; sin texto."""
     try:
@@ -351,6 +354,9 @@ def _desajustes(crudo, errores):
         if datos != marcadores:
             lineas.append(f"la afirmación {e.afirmacion} tiene {datos} {'dato' if datos == 1 else 'datos'} y "
                           f"{marcadores} {'marcador' if marcadores == 1 else 'marcadores'}")
+        if URL_O_CORREO.search(afirmacion["texto"]):
+            lineas.append(f"la afirmación {e.afirmacion} contiene una URL o un correo; "
+                          "ponla como dato {n} con su literal o quítala")
     return lineas
 
 

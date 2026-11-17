@@ -166,12 +166,12 @@ class GeneracionTests(unittest.TestCase):
     def test_prompt_pide_datos_literales_con_ejemplo_y_marcadores(self):
         mensajes, _, esquema, _ = construir_prompt("dato", fragmentos_222())
         sistema = mensajes[0]["content"]
-        self.assertEqual(VERSION_PROMPT, "f4-v9")
+        self.assertEqual(VERSION_PROMPT, "f4-v10")
         self.assertIn("de 10 a 300 caracteres", sistema)
         self.assertNotIn("de 10 a 200 caracteres", sistema)
         for texto in ("{1}", '"datos"', "una sola cita", "marcador", "código IGSS", "numeral", "concentración", "NOG",
                       "número de evento", "solo y separado", "una sola vez", "Colapsa", "unidad", "dentro del literal",
-                      "Entre dos marcadores", "aparecer seguidos"):
+                      "Entre dos marcadores", "aparecer seguidos", "URL o un correo"):
             self.assertIn(texto, sistema)
         ejemplo = sistema[sistema.index('{"abstener"'):sistema.index("\n", sistema.index('{"abstener"'))]
         SalidaModelo.model_validate_json(ejemplo)

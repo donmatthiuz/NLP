@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from .lectura import FragmentoRecuperado, es_tabla
 from .requisitos import FechaCandidata
 
-VERSION_PROMPT = "f4-v9"
+VERSION_PROMPT = "f4-v10"
 
 
 class CitaModelo(BaseModel):
@@ -112,6 +112,7 @@ def construir_prompt(pregunta: str, fragmentos: list[FragmentoRecuperado], *,
         "un tramo corto (sin palabras de 4 o más letras) con cualquier otro texto, ese texto y los dos literales deben aparecer seguidos en la cita. "
         "Cada marcador va solo y separado por espacios o por . , ; : ( ): nunca pegado a letras, a símbolos como % o /, ni a otro marcador, y se usa una sola vez. "
         "Fuera de los marcadores, \"texto\" lleva solo letras, espacios y . , ; : ( ) ¿ ? ¡ ! \" ' - y la barra de \"y/o\", sin dígitos ni nombres de mes. "
+        "Una URL o un correo del documento va como dato {n}, con su literal copiado de la cita, o se omite: nunca lo escribas en \"texto\". "
         "El texto puede llevar el dato copiado tal cual o el marcador; un dato que no aparece en el texto no va en \"datos\". "
         "Una afirmación sin cifras, fechas ni códigos lleva \"datos\": [].\n"
         "8. Ejemplo: "
