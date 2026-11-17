@@ -2,6 +2,7 @@
 
 import re
 import time
+from itertools import islice
 import unicodedata
 from typing import Literal
 
@@ -31,8 +32,9 @@ ETIQUETAS_ACTIVIDAD = {
     "adjudicacion": "Adjudicación",
 }
 ETIQUETAS_FECHA = frozenset({*ETIQUETAS_ACTIVIDAD.values(), FECHA_SIN_VERIFICAR})
-MOTIVO_REVISION_RESPUESTA = "Hay un posible conflicto entre documentos; requiere revisión humana"
-MOTIVO_REVISION_MODIFICACION = "Una modificación o aclaración toca esta sección; requiere revisión humana"
+# La banda de la respuesta ya dice que requiere revisión humana; el motivo del ítem solo explica por qué.
+MOTIVO_REVISION_MODIFICACION = ("Una modificación o aclaración del evento toca esta sección; "
+                                "el sistema no decide cuál está vigente")
 MAX_TRAMO = 300
 # La fila de una tabla (`título | texto`) cabe entera hasta el máximo de una cita.
 MAX_TRAMO_FILA = 500
@@ -52,6 +54,20 @@ PALABRA_DE_CONTENIDO = re.compile(r"[^\W\d_]{4,}")
 MIN_PALABRAS_CONTENIDO = 4
 MIN_RESTO_DE_FRASE = 40
 MAX_PALABRAS_ENCABEZADO = 10
+# Un tramo que termina en ":" con menos palabras de contenido que esto solo presenta una lista.
+MIN_PALABRAS_PRESENTACION = 15
+# Cuántos tramos legibles de un fragmento sin tabla se prueban hasta hallar uno que no sea basura.
+MAX_TRAMOS_PROBADOS = 3
+# El tramo de relevo (no el primero) debe cerrar una oración o llegar al corte por largo; si no, es el pedazo de una tabla.
+FIN_DE_TRAMO = ".);:!?"
+# Un numeral o literal al inicio ("a)", "d.7)", "1.", "2.27.4").
+# Un entero suelto ("21 del REGLAMENTO).") es el resto de una referencia, no un numeral.
+INICIO_NUMERAL = re.compile(r"^(?:\d+(?:\.\d+)+\.?|\d+[.)]|[A-Za-z](?:\.\d+)?\))(?=\s|$)")
+PALABRA_CON_LETRAS = re.compile(r"[^\W\d_]{2,}")
+# Un encabezado seguido solo de una referencia entre paréntesis: "ESPECIFICACIONES GENERALES. (Artículo 16 del REGLAMENTO)."
+ENCABEZADO_CON_REFERENCIA = re.compile(r"^(?P<titulo>[^()]*?)\s*\([^()]*\)\s*\.?$")
+# Un numeral que el texto de una modificación nombra ("numeral 2.7", "subnumeral 2.7.1"); como en el rol 2, solo X.Y o más.
+NUMERAL_NOMBRADO = re.compile(r"(?:sub)?numeral\s+(\d+\.\d+(?:\.\d+)*)", re.IGNORECASE)
 MOTIVO_FECHAS_DISTINTAS = "Las fuentes difieren; el sistema no decide cuál está vigente"
 
 Caracter = Literal["fundamental", "no_fundamental", "no_indicado"]
@@ -164,23 +180,41 @@ def _recortar(tramo: str, tope: int = MAX_TRAMO) -> str:
     return ventana[:ventana.rfind(" ", 0, tope + 1)]
 
 
-def tramo_literal(texto: str) -> str | None:
-    """Primer tramo legible del fragmento con los espacios colapsados; es subcadena del texto, nada se genera."""
-    bloque = re.split(r"\n\s*\n", texto.strip(), maxsplit=1)[0]
+def _primer_bloque(texto: str) -> tuple[str, str]:
+    """El primer bloque legible del texto (sin colapsar los espacios) y lo que queda después."""
     if SEPARACION_COLUMNAS.search(texto):
         lineas = [linea.strip() for linea in texto.splitlines()]
         # Desde la primera línea libre de columnas, las que siguen seguidas y libres también, hasta una línea en blanco
         # o con columnas: así la oración no se corta antes de un número que empieza la línea siguiente.
         inicio = next((i for i, l in enumerate(lineas) if l and not SEPARACION_COLUMNAS.search(l)), None)
         if inicio is None:
-            primera = next((l for l in lineas if l), "")
-            bloque = SEPARACION_COLUMNAS.split(primera)[0] if primera else ""
-        else:
-            fin = next((i for i in range(inicio, len(lineas))
-                        if not lineas[i] or SEPARACION_COLUMNAS.search(lineas[i])), len(lineas))
-            bloque = " ".join(lineas[inicio:fin])
-    tramo = " ".join(bloque.split())
-    return _recortar(tramo) if tramo else None
+            primera = next((i for i, l in enumerate(lineas) if l), None)
+            if primera is None:
+                return "", ""
+            return SEPARACION_COLUMNAS.split(lineas[primera])[0], "\n".join(lineas[primera + 1:])
+        fin = next((i for i in range(inicio, len(lineas))
+                    if not lineas[i] or SEPARACION_COLUMNAS.search(lineas[i])), len(lineas))
+        return " ".join(lineas[inicio:fin]), "\n".join(lineas[fin:])
+    partes = re.split(r"\n\s*\n", texto.strip(), maxsplit=1)
+    return partes[0], partes[1] if len(partes) > 1 else ""
+
+
+def tramos_literales(texto: str):
+    """Los tramos legibles del fragmento en orden, con los espacios colapsados; cada uno es subcadena del texto."""
+    while texto.strip():
+        bloque, texto = _primer_bloque(texto)
+        pendiente = " ".join(bloque.split())
+        while pendiente:
+            tramo = _recortar(pendiente)
+            if not tramo:
+                break
+            yield tramo
+            pendiente = pendiente[len(tramo):].strip()
+
+
+def tramo_literal(texto: str) -> str | None:
+    """Primer tramo legible del fragmento con los espacios colapsados; es subcadena del texto, nada se genera."""
+    return next(tramos_literales(texto), None)
 
 
 def tramos_de_tabla(texto: str) -> list[str]:
@@ -194,8 +228,19 @@ def tramos_de_tabla(texto: str) -> list[str]:
 
 
 def _es_basura(cita: str) -> bool:
-    """Un encabezado en mayúsculas, un resto de frase o un tramo de menos de 4 palabras de contenido no es un requisito."""
-    if len(PALABRA_DE_CONTENIDO.findall(cita)) < MIN_PALABRAS_CONTENIDO:
+    """Una presentación de lista, un encabezado, un resto de frase o un tramo de menos de 4 palabras de contenido no es un requisito."""
+    palabras = len(PALABRA_DE_CONTENIDO.findall(cita))
+    if cita.rstrip().endswith(":") and palabras < MIN_PALABRAS_PRESENTACION:
+        return True
+    referencia = ENCABEZADO_CON_REFERENCIA.match(cita)
+    if referencia:
+        titulo = [c for c in referencia["titulo"] if c.isalpha()]
+        if titulo and not any(c.islower() for c in titulo):
+            return True
+    numeral = INICIO_NUMERAL.match(cita)
+    if numeral and any(p.islower() for p in PALABRA_CON_LETRAS.findall(cita[numeral.end():])):
+        return False
+    if palabras < MIN_PALABRAS_CONTENIDO:
         return True
     letras = [c for c in cita if c.isalpha()]
     if letras and not any(c.islower() for c in letras) and len(cita.split()) <= MAX_PALABRAS_ENCABEZADO:
@@ -207,6 +252,22 @@ def _numeral_principal(seccion: str | None) -> str | None:
     """"2.2" de "2.2.6 Recepción" y de "2.2   CRONOGRAMA"; None si la sección no empieza por un numeral."""
     m = NUMERAL_PRINCIPAL.match(seccion or "")
     return ".".join(g for g in m.groups() if g) if m else None
+
+
+def _numeral_doble(texto: str | None) -> str | None:
+    """El numeral principal solo si tiene al menos dos componentes ("2.2"); "2 vial, Código IGSS…" no es un numeral."""
+    principal = _numeral_principal(texto)
+    return principal if principal and "." in principal else None
+
+
+def _numerales_tocados(resultado: ResultadoHerramienta) -> set[str]:
+    """Numerales principales que una modificación o aclaración puede cambiar: los de la alerta, el de su sección y los que su texto nombra."""
+    tocados = {_numeral_doble(n) for conflicto in resultado.conflictos for n in conflicto.numerales}
+    for f in resultado.fragmentos:
+        if f.tipo_documento in TIPOS_QUE_ESCALAN:
+            tocados.add(_numeral_doble(f.seccion))
+            tocados.update(_numeral_doble(n) for n in NUMERAL_NOMBRADO.findall(f.texto))
+    return tocados - {None}
 
 
 def _cita_de_fecha(fragmento, literal: str, ocurrencia: int) -> str:
@@ -244,20 +305,34 @@ def proponer_items(resultado: ResultadoHerramienta, evento_id: str) -> list[Item
             vistos.add(huella(evento_id, item))
             items.append(item)
 
-    # Con un conflicto entre documentos se revisa todo; si no, solo las secciones que toca una modificación o aclaración.
-    modificadas = {_numeral_principal(f.seccion) for f in resultado.fragmentos
-                   if f.tipo_documento in TIPOS_QUE_ESCALAN} - {None}
+    # Solo piden revisión los ítems que una modificación o aclaración puede afectar: un fragmento afectado, uno del
+    # documento que cambia, o uno de una sección cuyo numeral principal se modifica.
+    afectados = {c for conflicto in resultado.conflictos for c in conflicto.chunk_ids_afectados}
+    documentos = {conflicto.doc_id for conflicto in resultado.conflictos}
+    tocados = _numerales_tocados(resultado)
+
+    def toca(fragmento) -> bool:
+        return (fragmento.chunk_id in afectados or fragmento.doc_id in documentos
+                or _numeral_principal(fragmento.seccion) in tocados)
+
     for fragmento in resultado.fragmentos:
         categoria = resultado.categorias.get(fragmento.chunk_id)
         if categoria is None:
             continue
-        if resultado.posible_conflicto:
-            motivo = MOTIVO_REVISION_RESPUESTA
+        motivo = MOTIVO_REVISION_MODIFICACION if toca(fragmento) else None
+
+        def aceptable(cita) -> bool:
+            return cita is not None and not _es_basura(cita) and _cita_valida(fragmento, cita)
+
+        if es_tabla(fragmento.texto):
+            citas = tramos_de_tabla(fragmento.texto)
         else:
-            motivo = MOTIVO_REVISION_MODIFICACION if _numeral_principal(fragmento.seccion) in modificadas else None
-        citas = tramos_de_tabla(fragmento.texto) if es_tabla(fragmento.texto) else [tramo_literal(fragmento.texto)]
+            # Un solo tramo: el primero legible que no sea basura (el fragmento no se pierde por empezar con un encabezado).
+            primero = next((t for n, t in enumerate(islice(tramos_literales(fragmento.texto), MAX_TRAMOS_PROBADOS))
+                            if aceptable(t) and (n == 0 or t[-1] in FIN_DE_TRAMO or len(t) >= MAX_TRAMO - 40)), None)
+            citas = [primero]
         for cita in citas:
-            if cita is None or _es_basura(cita) or not _cita_valida(fragmento, cita):
+            if not aceptable(cita):
                 continue
             agregar(ItemPropuesto(
                 tipo="requisito", categoria=categoria, caracter=caracter_de_seccion(fragmento.seccion),
@@ -278,6 +353,8 @@ def proponer_items(resultado: ResultadoHerramienta, evento_id: str) -> list[Item
         motivo = FECHA_SIN_VERIFICAR if fecha.estado == "no_verificada" else None
         if fecha.actividad in distintas:
             motivo = MOTIVO_FECHAS_DISTINTAS
+        if motivo is None and toca(fragmento):
+            motivo = MOTIVO_REVISION_MODIFICACION
         agregar(ItemPropuesto(
             tipo="fecha", categoria=None, caracter="no_indicado",
             descripcion=f"{etiqueta}: {cita}",
@@ -291,7 +368,9 @@ def _respuesta_de_lista(evento_id: str, resultado: ResultadoHerramienta, items: 
     return RespuestaEstructurada(
         answer=f"Propuesta de {len(items)} ítems tomados literalmente de los documentos del evento.",
         sources=fuentes, abstained=False, tool_used="extraer_requisitos",
-        needs_human_review=resultado.needs_human_review, evento_id=evento_id,
+        # Como validacion.py: una modificación o aclaración en la evidencia basta para pedir revisión.
+        needs_human_review=resultado.needs_human_review or any(
+            f.tipo_documento in TIPOS_QUE_ESCALAN for f in resultado.fragmentos), evento_id=evento_id,
         coverage_status=resultado.coverage_status, warnings=resultado.warnings)
 
 

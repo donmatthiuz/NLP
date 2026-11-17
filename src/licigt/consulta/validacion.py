@@ -574,6 +574,19 @@ def validar(salida_cruda: str, evidencia: dict[str, FragmentoRecuperado],
             return [ErrorValidacion(codigo="falta_segunda_fuente")]
 
     fuentes, indices, lineas = [], {}, []
+    # Una fuente que no se puede armar (el tramo original con barras pasa de 500 caracteres) es un error de esa cita:
+    # con su posición, la publicación parcial descarta solo esa afirmación.
+    invalidas = []
+    for i, afirmacion in enumerate(salida.afirmaciones, 1):
+        for j, cita in enumerate(afirmacion.citas, 1):
+            try:
+                fuente_desde_fragmento(evidencia[cita.fragmento], tramos[i, j])
+            except ValidationError:
+                if len(tramos[i, j]) <= MAX_CITA:
+                    return [ErrorValidacion(codigo="fuente_invalida")]
+                invalidas.append(ErrorValidacion(codigo="esquema_invalido", afirmacion=i, cita=j))
+    if invalidas:
+        return invalidas
     try:
         for i, afirmacion in enumerate(salida.afirmaciones, 1):
             marcadores = []

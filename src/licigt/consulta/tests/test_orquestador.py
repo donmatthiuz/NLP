@@ -213,6 +213,49 @@ class OrquestadorTests(unittest.TestCase):
                 self.assertIn("afirmaciones_descartadas: 1", r.warnings)
                 self.assertEqual(r.needs_human_review, esperado)
 
+    def test_c17_sin_falta_segunda_fuente_el_mensaje_no_nombra_fragmentos(self):
+        invalida = json.dumps({"abstener": False, "revision_humana": False, "afirmaciones": [{
+            "texto": "Recepción {a}.", "citas": salida_222()["afirmaciones"][0]["citas"],
+            "datos": [{"cita": 1, "literal": "31 de julio de 2023"}]}]})
+        generador = GeneradorFalso([invalida, invalida])
+        self.consultar(generador=generador)
+        self.assertNotIn("Fragmentos del documento que falta citar", generador.llamadas[1][0][-1]["content"])
+
+    def descartada(self, texto, datos=()):
+        base = salida_222()["afirmaciones"][0]
+        mala = {"texto": texto, "citas": [{"fragmento": "F1", "cita": "texto que no existe en ese fragmento ni cerca"}],
+                "datos": list(datos)}
+        recuperador = RecuperadorFalso()
+        recuperador.busqueda["fragmentos"] = [DATOS_222[0]]  # solo las bases: sin modificación que escale
+        salida = json.dumps({"abstener": False, "revision_humana": False, "afirmaciones": [base, mala]})
+        return self.consultar(recuperador=recuperador, generador=GeneradorFalso([salida, salida]))
+
+    def test_c17_a3_una_vigencia_descartada_con_otras_palabras_escala(self):
+        for texto in ["La fecha del 31 de julio ya no aplica; la recepción se movió.",
+                      "Esa fecha fue cambiada por la modificación número uno.",
+                      "La fecha actual de recepción es otra, posterior a la de las bases.",
+                      "Rige la fecha de la modificación, no la de las bases.",
+                      "La modificación posterior manda sobre las bases.",
+                      "La aclaración posterior cambia el lugar.",
+                      "La fecha de las bases dejó de estar en vigor.",
+                      "The bases date is no longer in force; the amendment governs."]:
+            with self.subTest(texto=texto):
+                self.eventos.clear()
+                r = self.descartada(texto)
+                self.assertFalse(r.abstained)
+                self.assertIn("afirmaciones_descartadas: 1", r.warnings)
+                self.assertTrue(r.needs_human_review)
+
+    def test_c17_a3_un_dato_de_fecha_en_una_afirmacion_descartada_escala(self):
+        r = self.descartada("La entrega se hace el {1}.", [{"cita": 1, "literal": "06 de octubre de 2023"}])
+        self.assertIn("afirmaciones_descartadas: 1", r.warnings)
+        self.assertTrue(r.needs_human_review)
+
+    def test_c17_a3_una_descartada_sin_senal_no_escala(self):
+        r = self.descartada("La entrega se hace en la bodega del hospital.", [{"cita": 1, "literal": "bodega"}])
+        self.assertIn("afirmaciones_descartadas: 1", r.warnings)
+        self.assertFalse(r.needs_human_review)
+
     def test_c14_conflicto_donde_se_descarta_un_lado_abstiene(self):
         salida = salida_222()
         salida["afirmaciones"][1]["citas"][0]["cita"] = "cita que no existe en el fragmento F2"
@@ -493,15 +536,16 @@ class OrquestadorTests(unittest.TestCase):
         self.assertTrue(r.abstained)
         self.assertIn("falta_segunda_fuente", generador.llamadas[1][0][-1]["content"])
 
-    def test_c13_falta_segunda_fuente_no_nombra_el_alias_y_ofrece_abstenerse(self):
+    def test_c17_falta_segunda_fuente_nombra_los_alias_del_otro_documento_sin_su_texto_y_ofrece_abstenerse(self):
         salida = salida_222()
         salida["afirmaciones"].pop()
         generador = GeneradorFalso([json.dumps(salida)] * 2)
         self.consultar(recuperador=RecuperadorFalso(conflicto=True), generador=generador)
         mensaje = generador.llamadas[1][0][-1]["content"]
-        self.assertNotIn("falta citar un fragmento", mensaje)
-        self.assertNotIn("F2", mensaje)
+        self.assertIn("Fragmentos del documento que falta citar: F2.", mensaje)
+        self.assertNotIn("F1.", mensaje.split("Fragmentos del documento que falta citar")[1].splitlines()[0])
         self.assertNotIn("INSTITUTO", mensaje)
+        self.assertNotIn("octubre", mensaje)
         self.assertIn("si el otro documento trata el mismo dato", mensaje)
         self.assertIn("agrega una afirmación con lo que dice ese documento", mensaje)
         self.assertIn("abstén", mensaje)

@@ -59,6 +59,15 @@ class Recuperador(Protocol):
                            conn=None) -> dict: ...
 
 
+class ConflictoEvento(BaseModel):
+    """De una alerta posible_conflicto: el documento que cambia, los numerales que toca y los fragmentos afectados; sin texto."""
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    doc_id: str
+    numerales: list[str] = []
+    chunk_ids_afectados: list[str] = []
+
+
 class ResultadoHerramienta(BaseModel):
     """Resultado intermedio que consume la generación (F4); nunca lleva texto de respuesta."""
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -74,6 +83,8 @@ class ResultadoHerramienta(BaseModel):
     needs_human_review: StrictBool
     # La alerta posible_conflicto del rol 2, aparte de las demás causas de revisión (la lista la usa para marcar todo).
     posible_conflicto: StrictBool = False
+    # Una entrada por documento en conflicto, con las alertas de todas las consultas unidas (la lista acota la revisión).
+    conflictos: list[ConflictoEvento] = []
     coverage_status: Literal["parcial", "sin_faltantes_detectados"]
     warnings: list[str]
     error: Literal["falla_recuperacion", "contrato_invalido", "documento_fuera_del_evento"] | None
@@ -213,6 +224,15 @@ def extraer_requisitos(ctx, params: ExtraerRequisitosParams, recuperador: Recupe
             alertas.setdefault((alerta.tipo, alerta.doc_id), alerta)
     revisar, parcial, avisos = _interpretar(list(alertas.values()))
     conflicto = any(a.tipo == "posible_conflicto" for a in alertas.values())
+    por_documento = {}
+    for resultado in resultados:
+        for alerta in resultado.alertas:
+            if alerta.tipo == "posible_conflicto":
+                unido = por_documento.setdefault(alerta.doc_id, ([], []))
+                unido[0].extend(n for n in alerta.numerales_modificados if n not in unido[0])
+                unido[1].extend(c for c in alerta.chunk_ids_afectados if c not in unido[1])
+    conflictos = [ConflictoEvento(doc_id=d, numerales=sorted(n), chunk_ids_afectados=c)
+                  for d, (n, c) in por_documento.items()]
     abstener = not any(r.suficiente for r in resultados) or not fragmentos
 
     fechas, candidatas = [], {}
@@ -286,6 +306,6 @@ def extraer_requisitos(ctx, params: ExtraerRequisitosParams, recuperador: Recupe
         herramienta="extraer_requisitos", evento_id=params.evento_id,
         fragmentos=list(fragmentos.values()), fechas=fechas, categorias=categorias,
         abstener=abstener,
-        needs_human_review=revisar, posible_conflicto=conflicto,
+        needs_human_review=revisar, posible_conflicto=conflicto, conflictos=conflictos,
         coverage_status="parcial" if parcial else "sin_faltantes_detectados",
         warnings=avisos, error=None)

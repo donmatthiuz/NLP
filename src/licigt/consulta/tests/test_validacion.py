@@ -808,6 +808,20 @@ class ValidacionTests(unittest.TestCase):
         with patch("licigt.consulta.validacion.fuente_desde_fragmento", side_effect=falsa):
             self.assertEqual(self.verificar()[0].codigo, "fuente_invalida")
 
+    def test_c17_a4_la_fuente_invalida_de_una_sola_cita_lleva_su_posicion(self):
+        cuerpo = ("relleno de prueba " * 30)[:479].rstrip()
+        texto = f"| 2.2.6 | Recepción de ofertas | {cuerpo} |"
+        cita = " ".join(f"Recepción de ofertas {cuerpo}".split())
+        self.assertLessEqual(len(cita), 500)
+        self.assertGreater(len(f"Recepción de ofertas | {cuerpo}"), 500)
+        otra = {"texto": "Las bases fijan la recepción.", "datos": [],
+                "citas": [{"fragmento": "F1", "cita": "Recepción de ofertas"}]}
+        larga = {"texto": "La fila dice otra cosa.", "datos": [], "citas": [{"fragmento": "F1", "cita": cita}]}
+        f = fragmentos_222()[0].model_copy(update={"texto": texto})
+        salida = {"abstener": False, "revision_humana": False, "afirmaciones": [otra, larga]}
+        errores = self.verificar(salida, herramienta(fragmentos=[f]))
+        self.assertEqual([(e.codigo, e.afirmacion, e.cita) for e in errores], [("esquema_invalido", 2, 1)])
+
     def test_deduplica_par_chunk_cita_y_mantiene_marcadores(self):
         salida = salida_222()
         # C13: una afirmación repetida tal cual es afirmacion_duplicada; la misma cita en otra afirmación se deduplica.

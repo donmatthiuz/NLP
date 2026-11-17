@@ -10,11 +10,11 @@ from pydantic import ValidationError
 
 from licigt.consulta.config import obtener_configuracion_llm
 from licigt.consulta.esquemas import Fuente, RespuestaEstructurada, TEXTO_ABSTENCION
-from licigt.consulta.herramientas import ResultadoHerramienta
+from licigt.consulta.herramientas import ConflictoEvento, ResultadoHerramienta
 from licigt.consulta.lectura import FragmentoRecuperado, fuente_desde_fragmento
 from licigt.consulta.lista import (
     AVISO_LISTA, FIN_ORACION, ItemPropuesto, MOTIVO_FECHAS_DISTINTAS, MOTIVO_REVISION_MODIFICACION,
-    caracter_de_seccion, proponer_items, proponer_lista, tramo_literal,
+    _es_basura, caracter_de_seccion, proponer_items, proponer_lista, tramo_literal,
 )
 from licigt.consulta.lista_escritura import _fuente_vigente
 from licigt.consulta.tests.test_generacion import DATOS_222, DATOS_TABLA
@@ -56,12 +56,12 @@ def fecha(datos, literal, dia, actividad=None, estado="no_verificada"):
                           estado=estado)
 
 
-def resultado(fragmentos, *, fechas=(), categorias=None, warnings=(), revisar=False, conflicto=False):
+def resultado(fragmentos, *, fechas=(), categorias=None, warnings=(), revisar=False, conflicto=False, conflictos=()):
     return ResultadoHerramienta(
         herramienta="extraer_requisitos", evento_id="222", fragmentos=[fragmento(f) for f in fragmentos],
         fechas=list(fechas), categorias=categorias or {}, abstener=False, needs_human_review=revisar,
         coverage_status="sin_faltantes_detectados", warnings=list(warnings), error=None,
-        posible_conflicto=conflicto)
+        posible_conflicto=conflicto, conflictos=list(conflictos))
 
 
 def respuesta(fuentes, *, answer="Respuesta [1]", revisar=False, herramienta="extraer_requisitos"):
@@ -156,12 +156,10 @@ class ProponerItemsTests(unittest.TestCase):
         self.assertEqual(caracter_de_seccion(None), "no_indicado")
         self.assertEqual(caracter_de_seccion("REQUISITOS  NO  FUNDAMENTALES"), "no_fundamental")
 
-    def test_revision_por_conflicto_llega_a_todos_los_requisitos(self):
+    def test_c17_el_conflicto_solo_no_marca_a_todos_los_requisitos(self):
         categorias = {"c-fund": "legal", "c-pie": "legal"}
         items = proponer_items(resultado([FUNDAMENTAL, PIE], categorias=categorias, conflicto=True), "222")
-        self.assertTrue(all(i.requiere_revision and i.motivo_revision for i in items))
-        items = proponer_items(resultado([PIE], categorias={"c-pie": "legal"}), "222")
-        self.assertFalse(items[0].requiere_revision)
+        self.assertFalse(any(i.requiere_revision for i in items))
 
     def test_no_repite_items(self):
         copia = dict(FUNDAMENTAL, chunk_id="c-fund")  # mismo chunk_id y mismo tramo
@@ -382,15 +380,167 @@ class RevisionPorModificacionTests(unittest.TestCase):
         items = self.items(FUNDAMENTAL, PIE, revisar=True)
         self.assertFalse(any(i.requiere_revision for i in items.values()))
 
-    def test_c16_la_alerta_posible_conflicto_sigue_marcando_todo(self):
-        items = self.items(FUNDAMENTAL, PIE, conflicto=True)
-        self.assertTrue(all(i.requiere_revision and i.motivo_revision for i in items.values()))
-
     def test_c16_una_seccion_sin_numeral_no_comparte_numeral(self):
         mod = frag("c-mod", "Se modifica la fecha de recepción de las ofertas del evento.", "Sin sección",
                    doc_id="222-mod", tipo="modificacion", pagina=1)
         items = self.items(PIE, FUNDAMENTAL, mod)
         self.assertFalse(items["c-pie"].requiere_revision or items["c-fund"].requiere_revision)
+
+
+TEXTO_28 = ("2.8 REQUISITOS FUNDAMENTALES\n"
+            "      Se consideran Requisitos Fundamentales los siguientes:\n"
+            "        a) La presentación del FORMULARIO ELECTRÓNICO en forma física dentro de la\n"
+            "           PLICA, como se describe en la literal a) del subnumeral 2.7 de los presentes\n"
+            "           DOCUMENTOS DE LICITACIÓN, su no inclusión dará lugar a que la JUNTA,\n"
+            "           rechace la OFERTA sin responsabilidad alguna de su parte. (Artículos 24 Bis y 30\n"
+            "           de la LEY).\n"
+            "                                                                                   15")
+TEXTO_ESPECIFICACIONES = ("ESPECIFICACIONES   TÉCNICAS,      DISPOSICIONES      ESPECIALES                    y\n"
+                          "         ESPECIFICACIONES GENERALES. (Artículo 16 del REGLAMENTO).\n\n"
+                          "Los OFERENTES deben presentar los documentos requeridos en original y copia, en\n"
+                          "         PLICAS separadas, rotuladas con la siguiente información del OFERENTE.")
+
+
+class RevisionAcotadaTests(unittest.TestCase):
+    """C17: solo piden revisión los ítems que una modificación o aclaración puede afectar."""
+
+    LITERAL = frag("c-lit", "d.3) Que el oferente no está comprendido en ninguna prohibición legal.", "2.7 Listado")
+    AFECTADO = frag("c-afec", "Se solicita presentar fotocopia simple de la patente de comercio.", "2.9 Requisitos no fundamentales")
+    MOD = frag("c-mod", "La recepción se traslada a otra fecha indicada en el cronograma vigente.", "Sin sección",
+               doc_id="222-mod", tipo="modificacion", pagina=1)
+
+    def items(self, conflictos, *fragmentos):
+        categorias = {f["chunk_id"]: "legal" for f in fragmentos}
+        return {i.fuentes[0].chunk_id: i for i in proponer_items(
+            resultado(list(fragmentos), categorias=categorias, conflicto=True, conflictos=conflictos), "222")}
+
+    def test_c17_alertas_como_las_del_222_solo_marcan_lo_afectado(self):
+        conflictos = [ConflictoEvento(doc_id="222-mod", numerales=["2.2", "2.7"], chunk_ids_afectados=["c-afec"])]
+        items = self.items(conflictos, FUNDAMENTAL, self.LITERAL, self.AFECTADO, self.MOD)
+        self.assertFalse(items["c-fund"].requiere_revision)          # 2.8 no está tocada
+        self.assertTrue(items["c-lit"].requiere_revision)            # numeral 2.7 modificado
+        self.assertTrue(items["c-afec"].requiere_revision)           # fragmento afectado
+        self.assertTrue(items["c-mod"].requiere_revision)            # documento de la modificación
+        for id_ in ("c-lit", "c-afec", "c-mod"):
+            self.assertEqual(items[id_].motivo_revision, MOTIVO_REVISION_MODIFICACION)
+
+    def test_c17_alerta_sin_numerales_ni_afectados_marca_solo_el_documento_de_la_alerta(self):
+        items = self.items([ConflictoEvento(doc_id="222-mod")], FUNDAMENTAL, self.LITERAL, self.MOD)
+        self.assertEqual({k for k, i in items.items() if i.requiere_revision}, {"c-mod"})
+
+    def test_c17_el_motivo_es_uno_solo_y_no_repite_la_banda(self):
+        self.assertEqual(MOTIVO_REVISION_MODIFICACION, "Una modificación o aclaración del evento toca esta sección; "
+                         "el sistema no decide cuál está vigente")
+        self.assertNotIn("requiere revisión humana", MOTIVO_REVISION_MODIFICACION)
+
+    def test_c17_a1_las_fechas_de_una_seccion_modificada_piden_revision(self):
+        mod = frag("c-modf", "El día 06 de octubre de 2023, a las 11:00 horas, en el mismo lugar.", "2.2.6 Recepción",
+                   doc_id="222-mod", tipo="modificacion", pagina=1)
+        otra = frag("c-f5", "La apertura de plicas será el 02 de noviembre de 2023, a las 09:00 horas.", "2.5 Apertura")
+        fechas = [fecha(FECHA_BASES, "31 de julio de 2023", date(2023, 7, 31), "recepcion_ofertas", "verificada"),
+                  fecha(otra, "02 de noviembre de 2023", date(2023, 11, 2), "apertura_plicas", "verificada"),
+                  fecha(FECHA_BASES, "31 de julio de 2023", date(2023, 7, 31))]
+        items = proponer_items(resultado([FECHA_BASES, otra, mod], fechas=fechas), "222")
+        por_cita = {(i.fuentes[0].chunk_id, i.descripcion.split(": ")[0]): i for i in items}
+        self.assertEqual(por_cita["c-f1", "Recepción de ofertas"].motivo_revision, MOTIVO_REVISION_MODIFICACION)
+        self.assertFalse(por_cita["c-f5", "Apertura de plicas"].requiere_revision)
+        # Con otro motivo propio, ese motivo se conserva.
+        sin_verificar = [i for i in items if i.descripcion.startswith("Fecha sin verificar")][0]
+        self.assertEqual(sin_verificar.motivo_revision, "Fecha sin verificar")
+
+    def test_c17_a1_la_fecha_del_documento_de_la_alerta_pide_revision(self):
+        mod = frag("c-modf", "El día 06 de octubre de 2023, a las 11:00 horas, en el mismo lugar.", "Sin sección",
+                   doc_id="222-mod", tipo="modificacion", pagina=1)
+        fechas = [fecha(mod, "06 de octubre de 2023", date(2023, 10, 6), "recepcion_ofertas", "verificada")]
+        items = proponer_items(resultado([mod], fechas=fechas, conflictos=[ConflictoEvento(doc_id="222-mod")]), "222")
+        self.assertEqual(items[0].motivo_revision, MOTIVO_REVISION_MODIFICACION)
+
+    def test_c17_a2_el_numeral_que_el_texto_de_la_modificacion_nombra_tambien_cuenta(self):
+        mod = frag("c-mod2", "Punto 2: Se modifica la literal e) del subnumeral 2.7 LISTADO DE DOCUMENTOS de las bases.",
+                   "2.2 CRONOGRAMA DE ACTIVIDADES", doc_id="222-mod", tipo="modificacion", pagina=1)
+        categorias = {f["chunk_id"]: "legal" for f in (self.LITERAL, FUNDAMENTAL, mod)}
+        items = {i.fuentes[0].chunk_id: i for i in proponer_items(
+            resultado([self.LITERAL, FUNDAMENTAL, mod], categorias=categorias), "222")}
+        self.assertTrue(items["c-lit"].requiere_revision)
+        self.assertFalse(items["c-fund"].requiere_revision)
+
+    def test_c17_a6_una_seccion_mal_detectada_de_la_modificacion_no_marca_las_secciones_2(self):
+        mod = frag("c-mod3", "2 vial, Código IGSS 10527, requerido por distintas Unidades Médicas del Instituto.",
+                   "2 vial, Código IGSS 10527, requerido por distintas Unidades Médicas", doc_id="222-mod",
+                   tipo="modificacion", pagina=1)
+        base = frag("c-b2", "2. Si no concurre a suscribir el CONTRATO respectivo dentro del plazo legal correspondiente.",
+                    "2. Si no concurre a suscribir el CONTRATO respectivo dentro del plazo legal")
+        categorias = {f["chunk_id"]: "legal" for f in (base, mod)}
+        items = {i.fuentes[0].chunk_id: i for i in proponer_items(resultado([base, mod], categorias=categorias), "222")}
+        self.assertFalse(items["c-b2"].requiere_revision)
+
+    def test_c17_la_respuesta_de_la_lista_pide_revision_si_la_evidencia_trae_una_modificacion(self):
+        recuperador = RecuperadorPorConsulta({CONSULTAS_POR_CATEGORIA["legal"]: [FUNDAMENTAL, self.MOD],
+                                              CONSULTA_CRONOGRAMA: []})
+        ctx = SimpleNamespace(tenant_id="empresa-a", usuario="persona-a", rol="analista")
+        p = proponer_lista(ctx, "222", "legal", recuperador=recuperador)
+        self.assertTrue(p.respuesta.needs_human_review)
+        sin = RecuperadorPorConsulta({CONSULTAS_POR_CATEGORIA["legal"]: [FUNDAMENTAL], CONSULTA_CRONOGRAMA: []})
+        self.assertFalse(proponer_lista(ctx, "222", "legal", recuperador=sin).respuesta.needs_human_review)
+
+
+class PresentacionDeListaTests(unittest.TestCase):
+    """C17: un tramo que solo presenta una lista, o un encabezado con su referencia, no es un requisito."""
+
+    def propuestos(self, *textos, seccion="Sin sección"):
+        fragmentos = [frag(f"c-{n}", t, seccion) for n, t in enumerate(textos)]
+        res = resultado(fragmentos, categorias={f["chunk_id"]: "legal" for f in fragmentos})
+        return [i.descripcion for i in proponer_items(res, "222")]
+
+    def test_c17_la_presentacion_de_una_lista_es_basura(self):
+        self.assertTrue(_es_basura("2.8 REQUISITOS FUNDAMENTALES Se consideran Requisitos Fundamentales los siguientes:"))
+        self.assertTrue(_es_basura("Fotocopia legible legalizada de los documentos: siguientes:"))
+
+    def test_c17_con_15_palabras_de_contenido_o_mas_no_es_presentacion(self):
+        largo = ("El oferente deberá presentar los siguientes documentos originales firmados, sellados y legalizados "
+                 "por notario ante la JUNTA durante el acto público de recepción de OFERTAS programado para esta fecha:")
+        self.assertFalse(_es_basura(largo))
+
+    def test_c17_encabezado_en_mayusculas_con_una_referencia_es_basura(self):
+        self.assertTrue(_es_basura("ESPECIFICACIONES GENERALES. (Artículo 16 del REGLAMENTO)."))
+        self.assertFalse(_es_basura("Las especificaciones generales se rigen por el Artículo 16 del REGLAMENTO vigente."))
+
+    def test_c17_el_fragmento_real_del_2_8_da_su_primer_requisito(self):
+        items = self.propuestos(TEXTO_28, seccion="2.8 REQUISITOS FUNDAMENTALES")
+        self.assertEqual(len(items), 1)
+        self.assertTrue(items[0].startswith("a) La presentación del FORMULARIO ELECTRÓNICO en forma física"))
+        self.assertLessEqual(len(items[0]), 300)
+        self.assertIn(items[0], " ".join(TEXTO_28.split()))
+
+    def test_c17_el_encabezado_con_columnas_cede_al_siguiente_tramo_legible(self):
+        items = self.propuestos(TEXTO_ESPECIFICACIONES)
+        self.assertEqual(len(items), 1)
+        self.assertTrue(items[0].startswith("Los OFERENTES deben presentar los documentos requeridos"))
+
+    def test_c17_el_tramo_de_relevo_no_se_queda_a_medias_antes_de_un_dato(self):
+        # Una tabla sin separadores de fila: tras el encabezado, "(12 MESES) Unidad de Consulta Externa de" corta antes de un número.
+        texto = "ESPECIFICACIONES GENERALES. (Artículo 16 del REGLAMENTO).\n\n(12 MESES) Unidad de Consulta Externa de"
+        self.assertEqual(self.propuestos(texto), [])
+        con_fin = texto + "\n\nEl oferente debe presentar la constancia de inscripción en el RTU actualizada."
+        self.assertEqual(self.propuestos(con_fin), ["El oferente debe presentar la constancia de inscripción en el RTU actualizada."])
+
+    def test_c17_si_todo_el_fragmento_es_basura_no_hay_item(self):
+        self.assertEqual(self.propuestos("4. ESPECIFICACIONES TÉCNICAS\n\nCANTIDAD TOTAL"), [])
+
+    def test_c17_a7_un_literal_con_palabras_en_minuscula_no_es_basura(self):
+        self.assertFalse(_es_basura("a) Extendida a favor del INSTITUTO."))
+        self.assertFalse(_es_basura("1. Fecha de emisión."))
+        self.assertFalse(_es_basura("2.27.4 Fecha de vencimiento."))
+        self.assertTrue(_es_basura("a) ABC DEF"))
+        self.assertTrue(_es_basura("4. ESPECIFICACIONES TÉCNICAS"))
+        self.assertTrue(_es_basura("4."))
+        self.assertTrue(_es_basura("ANEXO 6.2 de los presentes"))
+        # El numeral no salva a una presentación de lista.
+        self.assertTrue(_es_basura("2.8 Se consideran Requisitos Fundamentales los siguientes:"))
+
+    def test_c17_a7_el_fragmento_222_00107_da_su_literal(self):
+        texto = "a) Extendida a favor del INSTITUTO.\n\nb) Debe garantizar a:\n   ▪ Si es persona individual."
+        self.assertEqual(self.propuestos(texto, seccion="2.23.1 SEGURO DE CAUCIÓN"), ["a) Extendida a favor del INSTITUTO."])
 
 
 class RecuperadorPorConsulta:

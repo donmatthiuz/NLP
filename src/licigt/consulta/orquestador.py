@@ -1,6 +1,7 @@
 """Flujo de consulta con una herramienta, una regeneración y auditoría en toda salida."""
 
 import json
+import re
 import time
 from datetime import datetime, timezone
 
@@ -18,7 +19,12 @@ from .herramientas import buscar_documentos, comparar_versiones, extraer_requisi
 from .lectura import ResultadoBusqueda
 from .llm import FallaGenerador
 from .presupuesto import LimiteAgotado, Presupuesto
-from .validacion import MARCADOR, VIGENCIA, normalizar_cita, validar
+from .requisitos import encontrar_fechas
+from .validacion import MARCADOR, VIGENCIA, _con_mes, normalizar_cita, validar
+
+
+# Otras formas de decir que una fecha o cláusula cambió o rige, además de VIGENCIA (que ya cubre "vigente", "sin efecto"…).
+SENAL_VIGENCIA = re.compile(r"\b(?:modific|aclarac|aclarad|cambi|rige|actual|aplica|vigor|amend|in force|govern)")
 
 
 class _RecuperadorObservado:
@@ -229,9 +235,12 @@ def _ejecutar(ctx, evento_id, evento_salida, pregunta, herramienta, presupuesto,
                 continue
             errores = json.dumps([e.model_dump(exclude_none=True) for e in verificada], ensure_ascii=False)
             desajustes = _desajustes(crudo, verificada)
+            alias = (_fragmentos_que_faltan(crudo, evidencia, protegidos)
+                     if any(e.codigo == "falta_segunda_fuente" for e in verificada) else [])
             mensajes = [*mensajes, {"role": "assistant", "content": crudo}, {"role": "user", "content": (
                 "La salida anterior no pasó la validación: " + errores + "\n"
-                + "".join(f"Desajuste: {d}.\n" for d in desajustes) +
+                + "".join(f"Desajuste: {d}.\n" for d in desajustes)
+                + (f"Fragmentos del documento que falta citar: {', '.join(alias)}.\n" if alias else "") +
                 "Corrige esos puntos: copia tramos exactos o elimina la afirmación.\n"
                 "- cita_no_literal: copia la cita completa desde el fragmento, sin empezar ni terminar a mitad de una palabra o número.\n"
                 "- cita_cruza_filas: la cita no puede abarcar el final de una fila de la tabla y el inicio de la siguiente; copia solo una fila.\n"
@@ -275,8 +284,7 @@ def _publicacion_parcial(crudo, errores, evidencia, resultado, *, evento_id, con
             return None
         # Una afirmación descartada que hablaba de vigencia deja la respuesta sin esa parte: lo decide una persona.
         con_vigencia = con_vigencia or any(
-            isinstance(a, dict) and isinstance(a.get("texto"), str) and VIGENCIA.search(normalizar_cita(a["texto"]))
-            for i, a in enumerate(afirmaciones, 1) if i in malas)
+            _habla_de_vigencia(a) for i, a in enumerate(afirmaciones, 1) if i in malas)
         afirmaciones = [a for i, a in enumerate(afirmaciones, 1) if i not in malas]
         descartadas += len(malas)
         if not afirmaciones:
@@ -293,6 +301,36 @@ def _publicacion_parcial(crudo, errores, evidencia, resultado, *, evento_id, con
             return verificada.model_copy(update=cambios), descartadas
         errores = verificada
     return None
+
+
+def _habla_de_vigencia(afirmacion) -> bool:
+    """Una afirmación que menciona vigencia o cambio, o que lleva un dato literal de fecha, decide algo que ve una persona."""
+    if not isinstance(afirmacion, dict):
+        return False
+    texto = afirmacion.get("texto")
+    if isinstance(texto, str):
+        normal = normalizar_cita(texto)
+        if VIGENCIA.search(normal) or SENAL_VIGENCIA.search(normal):
+            return True
+    datos = afirmacion.get("datos")
+    return isinstance(datos, list) and any(
+        isinstance(d, dict) and isinstance(d.get("literal"), str) and (_con_mes(d["literal"]) or encontrar_fechas(d["literal"]))
+        for d in datos)
+
+
+def _fragmentos_que_faltan(crudo, evidencia, grupos):
+    """Alias de la evidencia del documento de un grupo en conflicto que la salida no citó; sin texto de los fragmentos."""
+    try:
+        citados = {evidencia[c["fragmento"]].doc_id for a in json.loads(crudo)["afirmaciones"] for c in a["citas"]}
+    except (TypeError, ValueError, KeyError, AttributeError):
+        return []
+    disponibles = {f.doc_id for f in evidencia.values()}
+    faltan = set()
+    for grupo in grupos:
+        presentes = set(grupo) & disponibles
+        if len(presentes) >= 2 and not presentes <= citados:
+            faltan |= presentes - citados
+    return [alias for alias, f in evidencia.items() if f.doc_id in faltan]
 
 
 def _desajustes(crudo, errores):

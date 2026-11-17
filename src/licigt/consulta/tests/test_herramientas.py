@@ -342,6 +342,40 @@ class PosibleConflictoTests(unittest.TestCase):
         self.assertFalse(r.posible_conflicto)
 
 
+class ConflictosDelResultadoTests(unittest.TestCase):
+    """C17: el resultado lleva, sin texto, los documentos, numerales y ids afectados de cada posible_conflicto."""
+
+    def extraer(self, por_consulta):
+        class Recuperador:
+            def __init__(self):
+                self.n = 0
+
+            def buscar(self, ctx, evento_id, pregunta, variante="mejorada", k=5, conn=None):
+                alertas = por_consulta[min(self.n, len(por_consulta) - 1)]
+                self.n += 1
+                return {"evento_id": "222", "variante": "mejorada", "suficiente": True,
+                        "fragmentos": [fragmento(chunk_id="a", texto="Constancia.")], "alertas": alertas}
+        return extraer_requisitos(None, ExtraerRequisitosParams(evento_id="222"), Recuperador())
+
+    def test_c17_lleva_documento_numerales_y_afectados(self):
+        r = self.extraer([[{"tipo": "posible_conflicto", "doc_id": "m", "numerales_modificados": ["2.7", "2.2"],
+                            "chunk_ids_afectados": ["a"]}]])
+        self.assertEqual([(c.doc_id, c.numerales, c.chunk_ids_afectados) for c in r.conflictos],
+                         [("m", ["2.2", "2.7"], ["a"])])
+
+    def test_c17_une_las_alertas_del_mismo_documento_de_varias_consultas(self):
+        r = self.extraer([
+            [{"tipo": "posible_conflicto", "doc_id": "m", "numerales_modificados": ["2.2"], "chunk_ids_afectados": ["a"]}],
+            [{"tipo": "posible_conflicto", "doc_id": "m", "numerales_modificados": ["2.2", "2.7"],
+              "chunk_ids_afectados": ["b"]}]])
+        self.assertEqual([(c.doc_id, c.numerales, c.chunk_ids_afectados) for c in r.conflictos],
+                         [("m", ["2.2", "2.7"], ["a", "b"])])
+
+    def test_c17_sin_alerta_no_hay_conflictos(self):
+        self.assertEqual(self.extraer([[]]).conflictos, [])
+        self.assertEqual(self.extraer([[{"tipo": "evento_con_modificaciones", "doc_id": "m"}]]).conflictos, [])
+
+
 class PreguntaEnExtraerTests(unittest.TestCase):
     """C9-D: la pregunta del usuario es la primera consulta, antes de las fijas y del cronograma."""
 
