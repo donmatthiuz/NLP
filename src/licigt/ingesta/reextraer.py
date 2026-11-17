@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from .pdf import Page, extract_pages
-from .pipeline import SUSPICIOUS, SourceMetadata, make_chunks
+from .pipeline import SUSPICIOUS, SourceMetadata, make_chunks, paginas_sin_indexables
 
 AVISO_PAGINAS = "Hay páginas incompletas o ilegibles"
 AVISO_INSTRUCCIONES = "Posibles instrucciones incrustadas en páginas: "
@@ -91,9 +91,13 @@ def reextraer(zip_path: Path, doc_id: str, salida: Path, advertencias: list[str]
         if cobertura["solo_convocatoria"] or not cobertura["evento_confirmado_en_pdf"] or not escaneo["scan_complete"]:
             chunk["indexable"] = False
 
+    sin_indexar = paginas_sin_indexables([page.number for page in paginas],
+                                         manifiesto["chunks"] + chunks_nuevos)
     avisos = [w for w in manifiesto["warnings"] if not w.startswith(AVISO_INSTRUCCIONES)]
-    if all(page.quality == "ok" for page in paginas):
+    if not sin_indexar:
         avisos = [w for w in avisos if w != AVISO_PAGINAS]
+    elif AVISO_PAGINAS not in avisos:
+        avisos.append(AVISO_PAGINAS)
     if sospechosas:
         avisos.append(AVISO_INSTRUCCIONES + ", ".join(map(str, sospechosas)))
     avisos += [w for w in (advertencias or []) if w not in avisos]
@@ -107,7 +111,7 @@ def reextraer(zip_path: Path, doc_id: str, salida: Path, advertencias: list[str]
     manifiesto["warnings"], manifiesto["status"] = avisos, status
     manifiesto["reextracted_at"] = datetime.now(timezone.utc).isoformat()
     indexables = sum(c["indexable"] for c in manifiesto["chunks"])
-    entrada.update({"paginas_no_indexadas": [page.number for page in paginas if page.quality != "ok"],
+    entrada.update({"paginas_no_indexadas": sin_indexar,
                     "chunks_indexables": indexables,
                     "chunks_excluidos": len(manifiesto["chunks"]) - indexables,
                     "cobertura": cobertura, "warnings": avisos, "status": status,

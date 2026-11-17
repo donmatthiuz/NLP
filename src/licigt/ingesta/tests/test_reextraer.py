@@ -194,6 +194,11 @@ class ReextraerTests(unittest.TestCase):
         self.assertEqual(doc["chunks_indexables"],
                          sum(c["indexable"] for c in manifiesto["chunks"]))
         self.assertEqual(inventario["chunks_indexables"], len(despues["chunks.jsonl"].decode().splitlines()))
+        # Una página que solo dejó ruido de OCR no está indexada, aunque sea legible.
+        self.assertEqual(doc["paginas_no_indexadas"], [3])
+        self.assertIn("Hay páginas incompletas o ilegibles", doc["warnings"])
+        self.assertEqual(doc["status"], "requiere_revision")
+        self.assertEqual(manifiesto["status"], "requiere_revision")
 
     def test_fragmento_de_ocr_con_25_palabras_es_indexable(self):
         self._correr(self._ocr_bueno())
