@@ -17,6 +17,8 @@ class Siguiente(BaseModel):
     motivo: Literal["longitud_invalida", "inyeccion", "fuera_de_alcance", "sin_herramienta", "no_especifica", "ok"]
     herramienta: NombreHerramienta | None = None
     pregunta_aclaratoria: str | None = None
+    # Herramienta que eligió JEV cuando su probabilidad no alcanzó choice_min y se usó la de las reglas.
+    herramienta_jev_sustituida: NombreHerramienta | None = None
 
 
 def decidir(juicios: JuiciosEntrada, clasificacion: Clasificacion,
@@ -35,8 +37,9 @@ def decidir(juicios: JuiciosEntrada, clasificacion: Clasificacion,
     if not juicios.especifica:
         return Siguiente(accion="aclarar", motivo="no_especifica",
                          pregunta_aclaratoria=TEXTO_ACLARACION_FECHA if juicios.menciona_fecha else TEXTO_ACLARACION)
-    herramienta = clasificacion.herramienta
+    herramienta, sustituida = clasificacion.herramienta, None
     if (clasificacion.variante == "jev" and clasificacion.prob_herramienta is not None
             and clasificacion.prob_herramienta < umbrales.choice_min):
-        herramienta = juicios.herramienta_reglas
-    return Siguiente(accion="usar_herramienta", motivo="ok", herramienta=herramienta)
+        herramienta, sustituida = juicios.herramienta_reglas, clasificacion.herramienta
+    return Siguiente(accion="usar_herramienta", motivo="ok", herramienta=herramienta,
+                     herramienta_jev_sustituida=sustituida)

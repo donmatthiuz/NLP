@@ -10,6 +10,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from licigt.consulta.sondeo_jev import cargar_casos, ejecutar_sondeo, main
+from licigt.consulta.preguntas_jev import VERSION_PREGUNTAS
 from test_enrutador import JevFalso
 
 
@@ -42,3 +43,5 @@ class SondeoTests(unittest.TestCase):
         self.assertEqual(registros[0]["respuesta"]["tokens_entrada"], 100)
         self.assertEqual(registros[0]["respuesta"]["original"], original)
         self.assertEqual(registros[0]["jev"]["accion"], "usar_herramienta")
+        self.assertEqual(registros[0]["version_preguntas"], VERSION_PREGUNTAS)
+        self.assertIn("contexto", registros[0]["payload"]["state"])

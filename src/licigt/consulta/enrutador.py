@@ -19,6 +19,16 @@ PATRONES_REQUISITOS = (r"\brequisito\w*", r"\blista\w*", r"\b(?:fecha|plazo|hora
                        r"\bdocumentos\b.{0,50}\b(?:presentar|contener|plica)\b")
 
 
+# Hechos públicos y fijos que una persona vería al leer la pregunta; nada del tenant ni de la empresa.
+CONTEXTO_JEV = ("LiciGT es un asistente que responde con citas sobre los documentos de una licitación "
+                "de medicamentos del IGSS. Cada evento tiene un solo medicamento, con su código, y sus "
+                "documentos son las bases, el cronograma, los requisitos y las modificaciones o aclaraciones.")
+
+
+def estado_jev(pregunta: str) -> dict:
+    return {"pregunta": pregunta, "contexto": CONTEXTO_JEV}
+
+
 class Clasificacion(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
 
@@ -77,13 +87,16 @@ class EnrutadorJev:
         try:
             if self.cliente is None:
                 self.cliente = ClienteJevSdk(self.config)
-            respuesta = validar_respuesta(self.cliente.preguntar({"pregunta": pregunta}, preguntas), preguntas)
+            respuesta = validar_respuesta(self.cliente.preguntar(estado_jev(pregunta), preguntas), preguntas)
             datos = respuesta.respuestas
             eleccion = datos["herramienta"]
             clasificacion = Clasificacion(
                 herramienta=eleccion["choice"], variante="jev", modelo=respuesta.modelo,
                 prob_herramienta=eleccion["probabilities"][eleccion["choice"]],
                 prob_aplica=datos["aplica"]["noul"])
+            # Se actúa solo con un veredicto claro: inyección y fuera de alcance con un sí (noul_si),
+            # concreta con un no (noul_no). Entre 0.3 y 0.7 cada una deja pasar la pregunta; esa
+            # franja no tiene fila propia hasta que F7 cuente cuántos casos caen en ella.
             juicios = juicios.model_copy(update={
                 "inyeccion": juicios.inyeccion or datos["inyeccion"]["noul"] >= self.umbrales.noul_si,
                 "fuera_de_alcance": juicios.fuera_de_alcance or datos["fuera_de_alcance"]["noul"] >= self.umbrales.noul_si,
