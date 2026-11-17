@@ -55,3 +55,8 @@
 ## Resolver `numero_evento` a `evento_id` (17 de noviembre)
 
 - [ ] La API recibe `222-IGSS-2023` (`numero_evento`) en la ruta, pero `documentos.evento_id` es el id interno (por ejemplo `69099f7184e65924a3e0aebf0ee238de`). `busqueda.buscar(ctx, "222-IGSS-2023", ...)` devuelve cero fragmentos y la consulta se abstiene sin aviso. La CLI del rol 2 ya lo resuelve con `WHERE tenant_id = %s AND %s IN (evento_id, numero_evento)` (`recuperacion/__main__.py`). Pedimos una función pública de solo lectura `resolver_evento(ctx, evento)` en `busqueda` que devuelva el `evento_id` interno (o `None`) con la sesión por empresa. Por defecto: el rol 3 hace esa misma consulta en su adaptador (`consulta/api.py`, dependencia `resolver_evento`, con `busqueda._sesion`) y la reemplaza cuando el rol 2 entregue la función.
+
+## Umbral de suficiencia y latencia, medidos con el LLM real (17 de noviembre)
+
+- [ ] **Umbral de la variante mejorada.** `UMBRAL["mejorada"]=0.10` sobre el score del reranker marca `suficiente=false` en preguntas factuales cortas aunque el fragmento correcto sale primero: NOG (0.011, fragmento con "NOG 19595840" en las bases, p. 10) e inducción (0.006, "19 de julio de 2023, 10:00 horas"). La pregunta sin respuesta del precio por vial da 0.001. Pedimos recalibrar con el banco (por ejemplo, un umbral entre 0.001 y 0.006, o un respaldo con el score léxico o semántico) y medir falsos positivos. Por defecto: el rol 3 se abstiene cuando `suficiente=false`, como hoy.
+- [ ] **Latencia.** Cada `buscar` de la variante mejorada tarda unos 7 s con el reranker en CPU (la GPU la ocupa el LLM: 5.6 GiB). Reitera el pedido de dispositivo y dtype por variables de entorno (reranker en GPU en fp16). Por defecto: la demo corre con la recuperación en CPU.
