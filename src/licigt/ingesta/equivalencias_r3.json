@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "equivalencias": {
+    "03791a3471c04c0f9cc260814564756e:00001": {
+      "nuevo": "03791a3471c04c0f9cc260814564756e:00001",
+      "estado": "identico",
+      "candidatos": [
+        "03791a3471c04c0f9cc260814564756e:00001"
+      ]
+    },
+    "03791a3471c04c0f9cc260814564756e:00040": {
+      "nuevo": "03791a3471c04c0f9cc260814564756e:00040",
+      "estado": "manual",
+      "candidatos": [],
+      "motivo": "El encabezado '2.2 CRONOGRAMA DE ACTIVIDADES' es ahora el fragmento :00040 y las filas, :00041; las pruebas citaban el encabezado."
+    },
+    "03791a3471c04c0f9cc260814564756e:00041": {
+      "nuevo": "03791a3471c04c0f9cc260814564756e:00041",
+      "estado": "contenido",
+      "candidatos": [
+        "03791a3471c04c0f9cc260814564756e:00041"
+      ]
+    },
+    "03791a3471c04c0f9cc260814564756e:00047": {
+      "nuevo": "03791a3471c04c0f9cc260814564756e:00041",
+      "estado": "contenido",
+      "candidatos": [
+        "03791a3471c04c0f9cc260814564756e:00041"
+      ]
+    },
+    "03791a3471c04c0f9cc260814564756e:00063": {
+      "nuevo": "03791a3471c04c0f9cc260814564756e:00055",
+      "estado": "identico",
+      "candidatos": [
+        "03791a3471c04c0f9cc260814564756e:00055"
+      ]
+    },
+    "03791a3471c04c0f9cc260814564756e:00078": {
+      "nuevo": "03791a3471c04c0f9cc260814564756e:00070",
+      "estado": "identico",
+      "candidatos": [
+        "03791a3471c04c0f9cc260814564756e:00070"
+      ]
+    },
+    "03791a3471c04c0f9cc260814564756e:00081": {
+      "nuevo": "03791a3471c04c0f9cc260814564756e:00073",
+      "estado": "identico",
+      "candidatos": [
+        "03791a3471c04c0f9cc260814564756e:00073"
+      ]
+    },
+    "03791a3471c04c0f9cc260814564756e:00118": {
+      "nuevo": "03791a3471c04c0f9cc260814564756e:00110",
+      "estado": "identico",
+      "candidatos": [
+        "03791a3471c04c0f9cc260814564756e:00110"
+      ]
+    },
+    "d41480e5b0ce4c16bf18f66225ada2dc:00009": {
+      "nuevo": "d41480e5b0ce4c16bf18f66225ada2dc:00003",
+      "estado": "contenido",
+      "candidatos": [
+        "d41480e5b0ce4c16bf18f66225ada2dc:00003"
+      ]
+    },
+    "d41480e5b0ce4c16bf18f66225ada2dc:00012": {
+      "nuevo": "d41480e5b0ce4c16bf18f66225ada2dc:00003",
+      "estado": "manual",
+      "candidatos": [],
+      "motivo": "La fila 2.2.8 ('La JUNTA puede solicitar a la AUTORIDAD ADMINISTRATIVA SUPERIOR en forma justificada') cierra el fragmento de la tabla :00003."
+    },
+    "d41480e5b0ce4c16bf18f66225ada2dc:00013": {
+      "nuevo": "d41480e5b0ce4c16bf18f66225ada2dc:00005",
+      "estado": "identico",
+      "candidatos": [
+        "d41480e5b0ce4c16bf18f66225ada2dc:00005"
+      ]
+    },
+    "d41480e5b0ce4c16bf18f66225ada2dc:00015": {
+      "nuevo": "d41480e5b0ce4c16bf18f66225ada2dc:00007",
+      "estado": "identico",
+      "candidatos": [
+        "d41480e5b0ce4c16bf18f66225ada2dc:00007"
+      ]
+    }
+  }
+}

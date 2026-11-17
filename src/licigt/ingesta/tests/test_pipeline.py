@@ -35,6 +35,7 @@ class IngestionTests(unittest.TestCase):
             self.assertIsNone(first["metadata"]["fecha_publicacion"])
             self.assertEqual(first["chunks"][0]["codigos_producto_igss"], ["432"])
             self.assertEqual(first["chunking_revision"], 3)
+            self.assertEqual(first["extraccion"], {"metodo": "pdftotext-layout+tablas", "version": 2})
             self.assertEqual(first["security_scan"]["suspicious_pages"], [])
             source.write_bytes(b"%PDF-1.4\nsecond")
             second = service.ingest(source, metadata())

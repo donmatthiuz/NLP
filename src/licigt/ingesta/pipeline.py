@@ -17,7 +17,7 @@ from typing import Any
 from urllib.parse import urlparse
 from xml.etree.ElementTree import ParseError
 
-from .pdf import Page, extract_hidden_text, extract_pages
+from .pdf import EXTRACCION, Page, extract_hidden_text, extract_pages
 from .storage import store_from_environment
 
 KINDS = {"bases", "especificaciones", "anexo", "convocatoria", "aclaracion", "modificacion", "normativa"}
@@ -117,7 +117,20 @@ def _table_markdown(lines: list[str]) -> str | None:
     return "\n".join([render(rows[0]), render(["---"] * columns), *(render(row) for row in rows[1:])])
 
 
-def _units(page: Page, previous_section: str) -> tuple[list[dict[str, Any]], str]:
+def _fila_de_tabla(linea: str) -> bool:
+    """Fila `| numeral | título | texto |` de una tabla de descripción (la escribe `pdf.py`)."""
+    return linea.startswith("| ") and linea.endswith(" |")
+
+
+def _markdown_de_filas(filas: list[str]) -> str:
+    celdas = [fila[2:-2].split(" | ") for fila in filas]
+    columnas = max(map(len, celdas))
+    celdas = [fila + [""] * (columnas - len(fila)) for fila in celdas]
+    render = lambda fila: "| " + " | ".join(fila) + " |"
+    return "\n".join([render(celdas[0]), render(["---"] * columnas), *(render(fila) for fila in celdas[1:])])
+
+
+def _units(page: Page, previous_section: str, max_words: int = 600) -> tuple[list[dict[str, Any]], str]:
     """Separa encabezados, párrafos y tablas sin perder el texto extraído."""
     units: list[dict[str, Any]] = []
     section = previous_section
@@ -126,7 +139,23 @@ def _units(page: Page, previous_section: str) -> tuple[list[dict[str, Any]], str
     def flush() -> None:
         if current:
             body = "\n".join(current).strip()
-            if body:
+            filas = [line.strip() for line in current if _fila_de_tabla(line.strip())]
+            if body and filas:
+                # Tabla de descripción: una unidad, con su encabezado; si es larga, se corta por filas.
+                encabezado = [line.strip() for line in current if not _fila_de_tabla(line.strip())]
+                grupos, actual, palabras = [], [], len(" ".join(encabezado).split())
+                for fila in filas:
+                    n = len(fila.split())
+                    if actual and palabras + n > max_words:
+                        grupos.append(actual)
+                        actual, palabras = [], len(" ".join(encabezado).split())
+                    actual.append(fila)
+                    palabras += n
+                grupos.append(actual)
+                for grupo in grupos:
+                    units.append({"texto": "\n".join(encabezado + grupo), "seccion": section,
+                                  "tipo_chunk": "tabla", "tabla_markdown": _markdown_de_filas(grupo)})
+            elif body:
                 is_table = _table_like(current)
                 units.append({"texto": body, "seccion": section,
                               "tipo_chunk": "tabla" if is_table else "texto",
@@ -135,8 +164,14 @@ def _units(page: Page, previous_section: str) -> tuple[list[dict[str, Any]], str
 
     for line in page.text.splitlines():
         stripped = line.strip()
+        if stripped and not _fila_de_tabla(stripped) and any(_fila_de_tabla(c.strip()) for c in current):
+            flush()
         if not stripped:
             flush()
+        elif _fila_de_tabla(stripped):
+            if current and not all(HEADING.match(c.strip()) or _fila_de_tabla(c.strip()) for c in current):
+                flush()
+            current.append(stripped)
         elif HEADING.match(stripped) and (
             re.match(r"^\d+(?:\.\d+)+[.)]?\s+|^\d+[.)]\s+", stripped)
             or not (current and _table_like(current + [line]))
@@ -212,7 +247,7 @@ def make_chunks(pages: list[Page], doc_id: str, metadata: SourceMetadata, versio
     for page in _without_repeated_margins(pages):
         if page.quality != "ok":
             continue
-        units, section = _units(page, section)
+        units, section = _units(page, section, max_words)
         merged = []
         for unit in units:
             if (merged and unit["tipo_chunk"] == "texto" and merged[-1]["tipo_chunk"] == "texto"
@@ -419,7 +454,7 @@ class IngestionService:
                 "previous_doc_id": previous[0] if previous else None,
                 "object_uri": object_uri, "status": status,
                 "created_at": ingested_at,
-                "chunking_revision": 3,
+                "chunking_revision": 3, "extraccion": EXTRACCION,
                 "security_scan": security_scan,
                 "warnings": warnings,
                 "cobertura": {"solo_convocatoria": only_notice, "evento_confirmado_en_pdf": event_matches,

@@ -121,6 +121,7 @@ def export(data_dir: Path, tenant_id: str, output: Path) -> dict:
                     "paginas_no_indexadas": paginas_sin_indexables(
                         [page["number"] for page in manifest["pages"]], manifest["chunks"]),
                     "security_scan": manifest["security_scan"],
+                    **({"extraccion": manifest["extraccion"]} if manifest.get("extraccion") else {}),
                     "chunks_indexables": len(indexable), "chunks_excluidos": excluded,
                 })
                 inventory["chunks_indexables"] += len(indexable)
