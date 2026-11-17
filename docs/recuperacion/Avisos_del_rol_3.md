@@ -51,3 +51,7 @@
 ## Advertencias del documento en la alerta de cobertura (17 de noviembre)
 
 - [ ] La alerta `cobertura_incompleta` (`busqueda.py:110-112`) lleva `doc_id`, `paginas_no_indexadas` y `status`, pero no las advertencias del inventario. Por eso el usuario nunca ve que a la modificación 1 del 222 le falta el "anexo de 11 hojas" (advertencia humana del paquete desde `edbe8ea`). Pedimos añadir `warnings` (la lista del inventario, que no trae texto del PDF) a esa alerta. Por defecto: el rol 3 muestra solo las páginas no indexadas y el estado `requiere_revision`.
+
+## Resolver `numero_evento` a `evento_id` (17 de noviembre)
+
+- [ ] La API recibe `222-IGSS-2023` (`numero_evento`) en la ruta, pero `documentos.evento_id` es el id interno (por ejemplo `69099f7184e65924a3e0aebf0ee238de`). `busqueda.buscar(ctx, "222-IGSS-2023", ...)` devuelve cero fragmentos y la consulta se abstiene sin aviso. La CLI del rol 2 ya lo resuelve con `WHERE tenant_id = %s AND %s IN (evento_id, numero_evento)` (`recuperacion/__main__.py`). Pedimos una función pública de solo lectura `resolver_evento(ctx, evento)` en `busqueda` que devuelva el `evento_id` interno (o `None`) con la sesión por empresa. Por defecto: el rol 3 hace esa misma consulta en su adaptador (`consulta/api.py`, dependencia `resolver_evento`, con `busqueda._sesion`) y la reemplaza cuando el rol 2 entregue la función.

@@ -211,7 +211,7 @@ def _ejecutar(ctx, evento_id, evento_salida, pregunta, herramienta, presupuesto,
 
 
 def _registrar(auditar, usuario, tenant_id, evento_salida, intencion, respuesta, fragmentos,
-               validacion, inicio, error, generador, citas_jev=None):
+               validacion, inicio, error, generador, citas_jev=None, jev_sustituida=None):
     """Evento de auditoría de una consulta; si el registro falla, la respuesta no cambia."""
     try:
         auditar({
@@ -225,6 +225,7 @@ def _registrar(auditar, usuario, tenant_id, evento_salida, intencion, respuesta,
             "modelo_generador": _atributo_seguro(generador, "modelo_generador"),
             "version_prompt": VERSION_PROMPT,
             **({"citas_jev": citas_jev} if citas_jev else {}),
+            **({"herramienta_jev_sustituida": jev_sustituida} if jev_sustituida else {}),
         })
     except Exception:
         pass
@@ -239,6 +240,7 @@ def consultar(ctx, evento_id, pregunta, *, enrutador, recuperador, generador,
     evento_salida = evento_id if isinstance(evento_id, str) and evento_id.strip() else "sin_evento"
     respuesta = _abstencion(evento_salida)
     resultado, herramienta, error, citas_jev = None, None, None, None
+    jev_sustituida = None
     fragmentos = []
     intencion = None
     validacion = "no_aplica"
@@ -260,6 +262,7 @@ def consultar(ctx, evento_id, pregunta, *, enrutador, recuperador, generador,
             return respuesta
 
         herramienta = siguiente.herramienta
+        jev_sustituida = siguiente.herramienta_jev_sustituida
         ejecucion = _Ejecucion()
         try:
             respuesta = _ejecutar(ctx, evento_id, evento_salida, pregunta, herramienta, presupuesto,
@@ -284,4 +287,4 @@ def consultar(ctx, evento_id, pregunta, *, enrutador, recuperador, generador,
         return respuesta
     finally:
         _registrar(auditar, usuario, tenant_id, evento_salida, intencion, respuesta, fragmentos,
-                   validacion, inicio, error, generador, citas_jev)
+                   validacion, inicio, error, generador, citas_jev, jev_sustituida)

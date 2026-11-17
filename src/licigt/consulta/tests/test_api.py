@@ -35,6 +35,8 @@ class ApiTests(unittest.TestCase):
         self.recuperador = RecuperadorFalso()
         self.generador = GeneradorFalso()
         api.app.dependency_overrides[api.obtener_enrutador] = EnrutadorReglas
+        # Sin base: el valor de la ruta ya es el id interno.
+        api.app.dependency_overrides[api.resolver_evento] = lambda evento_id: evento_id
         api.app.dependency_overrides[api.obtener_recuperador] = lambda: self.recuperador
         api.app.dependency_overrides[api.obtener_generador] = lambda: self.generador
         # Sin psycopg se sustituye solo el módulo que define Contexto.
@@ -245,3 +247,95 @@ class ApiTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ConexionFalsa:
+    """Doble de la conexión del rol 2: guarda las consultas y devuelve una fila según el valor buscado."""
+    def __init__(self, filas):
+        self.filas, self.consultas, self.cerrada = filas, [], False
+
+    def transaction(self):
+        from contextlib import nullcontext
+        return nullcontext()
+
+    def execute(self, sql, params=()):
+        self.consultas.append((" ".join(sql.split()), params))
+        tenant, valor = params if len(params) == 2 else (None, None)
+        fila = next((f for f in self.filas if f[0] == tenant and valor in f[1:]), None)
+        return SimpleNamespace(fetchone=lambda: (fila[1],) if fila else None)
+
+    def close(self):
+        self.cerrada = True
+
+
+@unittest.skipIf(TestClient is None, "fastapi no está instalado: ejecuta make deps-consulta")
+class ResolverEventoTests(unittest.TestCase):
+    INTERNO = "69099f7184e65924a3e0aebf0ee238de"
+
+    def setUp(self):
+        self.entorno = patch.dict(os.environ, {}, clear=True)
+        self.entorno.start()
+        obtener_configuracion_llm.cache_clear()
+        self.conn = ConexionFalsa([("empresa_demo", self.INTERNO, "222-IGSS-2023"),
+                                   ("otra_empresa", "ajeno", "999-IGSS-2024")])
+        self.sesiones = []
+        self.recuperador = RecuperadorFalso()
+        self.visto = []
+        ctx = SimpleNamespace(tenant_id="empresa_demo", usuario="demo")
+        api.app.dependency_overrides[api.contexto_demo] = lambda: ctx
+        api.app.dependency_overrides[api.obtener_enrutador] = EnrutadorReglas
+        api.app.dependency_overrides[api.obtener_recuperador] = lambda: self.recuperador
+        api.app.dependency_overrides[api.obtener_generador] = GeneradorFalso
+        api.app.dependency_overrides[api.obtener_repositorio] = RepositorioMemoria
+        self.parche = patch.object(api, "_abrir_conexion_rol2",
+                                   lambda: (self.conn, lambda c, x: self.sesiones.append((c, x.tenant_id))))
+        self.parche.start()
+        self.cliente = TestClient(api.app)
+
+    def tearDown(self):
+        self.parche.stop()
+        api.app.dependency_overrides.clear()
+        self.entorno.stop()
+        obtener_configuracion_llm.cache_clear()
+
+    def test_traduce_numero_de_evento_al_id_interno(self):
+        r = self.cliente.post("/api/eventos/222-IGSS-2023/consultas", json={"pregunta": "¿Dónde se reciben ofertas?"})
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertEqual(self.recuperador.llamadas[0][1], self.INTERNO)
+        self.assertEqual(r.json()["evento_id"], self.INTERNO)
+
+    def test_acepta_el_id_interno_y_usa_la_sesion_de_la_empresa(self):
+        r = self.cliente.get(f"/api/eventos/{self.INTERNO}/lista")
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertEqual(self.sesiones, [(self.conn, "empresa_demo")])
+        sql, params = self.conn.consultas[0]
+        self.assertEqual(params, ("empresa_demo", self.INTERNO))
+        self.assertIn("IN (evento_id, numero_evento)", sql)
+        self.assertTrue(self.conn.cerrada)
+
+    def test_evento_de_otra_empresa_o_inexistente_da_404(self):
+        for valor in ("999-IGSS-2024", "ajeno", "no-existe"):
+            for metodo, ruta in (("post", "consultas"), ("post", "lista/propuesta"), ("get", "lista"),
+                                 ("post", "lista"), ("patch", "lista/x")):
+                with self.subTest(valor=valor, ruta=ruta):
+                    r = self.cliente.request(metodo.upper(), f"/api/eventos/{valor}/{ruta}", json={"pregunta": "x"})
+                    self.assertEqual(r.status_code, 404, r.text)
+                    self.assertEqual(r.json(), {"detail": {"codigo": "evento_no_encontrado"}})
+        self.assertEqual(self.recuperador.llamadas, [])
+
+    def test_las_rutas_de_lista_reciben_el_id_resuelto(self):
+        recibido = {}
+        def capturar(nombre):
+            def falso(ctx, evento_id, *a, **k):
+                recibido[nombre] = evento_id
+                raise RuntimeError("corte")
+            return falso
+        for nombre in ("proponer_lista", "listar", "guardar_items"):
+            self.addCleanup(setattr, api, nombre, getattr(api, nombre))
+            setattr(api, nombre, capturar(nombre))
+        cliente = TestClient(api.app, raise_server_exceptions=False)
+        base = "/api/eventos/222-IGSS-2023"
+        cliente.post(f"{base}/lista/propuesta")
+        cliente.get(f"{base}/lista")
+        cliente.post(f"{base}/lista", json={"items": [], "confirmado": True})
+        self.assertEqual(recibido, {n: self.INTERNO for n in ("proponer_lista", "listar", "guardar_items")})

@@ -5,7 +5,7 @@ import os
 from functools import lru_cache
 from typing import Annotated, Literal
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Path
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from .enrutador import crear_enrutador
@@ -100,6 +100,31 @@ def contexto_demo():
     return Contexto(tenant_id="empresa_demo", usuario="demo")
 
 
+def _abrir_conexion_rol2():
+    # Importación tardía: arrastra psycopg. Devuelve la conexión y la sesión por empresa (RLS) del rol 2.
+    from licigt.recuperacion import busqueda
+    from licigt.recuperacion.indice import conectar
+    return conectar(), busqueda._sesion
+
+
+def resolver_evento(evento_id: Annotated[str, Path()], ctx: Annotated[object, Depends(contexto_demo)]) -> str:
+    """Traduce el valor de la ruta (evento_id o numero_evento) al evento_id interno, solo de la empresa de la sesión."""
+    conn, sesion = _abrir_conexion_rol2()
+    try:
+        with conn.transaction():
+            sesion(conn, ctx)
+            fila = conn.execute("SELECT evento_id FROM documentos WHERE tenant_id = %s AND %s IN (evento_id, numero_evento)",
+                                (ctx.tenant_id, evento_id)).fetchone()
+    finally:
+        conn.close()
+    if not fila:
+        raise HTTPException(404, detail={"codigo": "evento_no_encontrado"})
+    return fila[0]
+
+
+EventoInterno = Annotated[str, Depends(resolver_evento)]
+
+
 def _auditar(evento):
     # Solo metadatos: sin texto de PDF, de la pregunta ni de la respuesta.
     registro.info("consulta evento=%s herramienta=%s abstained=%s validacion=%s error=%s",
@@ -124,7 +149,7 @@ async def cabecera_demo(request, call_next):
 
 @app.post("/api/eventos/{evento_id}/consultas", response_model=RespuestaEstructurada)
 def consultar_evento(
-    evento_id: str,
+    evento_id: EventoInterno,
     entrada: ConsultaEntrada,
     ctx: Annotated[object, Depends(contexto_demo)],
     enrutador: Annotated[object, Depends(obtener_enrutador)],
@@ -141,7 +166,7 @@ def _falla_http(falla: FallaLista) -> HTTPException:
 
 @app.post("/api/eventos/{evento_id}/lista/propuesta", response_model=PropuestaLista)
 def proponer(
-    evento_id: str,
+    evento_id: EventoInterno,
     ctx: Annotated[object, Depends(contexto_demo)],
     recuperador: Annotated[object, Depends(obtener_recuperador)],
     generador: Annotated[object, Depends(obtener_generador)],
@@ -153,7 +178,7 @@ def proponer(
 
 @app.get("/api/eventos/{evento_id}/lista", response_model=list[ItemLista])
 def ver_lista(
-    evento_id: str,
+    evento_id: EventoInterno,
     ctx: Annotated[object, Depends(contexto_demo)],
     repositorio: Annotated[object, Depends(obtener_repositorio)],
 ):
@@ -162,7 +187,7 @@ def ver_lista(
 
 @app.post("/api/eventos/{evento_id}/lista", response_model=list[ItemLista])
 def guardar(
-    evento_id: str,
+    evento_id: EventoInterno,
     entrada: GuardarEntrada,
     ctx: Annotated[object, Depends(contexto_demo)],
     repositorio: Annotated[object, Depends(obtener_repositorio)],
@@ -177,7 +202,7 @@ def guardar(
 
 @app.patch("/api/eventos/{evento_id}/lista/{item_id}", response_model=ItemLista)
 def cambiar(
-    evento_id: str,
+    evento_id: EventoInterno,
     item_id: str,
     entrada: CambioEstadoEntrada,
     ctx: Annotated[object, Depends(contexto_demo)],

@@ -10,7 +10,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from licigt.consulta.config import ConfiguracionLlm, obtener_configuracion_llm
-from licigt.consulta.enrutador import EnrutadorReglas
+from licigt.consulta.enrutador import Clasificacion, EnrutadorReglas
 from licigt.consulta.esquemas import RespuestaEstructurada, TEXTO_ABSTENCION
 from licigt.consulta.llm import ClienteGeneradorOpenAI, FallaGenerador
 from licigt.consulta.orquestador import consultar
@@ -157,6 +157,20 @@ class OrquestadorTests(unittest.TestCase):
         self.consultar(enrutador=SimpleNamespace(clasificar=cambiar))
         self.assertEqual(self.eventos[0]["usuario"], "persona-privada")
         self.assertEqual(self.eventos[0]["tenant_id"], "empresa-privada")
+
+    def test_herramienta_jev_sustituida_va_a_la_auditoria_sin_texto(self):
+        clasificar = EnrutadorReglas().clasificar
+        def con_jev(pregunta):
+            juicios, clasificacion = clasificar(pregunta)
+            return juicios, Clasificacion(herramienta="comparar_versiones", variante="jev", prob_herramienta=0.2,
+                                          prob_aplica=0.9, modelo="jev")
+        self.consultar(enrutador=SimpleNamespace(clasificar=con_jev))
+        self.assertEqual(self.eventos[0]["herramienta_jev_sustituida"], "comparar_versiones")
+        self.assertNotIn("herramienta_jev_sustituida", self.eventos[0]["intencion"])
+
+    def test_sin_sustitucion_no_hay_campo_en_la_auditoria(self):
+        self.consultar()
+        self.assertNotIn("herramienta_jev_sustituida", self.eventos[0])
 
     def test_a4_recorte_comparacion_y_proteccion_de_afectados(self):
         for comparacion in (False, True):
