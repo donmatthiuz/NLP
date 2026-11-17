@@ -118,8 +118,9 @@ def _rejilla(tabla) -> tuple[list[float], list[float]]:
     return bordes, _agrupar([y for c in fuente for y in (c[1], c[3])], 3)
 
 
-def _filas_por_palabras(tabla, palabras: list[dict]) -> list[dict[int, str]] | None:
-    """Asigna cada palabra a su celda por el centro; una fila sin celda 0 continúa la anterior."""
+def _celdas_por_fila(tabla, palabras: list[dict]):
+    """Palabras de cada celda por fila y, por fila, los grupos de columnas que un hueco menor que
+    SEPARACION_CELDAS une en una sola celda (un borde que parte una celda de ancho completo)."""
     bordes, ys = _rejilla(tabla)
     if len(bordes) < 3:
         return None
@@ -133,10 +134,39 @@ def _filas_por_palabras(tabla, palabras: list[dict]) -> list[dict[int, str]] | N
         columna = max(0, min(columnas - 1, sum(cx > e for e in bordes[1:-1])))
         fila = max(0, sum(cy > y for y in ys) - 1)
         celdas.setdefault(fila, {}).setdefault(columna, []).append(w)
+    grupos: dict[int, dict[int, int]] = {}
+    for fila, por_columna in celdas.items():
+        lineas: dict[int, list[tuple[float, float, int]]] = {}
+        for columna, ws in por_columna.items():
+            for w in ws:
+                lineas.setdefault(round((w["top"] + w["bottom"]) / 6), []).append((w["x0"], w["x1"], columna))
+        destino = {c: c for c in por_columna}
+        for linea in lineas.values():
+            linea.sort()
+            for a, b in zip(linea, linea[1:]):
+                if a[2] != b[2] and b[0] - a[1] < SEPARACION_CELDAS:
+                    viejo, nuevo = sorted((destino[a[2]], destino[b[2]]))[::-1]
+                    for c, d in destino.items():
+                        if d == viejo:
+                            destino[c] = nuevo
+        if any(c != d for c, d in destino.items()):
+            grupos[fila] = destino
+    return celdas, grupos, bordes
+
+
+def _filas_por_palabras(tabla, palabras: list[dict]) -> list[dict[int, str]] | None:
+    """Asigna cada palabra a su celda por el centro; una fila sin celda 0 continúa la anterior."""
+    cuadricula = _celdas_por_fila(tabla, palabras)
+    if cuadricula is None:
+        return None
+    celdas, grupos, _ = cuadricula
     filas: list[dict[int, str]] = []
     for fila in sorted(celdas):
-        textos = {}
+        unidas: dict[int, list[dict]] = {}
         for columna, ws in celdas[fila].items():
+            unidas.setdefault(grupos.get(fila, {}).get(columna, columna), []).extend(ws)
+        textos = {}
+        for columna, ws in unidas.items():
             ws.sort(key=lambda w: (round(w["top"] / 3), w["x0"]))
             textos[columna] = " ".join(w["text"] for w in ws)
         if 0 in textos or not filas:
@@ -145,6 +175,16 @@ def _filas_por_palabras(tabla, palabras: list[dict]) -> list[dict[int, str]] | N
             for columna, texto in textos.items():
                 filas[-1][columna] = (filas[-1].get(columna, "") + " " + texto).strip()
     return filas
+
+
+def _columnas_fundidas(tabla, palabras: list[dict]) -> dict[int, int]:
+    """Columna donde empieza una celda fundida -> última columna que abarca en alguna fila."""
+    cuadricula = _celdas_por_fila(tabla, palabras)
+    alcance: dict[int, int] = {}
+    for destino in (cuadricula[1].values() if cuadricula else ()):
+        for columna, inicio in destino.items():
+            alcance[inicio] = max(alcance.get(inicio, inicio), columna)
+    return alcance
 
 
 def _es_descripcion(filas: list[dict[int, str]]) -> bool:
@@ -203,11 +243,14 @@ def _separacion_minima(tabla, palabras: list[dict]) -> float:
 
 
 def _columnas_en_orden(path: Path, number: int, top: float, bot: float, filas: list[dict[int, str]],
-                       bordes: list[float]) -> bool:
-    """Las palabras de cada columna, de arriba abajo, siguen el orden del texto de su franja."""
+                       bordes: list[float], fundidas: dict[int, int] | None = None) -> bool:
+    """Las palabras de cada columna, de arriba abajo, siguen el orden del texto de su franja.
+
+    La franja de una columna donde empieza una celda fundida llega hasta la última que esa celda abarca."""
     for columna in {c for f in filas for c in f}:
         celdas = " ".join(f[columna] for f in filas if columna in f)
-        franja = _region(path, number, top - 1, bot - top + 3, bordes[columna + 1] - bordes[columna] + 4,
+        fin = (fundidas or {}).get(columna, columna)
+        franja = _region(path, number, top - 1, bot - top + 3, bordes[fin + 1] - bordes[columna] + 4,
                          bordes[columna] - 2)
         if not _en_orden(celdas, franja):
             return False
@@ -243,17 +286,17 @@ def _con_tablas(pagina, path: Path, number: int, actual: str) -> str | None:
         efectivas = max(len([v for v in f.values() if v.strip()]) for f in filas)
         una_fila = len(filas) == 1 and efectivas >= 3 and _separacion_minima(tabla, palabras) >= SEPARACION_CELDAS
         if (len(filas) >= 2 and efectivas >= 2 or una_fila) and _es_descripcion(filas):
-            usadas.append((tabla.bbox, filas, _rejilla(tabla)[0]))
+            usadas.append((tabla.bbox, filas, _rejilla(tabla)[0], _columnas_fundidas(tabla, palabras)))
     if not usadas:
         return None
     usadas = sorted(_sin_anidadas(usadas), key=lambda u: u[0][1])
     partes, y, reescritas = [], 0.0, 0
-    for (_, top, _, bot), filas, bordes in usadas:
+    for (_, top, _, bot), filas, bordes, fundidas in usadas:
         if top - y > 1:
             partes.append(_region(path, number, y, top - y, pagina.width))
         texto = _render_filas(filas)
         referencia = _region(path, number, top - 1, bot - top + 3, pagina.width)
-        if _palabras(texto) == _palabras(referencia) and _columnas_en_orden(path, number, top, bot, filas, bordes):
+        if _palabras(texto) == _palabras(referencia) and _columnas_en_orden(path, number, top, bot, filas, bordes, fundidas):
             reescritas += 1
         else:
             texto = referencia

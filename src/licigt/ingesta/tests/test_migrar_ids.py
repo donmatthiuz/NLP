@@ -4,7 +4,7 @@ import unittest
 import zipfile
 from pathlib import Path
 
-from licigt.ingesta.migrar_ids import calcular_equivalencias, migrar
+from licigt.ingesta.migrar_ids import calcular_equivalencias, ids_con_otro_texto, migrar
 
 DOC = "a" * 32
 
@@ -37,6 +37,22 @@ class EquivalenciasTests(unittest.TestCase):
         self.assertEqual(tabla[f"{DOC}:00002"]["estado"], "contenido")
         self.assertIsNone(tabla[f"{DOC}:00003"]["nuevo"])
         self.assertEqual(tabla[f"{DOC}:00003"]["estado"], "revision")
+
+    def test_cada_id_viejo_con_otro_texto_tiene_su_entrada(self):
+        with tempfile.TemporaryDirectory() as t:
+            t = Path(t)
+            viejo = paquete(t / "v.zip", [chunk(1, "primero igual"), chunk(2, "segundo texto largo aqui", 1),
+                                          chunk(3, "tercero se desplaza", 2), chunk(4, "cuarto | igual ya", 2)])
+            nuevo = paquete(t / "n.zip", [chunk(1, "primero  igual"), chunk(2, "nuevo fragmento intercalado", 1),
+                                          chunk(3, "segundo texto largo aqui", 1), chunk(4, "tercero se desplaza", 2),
+                                          chunk(5, "cuarto | igual ya", 2)])
+            cambiados = ids_con_otro_texto(viejo, nuevo)
+            tabla = calcular_equivalencias(viejo, nuevo, cambiados)
+        self.assertEqual(cambiados, [f"{DOC}:00002", f"{DOC}:00003", f"{DOC}:00004"])
+        self.assertEqual(tabla[f"{DOC}:00002"]["nuevo"], f"{DOC}:00003")
+        self.assertEqual(tabla[f"{DOC}:00003"]["nuevo"], f"{DOC}:00004")
+        self.assertEqual(tabla[f"{DOC}:00004"]["nuevo"], f"{DOC}:00005")
+        self.assertNotIn(f"{DOC}:00001", tabla)
 
 
 class MigrarTests(unittest.TestCase):

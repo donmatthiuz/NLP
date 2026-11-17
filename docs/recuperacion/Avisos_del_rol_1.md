@@ -24,3 +24,13 @@ El paquete [`empresa_demo.zip`](../../entregables/recuperacion/empresa_demo.zip)
 - [ ] El inventario trae el campo opcional `extraccion` por documento; es aditivo y puede ignorarse.
 
 Por defecto, si no hay respuesta, se asume que el rol 2 reimporta y recalcula sus métricas con el paquete nuevo.
+
+## Actualización de R5: modificaciones y márgenes (17 de noviembre de 2026, pendiente de que el usuario copie el ZIP)
+
+El paquete candidato cambia solo tres cosas: la sección de los fragmentos de las modificaciones (cada "Punto N:" que nombra un numeral lleva ese numeral, p. ej. `2.7 LISTADO DE DOCUMENTOS QUE DEBERÁ CONTENER LA PLICA`), el encabezado y el pie repetidos de los documentos cortos (ya no están en el índice) y la fila `f)` de la tabla de documentos del 222 y del 327 (una sola celda: `Fotocopia legible legalizada de los documentos siguientes:`).
+
+- [ ] **Reimportar** con `make importar` cuando se publique el ZIP. Pasan de 892 a 893 fragmentos; solo cambian ids del 222 (modificación 1: `:00001` a `:00008`) y dos de otros documentos por la fila `f)` (`:00149` y `:00154`).
+- [ ] Al reimportar, las listas guardadas que citen ids desplazados deben migrarse con [`equivalencias_r5.json`](../../src/licigt/ingesta/equivalencias_r5.json) (cubre todos los ids cuyo texto cambia, no solo los citados en el repo): `python -m licigt.ingesta.migrar_ids migrar --tabla ... archivos`. Las entradas en estado `revision` no se reemplazan solas y las resuelve una persona (la modificación 1, `:00001`, `:00004` y `:00005`, se partió o perdió el encabezado).
+- [ ] La alerta de conflicto por numeral (`NUMERAL_MODIFICADO`, `_alertas`) no cambia. Con la sección correcta, el fragmento de la solvencia patronal de la modificación queda bajo el numeral 2.7.
+
+Por defecto, si no hay respuesta, se asume que el rol 2 reimporta y migra las listas con esa tabla.

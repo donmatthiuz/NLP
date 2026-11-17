@@ -28,7 +28,7 @@ DATOS_222 = [{'chunk_id': '03791a3471c04c0f9cc260814564756e:00001',
            '(hora\n'
            '     límite 11:30)',
   'score': 0.9},
- {'chunk_id': 'd41480e5b0ce4c16bf18f66225ada2dc:00003',
+ {'chunk_id': 'd41480e5b0ce4c16bf18f66225ada2dc:00004',
   'doc_id': 'd41480e5b0ce4c16bf18f66225ada2dc',
   'tipo_documento': 'modificacion',
   'version_ingesta': 1,

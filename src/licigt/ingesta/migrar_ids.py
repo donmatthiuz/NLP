@@ -23,6 +23,13 @@ def _normal(texto: str) -> str:
     return " ".join(texto.split())
 
 
+def ids_con_otro_texto(zip_viejo: Path, zip_nuevo: Path) -> list[str]:
+    """Ids del paquete viejo que en el nuevo no existen o apuntan a otro texto (normalizado)."""
+    nuevos = {c["chunk_id"]: _normal(c["texto"]) for c in _chunks(zip_nuevo)}
+    return sorted(c["chunk_id"] for c in _chunks(zip_viejo)
+                  if nuevos.get(c["chunk_id"]) != _normal(c["texto"]))
+
+
 def calcular_equivalencias(zip_viejo: Path, zip_nuevo: Path, ids: list[str]) -> dict[str, dict]:
     """Para cada id viejo, el nuevo cuyo texto es el mismo ("identico") o contiene todo el texto
     en las mismas palabras ("contenido"); sin un único candidato queda en "revision"."""
@@ -89,7 +96,9 @@ def main() -> int:
     calcular.add_argument("--viejo", type=Path, required=True)
     calcular.add_argument("--nuevo", type=Path, required=True)
     calcular.add_argument("--salida", type=Path, required=True)
-    calcular.add_argument("archivos", nargs="+", type=Path, help="archivos donde buscar ids citados")
+    calcular.add_argument("--todos", action="store_true",
+                          help="incluye todos los ids viejos cuyo texto cambió, no solo los citados en los archivos")
+    calcular.add_argument("archivos", nargs="*", type=Path, help="archivos donde buscar ids citados")
     aplicar = sub.add_parser("migrar", help="reemplaza ids; sin --aplicar solo muestra la vista previa")
     aplicar.add_argument("--tabla", type=Path, required=True)
     aplicar.add_argument("--aplicar", action="store_true")
@@ -97,6 +106,10 @@ def main() -> int:
     args = parser.parse_args()
     if args.orden == "equivalencias":
         ids = [i for a in args.archivos for i in ID.findall(a.read_text(encoding="utf-8"))]
+        if args.todos:
+            ids += ids_con_otro_texto(args.viejo, args.nuevo)
+        elif not args.archivos:
+            parser.error("indica archivos o --todos")
         tabla = calcular_equivalencias(args.viejo, args.nuevo, ids)
         args.salida.write_text(json.dumps({"version": 1, "equivalencias": tabla}, ensure_ascii=False, indent=2) + "\n",
                                encoding="utf-8")

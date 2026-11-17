@@ -28,6 +28,9 @@ SUSPICIOUS = re.compile(
 )
 AVISO_MODIFICACION = "El PDF parece una modificación; revisar el tipo documental"
 HEADING = re.compile(r"^(?:\d+(?:\.\d+)*[.)]?\s+|(?:art[íi]culo|numeral|anexo|cap[íi]tulo|secci[óo]n)\s+[\w.-]+[:.]?\s+).{3,120}$", re.I)
+PUNTO = re.compile(r"^punto\s+\d+\s*:", re.I)
+NUMERAL_DEL_PUNTO = re.compile(r"(?:sub)?numeral\s+(\d+(?:\.\d+)*)\.?\s*(.*)", re.I | re.S)
+TIPOS_CON_PUNTOS = {"modificacion", "aclaracion"}
 
 
 @dataclass(frozen=True)
@@ -130,8 +133,37 @@ def _markdown_de_filas(filas: list[str]) -> str:
     return "\n".join([render(celdas[0]), render(["---"] * columnas), *(render(fila) for fila in celdas[1:])])
 
 
-def _units(page: Page, previous_section: str, max_words: int = 600) -> tuple[list[dict[str, Any]], str]:
-    """Separa encabezados, párrafos y tablas sin perder el texto extraído."""
+def _seccion_del_punto(lineas: list[str]) -> str | None:
+    """Numeral y nombre que nombra un "Punto N:" ("2.7 LISTADO DE ..."), o None si no nombra ninguno.
+
+    `lineas` empieza en la línea del punto; el numeral puede venir en ella o en las dos siguientes (sin
+    línea en blanco de por medio) y el nombre sigue en mayúsculas hasta la primera palabra en minúscula.
+    """
+    texto = []
+    for linea in lineas[:3]:
+        if not linea.strip():
+            break
+        texto.append(linea.strip())
+    encontrado = NUMERAL_DEL_PUNTO.search(" ".join(texto))
+    if not encontrado:
+        return None
+    nombre = []
+    for palabra in encontrado.group(2).split():
+        if palabra != palabra.upper():
+            break
+        nombre.append(palabra)
+        if palabra.endswith((",", ";", ":")):
+            break
+    return f"{encontrado.group(1)} {' '.join(nombre).rstrip(',;:.')}".strip()[:120]
+
+
+def _units(page: Page, previous_section: str, max_words: int = 600,
+           con_puntos: bool = False) -> tuple[list[dict[str, Any]], str]:
+    """Separa encabezados, párrafos y tablas sin perder el texto extraído.
+
+    Con `con_puntos` (modificaciones y aclaraciones), un "Punto N:" que nombra un numeral abre una unidad
+    cuya sección es ese numeral.
+    """
     units: list[dict[str, Any]] = []
     section = previous_section
     current: list[str] = []
@@ -162,8 +194,14 @@ def _units(page: Page, previous_section: str, max_words: int = 600) -> tuple[lis
                               "tabla_markdown": _table_markdown(current) if is_table else None})
             current.clear()
 
-    for line in page.text.splitlines():
+    lineas = page.text.splitlines()
+    for posicion, line in enumerate(lineas):
         stripped = line.strip()
+        if con_puntos and PUNTO.match(stripped) and (nueva := _seccion_del_punto(lineas[posicion:])):
+            flush()
+            section = nueva
+            current.append(line)
+            continue
         if stripped and not _fila_de_tabla(stripped) and any(_fila_de_tabla(c.strip()) for c in current):
             flush()
         if not stripped:
@@ -209,12 +247,17 @@ def _nog_reference(pages: list[Page]) -> str | None:
 
 def _without_repeated_margins(pages: list[Page]) -> list[Page]:
     """Quita encabezados/pies repetidos del índice; conserva el texto original en pages."""
+    corto = 2 <= len(pages) <= 5
     counts = Counter()
     for page in pages:
+        if corto and (page.quality != "ok" or page.method != "text" or not page.text.strip()):
+            continue  # una página sin capa de texto (OCR o ilegible) no cuenta
         lines = page.text.splitlines()
         counts.update({line.strip() for line in lines[:8] + lines[-6:] if line.strip()})
-    threshold = max(3, (len(pages) + 1) // 2)
-    repeated = {line for line, count in counts.items() if count >= threshold}
+    # En un documento de 2 a 5 páginas basta repetirse en 2; ahí una línea con numeral de sección se conserva.
+    threshold = 2 if corto else max(3, (len(pages) + 1) // 2)
+    repeated = {line for line, count in counts.items()
+                if count >= threshold and not (corto and HEADING.match(line))}
     cleaned = []
     for page in pages:
         lines = page.text.splitlines()
@@ -247,7 +290,7 @@ def make_chunks(pages: list[Page], doc_id: str, metadata: SourceMetadata, versio
     for page in _without_repeated_margins(pages):
         if page.quality != "ok":
             continue
-        units, section = _units(page, section, max_words)
+        units, section = _units(page, section, max_words, metadata.tipo_documento in TIPOS_CON_PUNTOS)
         merged = []
         for unit in units:
             if (merged and unit["tipo_chunk"] == "texto" and merged[-1]["tipo_chunk"] == "texto"

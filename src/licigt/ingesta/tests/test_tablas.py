@@ -215,6 +215,62 @@ class VigenciaEnElCorpusTests(unittest.TestCase):
             self.assertGreaterEqual(len(filas), 5, evento)
 
 
+FRASE_ANCHA = "Fotocopia legible legalizada de los documentos"
+
+
+def pdf_celda_ancha() -> bytes:
+    """Tres filas de cronograma y una fila `f)` cuya frase de ancho completo parte un borde sin hueco real."""
+    x_frase = 50 + 45 + 4
+    with tempfile.TemporaryDirectory() as temporal:  # primera pasada: dónde termina "documentos"
+        ruta = Path(temporal) / "m.pdf"
+        ruta.write_bytes(pdf_sintetico([[["f)"], [], []]], [45, 200, 200],
+                                       libre=[(x_frase, 688, FRASE_ANCHA + " siguientes:")]))
+        with pdfplumber.open(ruta) as d:
+            palabras = d.pages[0].extract_words(x_tolerance=1.5)
+    fin = next(w["x1"] for w in palabras if w["text"] == "documentos")
+    inicio = next(w["x0"] for w in palabras if w["text"] == "siguientes:")
+    corte = (fin + inicio) / 2
+    filas = [[["2.2.1"], ["Recepcion de ofertas"], ["Hasta el dia 31 de julio de 2023,", "a las 10:00 horas en la sede central."]],
+             [["2.2.2"], ["Induccion a interesados"], ["El dia 19 de julio de 2023, a las 10:00", "horas, de forma virtual por correo."]],
+             [["2.2.3"], ["Plazo para adjudicar"], ["Hasta diez (10) dias habiles contados", "a partir de la recepcion de ofertas."]],
+             [["f)"], [], []]]
+    y_f = 700 - 3 * (2 * 11 + 6) - 12
+    return pdf_sintetico(filas, [45, corte - 95, 560 - corte],
+                         libre=[(x_frase, y_f, FRASE_ANCHA), (inicio, y_f, "siguientes:")])
+
+
+@unittest.skipIf(pdfplumber is None, "pdfplumber no está instalado")
+class CeldaDeAnchoCompletoTests(unittest.TestCase):
+    def test_la_frase_partida_por_un_borde_sin_hueco_queda_en_una_celda(self):
+        texto = extraer(pdf_celda_ancha()).text
+        self.assertNotIn("documentos | siguientes:", texto)
+        self.assertIn("documentos siguientes:", " ".join(texto.replace("|", " ").split()))
+        filas = [l for l in texto.splitlines() if l.startswith("| f)")]
+        self.assertEqual(len(filas), 1, texto)
+        self.assertEqual(filas[0].count("|"), 3, filas[0])
+
+    def test_las_filas_con_huecos_reales_siguen_en_sus_columnas(self):
+        texto = extraer(pdf_celda_ancha()).text
+        filas = [l for l in texto.splitlines() if l.startswith("| 2.2.")]
+        self.assertEqual(len(filas), 3)
+        self.assertTrue(all(f.count("|") == 4 for f in filas), filas)
+
+    def test_no_cambia_ningun_digito(self):
+        contenido = pdf_celda_ancha()
+        with patch.object(pdf, "_con_tablas", return_value=None):
+            actual = extraer(contenido).text
+        self.assertEqual(digitos(extraer(contenido).text), digitos(actual))
+
+
+@unittest.skipUnless(ZIP_ACTUAL.is_file(), "requiere el paquete del corpus")
+class CeldaDeAnchoCompletoEnElCorpusTests(unittest.TestCase):
+    def test_ninguna_fila_parte_la_frase_de_los_documentos_siguientes(self):
+        with zipfile.ZipFile(ZIP_ACTUAL) as z:
+            textos = [json.loads(l)["texto"] for l in z.read("chunks.jsonl").splitlines() if l.strip()]
+        self.assertFalse([t for t in textos if "documentos | siguientes:" in t])
+        self.assertTrue([t for t in textos if re.search(r"^\| f\) \| Fotocopia legible legalizada de los documentos siguientes:", t, re.M)])
+
+
 class UnidadesDeTablaTests(unittest.TestCase):
     TEXTO = (
         "2.2 CRONOGRAMA DE ACTIVIDADES\n"
