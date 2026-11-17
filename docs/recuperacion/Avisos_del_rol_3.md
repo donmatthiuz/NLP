@@ -43,3 +43,7 @@
   - medir la VRAM real.
 
   Por defecto: el rol 3 arranca el LLM con un contexto de 12288 y la caché KV en `q8_0`, y reporta si falta memoria. `make importar` se corre con el servidor del LLM apagado.
+
+## Lectura de fragmentos por `chunk_id` (17 de noviembre)
+
+- [ ] Para guardar la lista de verificación, el rol 3 vuelve a validar cada cita contra su fragmento antes de insertar ([F5](../consulta/delegacion/F5_lista_de_verificacion.md)). Pedimos una función de solo lectura `obtener_fragmentos(ctx, evento_id, chunk_ids)` que devuelva los fragmentos con los mismos campos que `buscar()` y aplique el mismo filtro por empresa y evento (seguridad por fila incluida). Un `chunk_id` de otro evento o de otra empresa no se devuelve. Por defecto: el rol 3 la define como interfaz (`LectorFragmentos`) con un doble en las pruebas, y el adaptador real se conecta cuando el rol 2 la entregue.
