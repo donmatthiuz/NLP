@@ -19,6 +19,12 @@ VACIA = Page(0, "", "text", "incompleta",
               "Página sin texto suficiente; requiere revisión manual"])
 
 
+TEXTO_25 = ("Modificación número uno al contrato: el oferente presentará muestra del producto, certificado "
+            "vigente de registro sanitario, constancia de inscripción y declaración jurada firmada "
+            "ante notario antes de la fecha límite fijada por la entidad contratante.")
+SELLOS = "IGSS Guatemala sello recibido firma Dirección Departamento 12 de mayo 2026 vo bo"
+
+
 def _pagina(numero, texto=LEGIBLE):
     return Page(numero, f"DOCUMENTOS DE LICITACIÓN 399-IGSS-2026\n{texto} Página {numero}.", "text", "ok")
 
@@ -84,8 +90,7 @@ class ReextraerTests(unittest.TestCase):
 
     def _ocr_bueno(self):
         return [_pagina(1), _pagina(2),
-                _ocr(3, "Anexo técnico: el oferente presentará muestra del producto."),
-                _ocr(4, "Plazo de entrega de treinta días calendario posteriores a la orden.")]
+                _ocr(3, TEXTO_25), _ocr(4, TEXTO_25.replace("uno", "dos"))]
 
     def test_conserva_fragmentos_previos_y_numera_los_nuevos_despues(self):
         antes = self._abrir(self.zip)
@@ -170,6 +175,32 @@ class ReextraerTests(unittest.TestCase):
         self.assertTrue(any(w.startswith("Posibles instrucciones incrustadas") for w in manifiesto["warnings"]))
         de_4 = [c for c in manifiesto["chunks"] if c["pagina_inicio"] == 4]
         self.assertTrue(all(c["indexable"] for c in de_4))
+
+    def test_fragmento_de_sellos_con_pocas_palabras_no_es_indexable(self):
+        paginas = self._ocr_bueno()
+        paginas[2] = _ocr(3, SELLOS)
+        resultado = self._correr(paginas)
+        despues = self._abrir(self.salida)
+        manifiesto = self._manifiesto(despues)
+        de_3 = [c for c in manifiesto["chunks"] if c["pagina_inicio"] == 3]
+        self.assertTrue(de_3)
+        self.assertTrue(all(not c["indexable"] and c["estado_calidad"] == "ruido_ocr" for c in de_3))
+        self.assertFalse(any(c["chunk_id"] in resultado["chunks_nuevos_indexables"] for c in de_3))
+        self.assertNotIn(SELLOS, despues["chunks.jsonl"].decode())
+        de_4 = [c for c in manifiesto["chunks"] if c["pagina_inicio"] == 4]
+        self.assertTrue(all(c["indexable"] for c in de_4))
+        inventario = json.loads(despues["inventario.json"])
+        doc = next(d for d in inventario["documents"] if d["doc_id"] == self.doc_id)
+        self.assertEqual(doc["chunks_indexables"],
+                         sum(c["indexable"] for c in manifiesto["chunks"]))
+        self.assertEqual(inventario["chunks_indexables"], len(despues["chunks.jsonl"].decode().splitlines()))
+
+    def test_fragmento_de_ocr_con_25_palabras_es_indexable(self):
+        self._correr(self._ocr_bueno())
+        manifiesto = self._manifiesto(self._abrir(self.salida))
+        de_3 = [c for c in manifiesto["chunks"] if c["pagina_inicio"] == 3]
+        self.assertTrue(de_3)
+        self.assertTrue(all(c["indexable"] and c["estado_calidad"] == "ok" for c in de_3))
 
     def test_sin_ocr_no_cambia_nada_y_lo_informa(self):
         antes = self._abrir(self.zip)

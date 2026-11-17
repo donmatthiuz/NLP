@@ -142,3 +142,17 @@ Responde con:
 - las decisiones donde el encargo no era claro.
 
 No amplíes el alcance.
+
+## Parte D (añadida el 17 de noviembre): ruido de OCR no indexable
+
+La corrida real con `tesseract-ocr-spa` sobre las páginas 3 y 4 de la modificación del 222, hecha por el gestor en una copia, recuperó 7 fragmentos.
+
+- **Buenos:** `:00014` a `:00016`, con 25, 101 y 40 palabras de 4 o más letras. Son el acuerdo de la Modificación No. 1.
+- **Ruido de sellos y firmas:** `:00017`, `:00019` y `:00020`, con 9, 3 y 9 palabras.
+- **Poco texto:** `:00018`, con 10 palabras. Es el encabezado de la página 4 con "Anexo: en 11 hojas", que ya cubre la advertencia humana.
+
+Archivos: solo `src/licigt/ingesta/reextraer.py` y su prueba.
+
+- Un fragmento de OCR solo es indexable si tiene al menos 20 palabras de 4 o más letras. Si no, queda con `indexable = false` y `estado_calidad = "ruido_ocr"`, y no entra en `chunks.jsonl`, igual que los otros no indexables.
+- El umbral es una constante con un comentario que cite esta medición.
+- **Pruebas:** un fragmento de sellos con 3 palabras no es indexable; uno con 25 sí lo es.
