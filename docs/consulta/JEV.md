@@ -77,6 +77,18 @@ Según la [página de puntos débiles](https://docs.typesafe.ai/go/jaggedness.md
 - **Orden de opciones:** en `Choice` favorece la primera. En la evaluación se repite con el orden cambiado para medir ese sesgo.
 - **Lectura literal:** la condición exacta va en la pregunta y los casos límite en los criterios.
 
+## Resultados del sondeo (17 de noviembre)
+
+Corrida real con `make sondeo-jev CONFIRMAR=1`, modelo `jev-1.14.0`, sobre las 47 preguntas de desarrollo. El registro está en `data/consulta/sondeos/20261117T163820833420Z.json`, ignorado por Git. Son preguntas de desarrollo: sirven para ajustar, no para medir. La comparación que cuenta es la de F7, con preguntas nuevas.
+
+- **Funcionamiento:** las 47 respuestas válidas, sin degradación. Unos 870 tokens de entrada y 130 de salida por pregunta. El español funciona.
+- **Coincidencia con las reglas:** 38 de 47 decisiones iguales. Las nueve diferencias:
+  - **Seguro de caución (5 eventos):** las reglas eligen `buscar_documentos` y JEV `extraer_requisitos` (0.91). Las dos son defendibles; la etiqueta la fija el revisor en F7.
+  - **Preguntas sin relación (petróleo, mundial):** las reglas buscan y JEV se abstiene antes de buscar, con `aplica` en 0.11 y 0.02. Es el comportamiento correcto. Pero `fuera_de_alcance` dio 0.03 y 0.02: esa pregunta solo detecta los temas prohibidos del anteproyecto, no el resto de los temas ajenos.
+  - **"Dime la fecha y la hora":** las reglas piden aclaración y JEV se abstiene, porque `aplica` (0.13) se evalúa antes que `concreta` (0.07). Hay que revisar el orden de la tabla de decisión o los umbrales en la rejilla de F7.
+  - **"¿Qué diferencia hay entre las versiones?":** las reglas comparan y JEV pide aclaración, con `concreta` en 0.24. Es defendible, porque no dice qué tema comparar.
+- **Latencia:** el sondeo no la registra. La mide `experimento.py` en F7.
+
 ## Pendientes
 
 - [x] Cómo pasar la clave al cliente: parámetro `api_key`.
