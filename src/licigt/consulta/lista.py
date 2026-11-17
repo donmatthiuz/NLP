@@ -11,7 +11,7 @@ from .entrada import normalizar
 from .esquemas import Categoria, Fuente, RespuestaEstructurada, TextoNoVacio
 from .esquemas import ExtraerRequisitosParams
 from .herramientas import ResultadoHerramienta, extraer_requisitos
-from .lectura import fuente_desde_fragmento
+from .lectura import es_tabla, fuente_desde_fragmento
 from .orquestador import _RecuperadorObservado, _abstencion, _atributo_seguro, _registrar
 from .preguntas_jev import ACTIVIDADES_CRONOGRAMA
 from .validacion import _original, normalizar_cita
@@ -37,6 +37,8 @@ LARGO_MINIMO_CITA = 10
 # Columnas intercaladas por la extracción del PDF: tres o más espacios entre dos textos.
 SEPARACION_COLUMNAS = re.compile(r"(?<=\S) {3,}(?=\S)")
 FIN_ORACION = re.compile(r"[.!?;:](?=\s|$)")
+# Fila de tabla con numeral o literal en la primera celda ("2.2.1", "1.", "a)", "f.5)"); queda el resto, `título | texto`.
+FILA_CON_NUMERAL = re.compile(r"^\|\s*(?:\d+(?:\.\d+)*\.?|[A-Za-z]{1,3}(?:\.\d+)?\))\s*\|\s*(?P<resto>\S.*?)\s*\|?\s*$")
 MOTIVO_FECHAS_DISTINTAS = "Las fuentes difieren; el sistema no decide cuál está vigente"
 
 Caracter = Literal["fundamental", "no_fundamental", "no_indicado"]
@@ -145,6 +147,16 @@ def tramo_literal(texto: str) -> str | None:
     return _recortar(tramo) if tramo else None
 
 
+def tramos_de_tabla(texto: str) -> list[str]:
+    """Un tramo por fila con numeral: el `título | texto` contiguo de la fila, recortado; el encabezado se salta."""
+    tramos = []
+    for linea in texto.splitlines():
+        fila = FILA_CON_NUMERAL.match(linea.strip())
+        if fila:
+            tramos.append(_recortar(" ".join(fila["resto"].split())))
+    return tramos
+
+
 def _cita_valida(fragmento, cita: str) -> bool:
     """Las mismas comprobaciones con las que guardar revalida una cita contra su fragmento."""
     literal = normalizar_cita(cita)
@@ -154,7 +166,7 @@ def _cita_valida(fragmento, cita: str) -> bool:
 
 
 def proponer_items(resultado: ResultadoHerramienta, evento_id: str) -> list[ItemPropuesto]:
-    """Función pura y sin LLM: un tramo literal por fragmento con categoría, más las fechas literales."""
+    """Función pura y sin LLM: un tramo literal por fragmento con categoría (uno por fila en las tablas), más las fechas literales."""
     fragmentos = {f.chunk_id: f for f in resultado.fragmentos}
     items, vistos = [], set()
 
@@ -168,13 +180,14 @@ def proponer_items(resultado: ResultadoHerramienta, evento_id: str) -> list[Item
         categoria = resultado.categorias.get(fragmento.chunk_id)
         if categoria is None:
             continue
-        cita = tramo_literal(fragmento.texto)
-        if cita is None or not _cita_valida(fragmento, cita):
-            continue
-        agregar(ItemPropuesto(
-            tipo="requisito", categoria=categoria, caracter=caracter_de_seccion(fragmento.seccion),
-            descripcion=cita, fuentes=[fuente_desde_fragmento(fragmento, cita)], requiere_revision=revisar,
-            motivo_revision=MOTIVO_REVISION_RESPUESTA if revisar else None))
+        citas = tramos_de_tabla(fragmento.texto) if es_tabla(fragmento.texto) else [tramo_literal(fragmento.texto)]
+        for cita in citas:
+            if cita is None or not _cita_valida(fragmento, cita):
+                continue
+            agregar(ItemPropuesto(
+                tipo="requisito", categoria=categoria, caracter=caracter_de_seccion(fragmento.seccion),
+                descripcion=cita, fuentes=[fuente_desde_fragmento(fragmento, cita)], requiere_revision=revisar,
+                motivo_revision=MOTIVO_REVISION_RESPUESTA if revisar else None))
 
     distintas = {a.removeprefix("fechas_distintas: ") for a in resultado.warnings
                  if a.startswith("fechas_distintas: ")}

@@ -67,3 +67,6 @@ export function reducirLista(filas: FilaLista[], a: AccionLista): FilaLista[] {
       return filas.map((f) => (f.itemId === a.item.item_id ? filaGuardada(a.item) : f))
   }
 }
+
+// Una cita de tabla llega como `título | texto`; en pantalla la barra se lee como ": " (o un espacio tras un punto), sin cambiar la cita guardada.
+export const mostrarCita = (cita: string) => cita.replace(/(?<=(\S)) \| (?=\S)/g, (_, previo: string) => ('.:;?!'.includes(previo) ? ' ' : ': '))

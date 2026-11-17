@@ -13,6 +13,7 @@ from pydantic import ValidationError
 
 from licigt.consulta.esquemas import Categoria, ExtraerRequisitosParams
 from licigt.consulta.herramientas import extraer_requisitos
+from licigt.consulta.tests.test_generacion import DATOS_TABLA
 from licigt.consulta.jev import FallaJev, RespuestaJev
 from licigt.consulta.preguntas_jev import (
     ACTIVIDADES_CRONOGRAMA, MAX_CANDIDATAS_JEV, preguntas_fechas,
@@ -214,6 +215,34 @@ class FechasTests(unittest.TestCase):
             with self.subTest(valor=valor), self.assertRaises(ValidationError):
                 FechaCandidata(**{**datos, "prob_actividad": valor})
 
+
+class FechasEnTablaTests(unittest.TestCase):
+    """C15: las fechas de las filas de una tabla salen con su fila como contexto."""
+
+    def test_c15_encontrar_fechas_con_barras(self):
+        self.assertEqual([(l, f.isoformat()) for l, f, _ in encontrar_fechas(DATOS_TABLA["texto"])],
+                         [("31 de julio de 2023", "2023-07-31"), ("19 de julio de 2023", "2023-07-19"),
+                          ("31 de julio de 2023", "2023-07-31")])
+
+    def test_c15_cada_candidata_lleva_el_titulo_de_su_fila(self):
+        jev = JevFalso(elecciones={"c0": "adquirir_documentos", "c1": "induccion", "c2": "recepcion_ofertas"})
+        recuperador = RecuperadorFalso([busqueda([DATOS_TABLA])] * 5)
+        r = extraer_requisitos(None, ExtraerRequisitosParams(evento_id="222"), recuperador, cliente_jev=jev)
+        candidatas = jev.llamadas[0][0]["candidatas"]
+        self.assertEqual([c["fecha"] for c in candidatas.values()],
+                         ["31 de julio de 2023", "19 de julio de 2023", "31 de julio de 2023"])
+        self.assertIn("2.2.2 | Fecha y hora para inducción", candidatas["c1"]["pasaje"])
+        self.assertIn("Lugar, dirección, fecha y hora para la recepción de OFERTAS", candidatas["c2"]["pasaje"])
+        self.assertTrue(candidatas["c2"]["pasaje"].startswith("| 2.2.6 | Lugar"))
+        self.assertEqual([(f.actividad, f.estado) for f in r.fechas],
+                         [("adquirir_documentos", "verificada"), ("induccion", "verificada"),
+                          ("recepcion_ofertas", "verificada")])
+
+    def test_c15_la_consulta_del_cronograma_nombra_las_actividades_de_la_tabla(self):
+        # Medido: con la consulta anterior, la tabla 2.2 (chunk 00041) no salía entre los 5 mejores del evento 222.
+        consulta = CONSULTA_CRONOGRAMA.lower()
+        for palabra in ("cronograma", "adquirir", "inducción", "aclaraciones", "recepción de ofertas", "apertura de plicas"):
+            self.assertIn(palabra, consulta)
 
 class ExtraerRequisitosTests(unittest.TestCase):
     def extraer(self, recuperador=None, jev=None, **params):

@@ -10,7 +10,7 @@ from .esquemas import (
 )
 from .jev import ClienteJev, FallaJev, validar_respuesta
 from .lectura import (
-    TIPOS_ALERTA_CONOCIDOS, Alerta, DocumentoComparado, FragmentoRecuperado,
+    TIPOS_ALERTA_CONOCIDOS, Alerta, DocumentoComparado, FragmentoRecuperado, es_tabla,
     ResultadoBusqueda, ResultadoComparacion,
 )
 from .preguntas_jev import CHOICE_MIN, MAX_CANDIDATAS_JEV, NOUL_SI, preguntas_fechas
@@ -222,7 +222,10 @@ def extraer_requisitos(ctx, params: ExtraerRequisitosParams, recuperador: Recupe
                 literal=literal, fecha=fecha))
             if len(candidatas) < MAX_CANDIDATAS_JEV:
                 # Compactar espacios conserva contexto útil en las tablas extraídas del PDF.
-                antes = re.sub(r"\s+", " ", fragmento.texto[:posicion])[-150:]
+                # En una tabla el contexto es la fila (numeral y título incluidos), no los 150 caracteres previos.
+                tabla = es_tabla(fragmento.texto)
+                inicio_fila = fragmento.texto.rfind("\n", 0, posicion) + 1 if tabla else 0
+                antes = re.sub(r"\s+", " ", fragmento.texto[inicio_fila:posicion])[-400 if tabla else -150:]
                 despues = re.sub(r"\s+", " ", fragmento.texto[posicion + len(literal):])[:150]
                 candidatas[identificador] = {
                     "seccion": fragmento.seccion,

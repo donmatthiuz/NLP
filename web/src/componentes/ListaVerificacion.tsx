@@ -2,7 +2,7 @@ import { useEffect, useId, useMemo, useReducer, useRef, useState } from 'react'
 import { ErrorLista, cambiarEstadoApi, guardarApi, listarApi, proponerApi } from '../api'
 import { crearListaEjemplos } from '../listaEjemplos'
 import {
-  ESTADOS_ITEM, ROTULOS_ESTADO_ITEM, cambiosPendientes, itemsAGuardar, reducirLista, sinGuardar,
+  ESTADOS_ITEM, ROTULOS_ESTADO_ITEM, cambiosPendientes, itemsAGuardar, mostrarCita, reducirLista, sinGuardar,
 } from '../lista'
 import type { FilaLista } from '../lista'
 import type { EstadoItem, ItemLista, ItemPropuesto, PropuestaLista } from '../tipos'
@@ -50,7 +50,7 @@ function FilaItem({ fila, alIncluir, alMarcar, alGuardarCambio, alDescartar }: {
           {i.categoria && <span className="etiqueta">{CATEGORIAS[i.categoria]}</span>}
           <span className="etiqueta">{CARACTERES[i.caracter]}</span>
         </p>
-        <blockquote className="cita" lang="es">{i.descripcion}</blockquote>
+        <blockquote className="cita" lang="es">{mostrarCita(i.descripcion)}</blockquote>
         <p className="item-lista__origen">
           <span className="mono">{f.doc_id}</span>, {paginas(f.page, f.page_end)}; versión de ingesta v{f.version_ingesta};
           versión oficial: {f.version_oficial ?? 'No indicada'}
@@ -172,7 +172,7 @@ export function ListaVerificacion({ eventoId, modoEjemplos }: { eventoId: string
   }
 
   const lineas = !confirmando ? [] : confirmando.tipo === 'guardar'
-    ? confirmando.items.map((i) => `${nombre(i)}: ${i.descripcion} (se guarda como Pendiente)`)
+    ? confirmando.items.map((i) => `${nombre(i)}: ${mostrarCita(i.descripcion)} (se guarda como Pendiente)`)
     : [`${nombre(confirmando.fila.item)}: ${ROTULOS_ESTADO_ITEM[confirmando.fila.estadoGuardado!]} a ${ROTULOS_ESTADO_ITEM[confirmando.fila.estado]}`]
 
   return (

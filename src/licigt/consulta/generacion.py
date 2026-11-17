@@ -6,10 +6,10 @@ from typing import Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .lectura import FragmentoRecuperado
+from .lectura import FragmentoRecuperado, es_tabla
 from .requisitos import FechaCandidata
 
-VERSION_PROMPT = "f4-v8"
+VERSION_PROMPT = "f4-v9"
 
 
 class CitaModelo(BaseModel):
@@ -133,6 +133,9 @@ def construir_prompt(pregunta: str, fragmentos: list[FragmentoRecuperado], *,
                      "version_oficial": f.identificador_version_oficial or "ninguna",
                      "pagina": pagina, "seccion": f.seccion or "Sin sección"}
         cabecera = " ".join(f'{nombre}="{escape(_neutralizar(valor), quote=True)}"' for nombre, valor in atributos.items())
+        if es_tabla(f.texto):
+            bloques.append(f'({alias} es una tabla: cada fila es "numeral | título | texto"; '
+                           "la cita puede copiar el texto de una celda o la fila sin barras.)")
         bloques.append(f"<fragmento {cabecera}>\n{f.texto}\n</fragmento>")
     bloques.append("</documentos>")
     if fechas:

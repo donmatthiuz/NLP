@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { EJEMPLO_PROPUESTA } from './ejemplos'
 import { MENSAJE_CONFLICTO, ErrorLista, cambiarEstadoApi, guardarApi, listarApi, proponerApi } from './api'
-import { cambiosPendientes, itemsAGuardar, reducirLista, sinGuardar } from './lista'
+import { cambiosPendientes, itemsAGuardar, mostrarCita, reducirLista, sinGuardar } from './lista'
 import type { FilaLista } from './lista'
 import type { ItemLista } from './tipos'
 
@@ -143,5 +143,22 @@ describe('API de la lista', () => {
     await listarApi('222')
     expect((f.mock.calls[0] as unknown as [string])[0]).toBe('/api/eventos/222/lista/propuesta')
     expect((f.mock.calls[1] as unknown as [string])[0]).toBe('/api/eventos/222/lista')
+  })
+})
+
+describe('mostrarCita', () => {
+  it('muestra la barra de celda entre el título y el texto como ": "', () => {
+    expect(mostrarCita('Período para adquirir los DOCUMENTOS DE LICITACIÓN | A partir de su publicación'))
+      .toBe('Período para adquirir los DOCUMENTOS DE LICITACIÓN: A partir de su publicación')
+  })
+
+  it('no duplica la puntuación cuando el título ya termina en ella', () => {
+    expect(mostrarCita('Apertura de PLICAS. | Después de concluido el período'))
+      .toBe('Apertura de PLICAS. Después de concluido el período')
+  })
+
+  it('deja intacto el texto sin barras de celda y las barras dentro de una palabra', () => {
+    expect(mostrarCita('El código AB|12 corresponde')).toBe('El código AB|12 corresponde')
+    expect(mostrarCita('Texto sin tabla.')).toBe('Texto sin tabla.')
   })
 })

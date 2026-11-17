@@ -47,8 +47,12 @@ def _nfkc(texto: str) -> str:
     return "".join(trozos)
 
 
+# Separador de celda de una tabla: una barra con espacio (o borde del texto) a cada lado; una barra pegada a una palabra o a un número no lo es.
+BARRA_CELDA = re.compile(r"(?<!\S)\|(?!\S)")
+
+
 def normalizar_cita(texto: str) -> str:
-    return normalizar(_nfkc(texto).translate(COMILLAS))
+    return normalizar(BARRA_CELDA.sub(" ", _nfkc(texto)).translate(COMILLAS))
 
 
 MESES_INGLES = {"january", "february", "march", "april", "may", "june", "july", "august", "september",
@@ -90,7 +94,7 @@ TIPOS_QUE_ESCALAN = {"modificacion", "aclaracion"}
 
 
 def _espaciar(texto: str) -> str:
-    return " ".join(_nfkc(texto).split())
+    return " ".join(BARRA_CELDA.sub(" ", _nfkc(texto)).split())
 
 
 def _signo(c: str) -> bool:
@@ -121,10 +125,18 @@ def _buscar(texto: str, tramo: str) -> int:
 
 
 def _mapa(texto: str, plegar: bool) -> tuple[str, list[int]]:
-    """Normaliza como normalizar_cita (plegar) o como _espaciar, y da por carácter su posición en el original."""
-    salida, indices = [], []
+    """Normaliza como normalizar_cita (plegar) o como _espaciar, y da por carácter su posición en el original.
+
+    Los separadores de celda (BARRA_CELDA) cuentan como espacio; su posición sigue siendo la del original."""
+    piezas = []
     for i, c in enumerate(texto):
         pieza = c if _espacio_con_marca(c) else unicodedata.normalize("NFKC", c)
+        piezas.extend((ch, i) for ch in pieza)
+    base = "".join(ch for ch, _ in piezas)
+    barras = {m.start() for m in BARRA_CELDA.finditer(base)}
+    salida, indices = [], []
+    for k, (ch0, i) in enumerate(piezas):
+        pieza = " " if k in barras else ch0
         if plegar:
             pieza = unicodedata.normalize("NFD", pieza.translate(COMILLAS).casefold())
         for ch in pieza:

@@ -8,6 +8,12 @@ from .esquemas import Fuente
 TIPOS_ALERTA_CONOCIDOS = ("cobertura_incompleta", "posible_conflicto", "evento_con_modificaciones")
 
 
+def es_tabla(texto: str) -> bool:
+    """Fragmento de tabla de descripción: filas `| numeral | título | texto |`, a veces con la última cortada (el contrato del rol 2 no trae tipo_chunk)."""
+    primera = next((l.strip() for l in texto.splitlines() if l.strip()), "")
+    return primera.startswith("|") and primera.count("|") >= 3
+
+
 class FragmentoRecuperado(BaseModel):
     """Fragmento de evidencia; los puntajes llegan según la variante y el origen."""
     model_config = ConfigDict(extra="ignore", frozen=True)

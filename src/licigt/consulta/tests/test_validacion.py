@@ -8,8 +8,8 @@ from unittest.mock import patch
 from licigt.consulta.esquemas import RespuestaEstructurada, TEXTO_ABSTENCION
 from licigt.consulta.generacion import Afirmacion, construir_prompt
 from licigt.consulta.herramientas import ResultadoHerramienta
-from licigt.consulta.lectura import DocumentoComparado
-from licigt.consulta.tests.test_generacion import fragmentos_222, salida_222
+from licigt.consulta.lectura import DocumentoComparado, FragmentoRecuperado
+from licigt.consulta.tests.test_generacion import DATOS_TABLA, fragmentos_222, salida_222
 from licigt.consulta.validacion import _armar, normalizar_cita, validar
 
 # Pasajes del 222: bases 00001 (p. 1) y p. 27; M009 conserva la maquetación a dos columnas de la extracción anterior
@@ -1152,3 +1152,61 @@ class OctavaPasadaTests(unittest.TestCase):
         self.assertEqual(self.codigos(r), ["unidad_fuera_de_literal"])
         r = self.validar([self.af("Vigencia de {1} días.", cita, ["120"])], [self.con_texto(0, cita)])
         self.assertEqual(self.codigos(r), ["unidad_fuera_de_literal"])
+
+
+class TablasValidacionTests(unittest.TestCase):
+    """C15: las barras de celda de una tabla no rompen la cita ni los literales."""
+
+    def verificar(self, texto_fragmento, cita, afirmacion="Dato de la tabla.", datos=()):
+        base = FragmentoRecuperado.model_validate({**DATOS_TABLA, "texto": texto_fragmento})
+        res = ResultadoHerramienta(
+            herramienta="buscar_documentos", evento_id="222", fragmentos=[base], abstener=False,
+            needs_human_review=False, coverage_status="sin_faltantes_detectados", warnings=[], error=None)
+        _, evidencia, _, _ = construir_prompt("Cronograma", res.fragmentos)
+        salida = {"abstener": False, "revision_humana": False, "afirmaciones": [
+            {"texto": afirmacion, "citas": [{"fragmento": "F1", "cita": cita}],
+             "datos": [{"cita": 1, "literal": d} for d in datos]}]}
+        return validar(json.dumps(salida, ensure_ascii=False), evidencia, res, evento_id="222")
+
+    def test_c15_normalizar_trata_la_barra_de_celda_como_espacio(self):
+        self.assertEqual(normalizar_cita("| 2.2.1 | Período |  A partir |"), normalizar_cita("2.2.1 Período A partir"))
+        self.assertEqual(normalizar_cita("código AB|12"), "codigo ab|12")
+        self.assertEqual(normalizar_cita("a |b y c| d"), "a |b y c| d")
+
+    def test_c15_cita_sin_barras_de_la_fila_real_pasa_y_publica_el_tramo_original(self):
+        cita = ("2.2.1 Período para adquirir los DOCUMENTOS DE LICITACIÓN "
+                "A partir de su publicación en GUATECOMPRAS, hasta el día 31 de julio de 2023.")
+        r = self.verificar(DATOS_TABLA["texto"], cita)
+        self.assertIsInstance(r, RespuestaEstructurada, r)
+        self.assertEqual(r.sources[0].cita,
+                         "2.2.1 | Período para adquirir los DOCUMENTOS DE LICITACIÓN | "
+                         "A partir de su publicación en GUATECOMPRAS, hasta el día 31 de julio de 2023.")
+
+    def test_c15_cita_con_una_celda_y_dato_literal(self):
+        r = self.verificar(DATOS_TABLA["texto"], "El día 19 de julio de 2023, a las 10:00 horas",
+                           afirmacion="La inducción es el {1}.", datos=["19 de julio de 2023"])
+        self.assertIsInstance(r, RespuestaEstructurada, r)
+
+    def test_c15_la_cita_con_barras_tambien_pasa(self):
+        r = self.verificar(DATOS_TABLA["texto"],
+                           "| 2.2.7 | Apertura de PLICAS. | Después de concluido el período de presentación")
+        self.assertIsInstance(r, RespuestaEstructurada, r)
+
+    def test_c15_la_barra_dentro_de_una_palabra_no_se_toca(self):
+        texto = "El código AB|12 corresponde al producto indicado en la lista"
+        self.assertIsInstance(self.verificar(texto, "El código AB|12 corresponde al producto"), RespuestaEstructurada)
+        r = self.verificar(texto, "El código AB 12 corresponde al producto")
+        self.assertEqual([e.codigo for e in r], ["cita_no_literal"])
+
+    def test_c15_siguen_fallando_citas_falsas_sobre_la_tabla(self):
+        for cita in ("2.2.7 Apertura de PLICAS. Antes de concluido el período de presentación",
+                     "2.2.1 Período para adquirir los DOCUMENTOS DE LICITACIÓN hasta el día 30 de julio de 2023",
+                     "Apertura de PLICAS. 2.2.7 Después de concluido el período de presentación"):
+            with self.subTest(cita=cita):
+                r = self.verificar(DATOS_TABLA["texto"], cita)
+                self.assertEqual([e.codigo for e in r], ["cita_no_literal"])
+
+    def test_c15_un_dato_inventado_en_la_fila_falla(self):
+        r = self.verificar(DATOS_TABLA["texto"], "El día 19 de julio de 2023, a las 10:00 horas",
+                           afirmacion="La inducción es el {1}.", datos=["20 de julio de 2023"])
+        self.assertIsInstance(r, list)

@@ -17,7 +17,7 @@ from licigt.consulta.lista import (
     tramo_literal,
 )
 from licigt.consulta.lista_escritura import _fuente_vigente
-from licigt.consulta.tests.test_generacion import DATOS_222
+from licigt.consulta.tests.test_generacion import DATOS_222, DATOS_TABLA
 from licigt.consulta.requisitos import CONSULTAS_POR_CATEGORIA, CONSULTA_CRONOGRAMA, FechaCandidata
 
 
@@ -196,6 +196,57 @@ class ProponerItemsTests(unittest.TestCase):
         with self.assertRaises(ValidationError):
             ItemPropuesto(descripcion=CITA_FUND, **dict(base, extra="x"))
         self.assertIn("no certifican cumplimiento", AVISO_LISTA)
+
+
+class FilasDeTablaTests(unittest.TestCase):
+    """C15: un ítem por fila con numeral de un fragmento de tabla; la cita es `título | texto` de la fila."""
+
+    def items(self, texto=None, categoria="administrativa"):
+        datos = {**DATOS_TABLA, **({"texto": texto} if texto is not None else {})}
+        return proponer_items(resultado([datos], categorias={datos["chunk_id"]: categoria}), "222"), datos
+
+    def test_c15_un_item_por_fila_2_2_1_a_2_2_7_sin_el_encabezado(self):
+        items, datos = self.items()
+        self.assertEqual(len(items), 7)
+        self.assertEqual([i.descripcion.split(" | ")[0] for i in items],
+                         ["Período para adquirir los DOCUMENTOS DE LICITACIÓN",
+                          "Fecha y hora para inducción a interesados en ofertar el OBJETO de los DOCUMENTOS DE LICITACIÓN.",
+                          "Período para solicitud de aclaraciones sobre los DOCUMENTOS DE LICITACIÓN.",
+                          "Período para respuestas de aclaraciones sobre los DOCUMENTOS DE LICITACIÓN.",
+                          "Período para la preparación del FORMULARIO ELECTRÓNICO.",
+                          "Lugar, dirección, fecha y hora para la recepción de OFERTAS.",
+                          "Apertura de PLICAS."])
+        self.assertTrue(all(i.tipo == "requisito" and i.categoria == "administrativa" for i in items))
+        self.assertFalse(any("DESCRIPCIÓN" in i.descripcion for i in items))
+        for i in items:
+            self.assertEqual(i.descripcion, i.fuentes[0].cita)
+            self.assertLessEqual(len(i.descripcion), 300)
+            self.assertIn(" | ", i.descripcion)
+            self.assertNotIn(" ".join(i.descripcion.split()) + "x", datos["texto"])
+            self.assertTrue(_fuente_vigente(i, fragmento(datos)))
+        self.assertTrue(items[0].descripcion.endswith("hasta el día 31 de julio de 2023."))
+        self.assertTrue(items[-1].descripcion.startswith("Apertura de PLICAS. | Después de concluido"))
+
+    def test_c15_fila_larga_se_recorta_en_fin_de_oracion_y_revalida(self):
+        items, datos = self.items()
+        inducion = items[1]
+        self.assertTrue(inducion.descripcion.endswith("a las 10:00 horas."), inducion.descripcion)
+        self.assertTrue(_fuente_vigente(inducion, fragmento(datos)))
+
+    def test_c15_tabla_sin_numerales_no_da_items_y_sin_categoria_tampoco(self):
+        self.assertEqual(self.items("| DOCUMENTO | PARÁMETROS QUE DEBERÁ INGRESAR |\n| FORMULARIO | texto largo de ejemplo |")[0], [])
+        self.assertEqual(proponer_items(resultado([DATOS_TABLA]), "222"), [])
+
+    def test_c15_numerales_con_letra_y_encabezado_intercalado(self):
+        texto = ("| DOCUMENTO | PARÁMETROS QUE DEBERÁ INGRESAR EN EL FORMULARIO |\n"
+                 "| a) | FORMULARIO ELECTRÓNICO | 1. Generado electrónicamente a través del sistema |\n"
+                 "| f.5) | Autorización | Otorgada al representante legal de la entidad oferente |")
+        items, _ = self.items(texto)
+        self.assertEqual([i.descripcion[:15] for i in items], ["FORMULARIO ELEC", "Autorización | "])
+
+    def test_c15_el_texto_sin_tabla_sigue_igual(self):
+        items = proponer_items(resultado([FUNDAMENTAL], categorias={"c-fund": "legal"}), "222")
+        self.assertEqual([i.descripcion for i in items], [CITA_FUND])
 
 
 class RecuperadorPorConsulta:

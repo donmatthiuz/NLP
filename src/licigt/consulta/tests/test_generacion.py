@@ -44,6 +44,25 @@ DATOS_222 = [{'chunk_id': '03791a3471c04c0f9cc260814564756e:00001',
   'score': 0.9}]
 
 
+# C15: tabla de descripción del cronograma de las bases (chunk 03791a34...:00041), tal como llega desde R3.
+FILAS_CRONOGRAMA = [
+    "| DESCRIPCIÓN | FECHA |",
+    "| 2.2.1 | Período para adquirir los DOCUMENTOS DE LICITACIÓN | A partir de su publicación en GUATECOMPRAS, hasta el día 31 de julio de 2023. |",
+    "| 2.2.2 | Fecha y hora para inducción a interesados en ofertar el OBJETO de los DOCUMENTOS DE LICITACIÓN. | El día 19 de julio de 2023, a las 10:00 horas. La inducción se impartirá de forma virtual, por lo que los interesados deberán enviar un correo electrónico a la dirección deptoabastosigss@gmail.com a efecto de que se les envíe la invitación correspondiente. |",
+    "| 2.2.3 | Período para solicitud de aclaraciones sobre los DOCUMENTOS DE LICITACIÓN. | A partir de la publicación de la convocatoria en GUATECOMPRAS, hasta tres (3) días hábiles antes de la fecha establecida para presentar OFERTAS. |",
+    "| 2.2.4 | Período para respuestas de aclaraciones sobre los DOCUMENTOS DE LICITACIÓN. | A más tardar dos (2) días hábiles antes de la fecha fijada para presentar OFERTAS. |",
+    "| 2.2.5 | Período para la preparación del FORMULARIO ELECTRÓNICO. | La preparación del FORMULARIO ELECTRÓNICO puede elaborarse en GUATECOMPRAS desde el momento que se ha publicado el concurso hasta antes de la fecha y hora de recepción. |",
+    "| 2.2.6 | Lugar, dirección, fecha y hora para la recepción de OFERTAS. | En Salones Los Volcanes, ubicados en la 7ª. Avenida 22-72 zona 1, segundo nivel, Oficinas Centrales del INSTITUTO, el día 31 de julio de 2023, a las 11:00 horas (hora límite 11:30), transcurrido este plazo la JUNTA no recibirá ninguna OFERTA. De no llevarse a cabo la recepción en el lugar antes indicado, se colocará un aviso tanto en el portal de GUATECOMPRAS, como en el lugar señalado inicialmente, con la nueva ubicación. |",
+    "| 2.2.7 | Apertura de PLICAS. | Después de concluido el período de presentación y recepción de OFERTAS. |",
+]
+DATOS_TABLA = {
+    "chunk_id": "03791a3471c04c0f9cc260814564756e:00041", "doc_id": "03791a3471c04c0f9cc260814564756e",
+    "tipo_documento": "bases", "version_ingesta": 1, "pagina_inicio": 8, "pagina_fin": 8,
+    "seccion": "2.2   CRONOGRAMA DE ACTIVIDADES",
+    "url_origen": "https://www.igssgt.org/wp-content/uploads/2026/10/222-IGSS-2023.pdf",
+    "identificador_version_oficial": None, "texto": "\n".join(FILAS_CRONOGRAMA), "score": 0.9}
+
+
 def fragmentos_222():
     return [FragmentoRecuperado.model_validate(f) for f in DATOS_222]
 
@@ -147,7 +166,7 @@ class GeneracionTests(unittest.TestCase):
     def test_prompt_pide_datos_literales_con_ejemplo_y_marcadores(self):
         mensajes, _, esquema, _ = construir_prompt("dato", fragmentos_222())
         sistema = mensajes[0]["content"]
-        self.assertEqual(VERSION_PROMPT, "f4-v8")
+        self.assertEqual(VERSION_PROMPT, "f4-v9")
         self.assertIn("de 10 a 300 caracteres", sistema)
         self.assertNotIn("de 10 a 200 caracteres", sistema)
         for texto in ("{1}", '"datos"', "una sola cita", "marcador", "código IGSS", "numeral", "concentración", "NOG",
@@ -262,3 +281,16 @@ assert not any(n == p or n.startswith(p + '.') for n in sys.modules
     def test_c13_el_protocolo_del_generador_lleva_la_semilla_extra(self):
         parametro = inspect.signature(ClienteGenerador.generar).parameters["semilla_extra"]
         self.assertEqual((parametro.default, parametro.annotation), (0, int))
+
+
+class TablaEnElPromptTests(unittest.TestCase):
+    def test_c15_el_fragmento_tabla_lleva_la_explicacion_y_el_de_texto_no(self):
+        tabla = FragmentoRecuperado.model_validate(DATOS_TABLA)
+        mensajes, evidencia, _, _ = construir_prompt("Fechas", [fragmentos_222()[0], tabla])
+        usuario = mensajes[1]["content"]
+        self.assertEqual(usuario.count("numeral | título | texto"), 1)
+        linea = next(l for l in usuario.splitlines() if "numeral | título | texto" in l)
+        self.assertIn("F2", linea)
+        self.assertIn("sin barras", linea)
+        self.assertNotIn(linea, tabla.texto)
+        self.assertEqual(evidencia["F2"].texto, tabla.texto)

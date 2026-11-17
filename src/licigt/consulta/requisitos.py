@@ -16,7 +16,10 @@ CONSULTAS_POR_CATEGORIA: dict[Categoria, str] = {
     "tecnica": "especificaciones técnicas del medicamento, presentación y concentración",
     "financiera": "requisitos financieros, garantías, fianzas y estados financieros",
 }
-CONSULTA_CRONOGRAMA = "cronograma de actividades, fechas y plazos del evento"
+# Con el cronograma como tabla de descripción (R3), la consulta genérica ya no traía el fragmento 2.2 del evento 222
+# entre los 5 primeros; nombrar las actividades de la tabla sí.
+CONSULTA_CRONOGRAMA = ("cronograma de actividades: período para adquirir los documentos, inducción, "
+                       "aclaraciones, recepción de ofertas y apertura de plicas")
 
 MESES = {"enero": 1, "febrero": 2, "marzo": 3, "abril": 4, "mayo": 5, "junio": 6,
          "julio": 7, "agosto": 8, "septiembre": 9, "setiembre": 9, "octubre": 10,
