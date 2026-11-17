@@ -8,11 +8,12 @@ from pathlib import Path
 from licigt.consulta.decision import decidir
 from licigt.consulta.enrutador import EnrutadorJev, EnrutadorReglas
 from licigt.consulta.experimento import (
-    acuerdo, comparar, correr, exportar_desarrollo, fusionar, kappa, mcnemar_p, percentil,
-    preparar_ciego, rejilla, reproducir, veredicto, wilson,
+    acuerdo, analizar_variantes, calibracion, cargar_redacciones, comparar, correr, correr_variantes,
+    exportar_desarrollo, fusionar, kappa, mcnemar_p, percentil, preguntas_variantes, preparar_ciego,
+    rejilla, reproducir, veredicto, wilson,
 )
 from licigt.consulta.jev import FallaJev, RespuestaJev
-from licigt.consulta.preguntas_jev import CHOICE_MIN, NOUL_NO, NOUL_SI, Umbrales
+from licigt.consulta.preguntas_jev import CHOICE_MIN, NOUL_NO, NOUL_SI, PREGUNTAS_ENTRADA, Umbrales
 
 
 def respuesta_jev(inyeccion=0.1, fuera=0.1, concreta=0.9, aplica=0.9,
@@ -306,3 +307,127 @@ class VeredictoTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RespondeVariantes:
+    """Doble de respuesta grabada: arma la respuesta de cada clave según su nombre y registra lo enviado."""
+    def __init__(self, noul=None, choice=None, probabilidad=0.8):
+        self.noul, self.choice, self.probabilidad = noul or {}, choice or {}, probabilidad
+        self.solicitudes = []
+
+    def preguntar(self, estado, preguntas):
+        self.solicitudes.append((estado, preguntas))
+        respuestas = {}
+        for clave, pregunta in preguntas.items():
+            if pregunta["type"] == "noul":
+                respuestas[clave] = {"type": "noul", "noul": self.noul.get(clave, 0.1)}
+            else:
+                opciones = list(pregunta["criteria"])
+                elegida = self.choice.get(clave, "buscar_documentos")
+                resto = (1 - self.probabilidad) / (len(opciones) - 1)
+                respuestas[clave] = {"type": "choice", "choice": elegida, "confidence": 0.01,
+                                     "probabilities": {o: self.probabilidad if o == elegida else resto
+                                                       for o in opciones}}
+        return RespuestaJev(respuestas=respuestas, modelo="jev-1.14.0", request_id="v",
+                            tokens_entrada=1, tokens_salida=1)
+
+
+class VariantesTests(unittest.TestCase):
+    def test_redacciones_congeladas_cubren_todas_las_preguntas(self):
+        redacciones = cargar_redacciones()
+        self.assertIn("version", redacciones)
+        for nombre in PREGUNTAS_ENTRADA:
+            textos = redacciones["instrucciones"][nombre]
+            self.assertIn(len(textos), (2, 3))
+            self.assertNotIn(PREGUNTAS_ENTRADA[nombre]["instructions"], textos)
+
+    def test_orden_de_opciones_original_invertido_y_rotado(self):
+        base = list(PREGUNTAS_ENTRADA["herramienta"]["criteria"])
+        preguntas = preguntas_variantes(cargar_redacciones())
+        self.assertEqual(list(preguntas["herramienta"]["criteria"]), base)
+        self.assertEqual(list(preguntas["herramienta_inv"]["criteria"]), base[::-1])
+        self.assertEqual(list(preguntas["herramienta_rot"]["criteria"]), base[1:] + base[:1])
+        # Mismas descripciones, solo cambia el orden.
+        self.assertEqual(preguntas["herramienta_inv"]["criteria"], PREGUNTAS_ENTRADA["herramienta"]["criteria"])
+
+    def test_redacciones_y_repeticion_van_en_la_misma_solicitud(self):
+        preguntas = preguntas_variantes(cargar_redacciones())
+        for nombre, original in PREGUNTAS_ENTRADA.items():
+            self.assertEqual(preguntas[f"{nombre}_rep"], original)
+            self.assertNotEqual(preguntas[f"{nombre}_red1"]["instructions"], original["instructions"])
+            self.assertEqual(preguntas[f"{nombre}_red1"]["criteria"], original["criteria"])
+        cliente = RespondeVariantes()
+        correr_variantes([caso("c1", "¿Cuál es el código?", "usar_herramienta", "ok", "buscar_documentos")],
+                         cliente_jev=cliente, confirmar=True)
+        self.assertEqual(len(cliente.solicitudes), 1)
+        self.assertEqual(cliente.solicitudes[0][0], {"pregunta": "¿Cuál es el código?"})
+        self.assertEqual(set(cliente.solicitudes[0][1]), set(preguntas))
+
+    def test_sin_confirmar_no_llama_a_jev(self):
+        vista = correr_variantes([caso("c1", "p", "abstener", "ok")], cliente_jev=JevProhibido())
+        self.assertNotIn("resultados", vista)
+        self.assertIn("herramienta_inv", vista["questions"])
+
+    def test_falla_se_registra_sin_inventar_respuesta(self):
+        corrida = correr_variantes([caso("c1", "p", "abstener", "ok")],
+                                   cliente_jev=JevPorPregunta({"p": FallaJev("api")}), confirmar=True)
+        self.assertEqual(corrida["resultados"][0]["error"], "api")
+        self.assertIsNone(corrida["resultados"][0]["respuesta"])
+        self.assertEqual(analizar_variantes(corrida)["n"], 0)
+
+    def test_cambio_de_opcion_y_discrepancia_por_variante(self):
+        casos = [caso("c1", "p1", "usar_herramienta", "ok", "buscar_documentos")]
+        cliente = RespondeVariantes(
+            noul={"inyeccion": 0.1, "inyeccion_red1": 0.4, "inyeccion_rep": 0.1},
+            choice={"herramienta_inv": "extraer_requisitos"})
+        corrida = correr_variantes(casos, cliente_jev=cliente, confirmar=True)
+        analisis = analizar_variantes(corrida)
+        self.assertEqual(analisis["n"], 1)
+        inv = analisis["variantes"]["inv"]["herramienta"]
+        self.assertEqual(inv["cambios"], 1)
+        self.assertAlmostEqual(inv["discrepancia_media"], 0.8 - 0.1)
+        self.assertEqual(analisis["variantes"]["rot"]["herramienta"]["cambios"], 0)
+        red1 = analisis["variantes"]["red1"]["inyeccion"]
+        self.assertAlmostEqual(red1["discrepancia_media"], 0.3)
+        self.assertEqual(red1["cambios"], 0)
+        rep = analisis["variantes"]["rep"]["inyeccion"]
+        self.assertEqual((rep["cambios"], rep["discrepancia_max"]), (0, 0))
+
+    def test_cruce_de_0_5_cuenta_como_cambio_en_un_noul(self):
+        cliente = RespondeVariantes(noul={"concreta": 0.6, "concreta_red2": 0.4})
+        corrida = correr_variantes([caso("c1", "p", "abstener", "ok")], cliente_jev=cliente, confirmar=True)
+        self.assertEqual(analizar_variantes(corrida)["variantes"]["red2"]["concreta"]["cambios"], 1)
+
+
+class CalibracionTests(unittest.TestCase):
+    def corrida(self, noules):
+        """noules: lista de (pregunta, p de inyeccion)."""
+        respuestas = {p: respuesta_jev(inyeccion=v) for p, v in noules}
+        cliente = JevPorPregunta(respuestas)
+        return correr([caso(f"c{i}", p, "abstener", "ok") for i, (p, _) in enumerate(noules)],
+                      cliente_jev=cliente, confirmar=True)
+
+    def test_franjas_brier_y_conteo_de_la_franja_media(self):
+        casos = [caso("c0", "a", "abstener", "inyeccion"), caso("c1", "b", "abstener", "ok"),
+                 caso("c2", "c", "abstener", "inyeccion"), caso("c3", "d", "abstener", "ok")]
+        corrida = self.corrida([("a", 0.9), ("b", 0.1), ("c", 0.5), ("d", 0.2)])
+        resultado = calibracion(corrida, casos)["inyeccion"]
+        self.assertEqual(resultado["n"], 4)
+        self.assertEqual(resultado["franja_media"], 1)
+        self.assertAlmostEqual(resultado["brier"], (0.01 + 0.01 + 0.25 + 0.04) / 4)
+        bajo, medio, alto = resultado["franjas"]
+        self.assertEqual((bajo["n"], bajo["positivos"]), (2, 0))
+        self.assertEqual((medio["n"], medio["positivos"]), (1, 1))
+        self.assertEqual((alto["n"], alto["positivos"]), (1, 1))
+        self.assertEqual(alto["wilson"], wilson(1, 1))
+
+    def test_ignora_casos_sin_respuesta(self):
+        casos = [caso("c0", "a", "abstener", "inyeccion"), caso("c1", "b", "abstener", "ok")]
+        corrida = correr(casos, cliente_jev=JevPorPregunta(
+            {"a": respuesta_jev(inyeccion=0.9), "b": FallaJev("api")}), confirmar=True)
+        self.assertEqual(calibracion(corrida, casos)["inyeccion"]["n"], 1)
+
+    def test_concreta_solo_con_casos_ok_o_no_especifica(self):
+        casos = [caso("c0", "a", "aclarar", "no_especifica"), caso("c1", "b", "abstener", "inyeccion")]
+        corrida = self.corrida([("a", 0.1), ("b", 0.1)])
+        self.assertEqual(calibracion(corrida, casos)["concreta"]["n"], 1)

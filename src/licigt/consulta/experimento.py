@@ -9,6 +9,7 @@ import json
 import math
 import random
 import time
+from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -23,11 +24,13 @@ RAIZ = Path(__file__).resolve().parents[3]
 AGENTES = RAIZ / "data/consulta/agentes"
 EXPERIMENTOS = RAIZ / "data/consulta/experimentos"
 CASOS_PRUEBA = Path(__file__).resolve().parent / "casos_enrutador.json"
+REDACCIONES_JEV = Path(__file__).resolve().parent / "redacciones_jev.json"
 SEMILLA = 20260
 META_P95_MS = 15000
 CLASES = ("buscar_documentos", "extraer_requisitos", "comparar_versiones", "aclarar", "abstener")
 REJILLA_NOUL_SI, REJILLA_NOUL_NO, REJILLA_CHOICE_MIN = (0.6, 0.7, 0.8), (0.2, 0.3, 0.4), (0.4, 0.5, 0.6)
 MOTIVOS_CRITICOS = ("inyeccion", "fuera_de_alcance")
+FRANJAS = ((0.0, 0.3), (0.3, 0.7), (0.7, 1.0))
 
 
 # --- Estadística ---------------------------------------------------------------------
@@ -303,6 +306,145 @@ def veredicto(resumen: dict, p95_resto_ms: float | None = None) -> dict:
             "latencia": latencia, "meta_p95_ms": META_P95_MS}
 
 
+# --- Sesgo, consistencia y calibración (corrida de prueba) ---------------------------
+
+# Orden de `criteria`: ni el OpenAPI ni la documentación de TypeSafe (advanced.md, 17 nov) dicen si la API
+# conserva el orden de las claves ni si influye en la respuesta. No se puede verificar sin llamar; la
+# variante invertida y la rotada lo miden como cambio de opción, sin suponer que se respeta.
+
+def cargar_redacciones(ruta: Path = REDACCIONES_JEV) -> dict:
+    return _leer(ruta)
+
+
+def _variantes(preguntas: dict, redacciones: dict | None = None) -> list:
+    """(clave enviada, pregunta base, variante) en orden estable; la base va como `variante` None."""
+    redacciones = redacciones or cargar_redacciones()
+    filas = []
+    for nombre, pregunta in preguntas.items():
+        filas.append((nombre, nombre, None))
+        if pregunta["type"] == "choice":
+            filas += [(f"{nombre}_inv", nombre, "inv"), (f"{nombre}_rot", nombre, "rot")]
+        filas += [(f"{nombre}_red{i}", nombre, f"red{i}") for i in range(1, len(redacciones["instrucciones"][nombre]) + 1)]
+        filas.append((f"{nombre}_rep", nombre, "rep"))
+    return filas
+
+
+def preguntas_variantes(redacciones: dict | None = None) -> dict:
+    """Las preguntas de entrada y sus variantes, para una sola solicitud por caso."""
+    redacciones = redacciones or cargar_redacciones()
+    preguntas = {}
+    for clave, nombre, variante in _variantes(PREGUNTAS_ENTRADA, redacciones):
+        pregunta = deepcopy(PREGUNTAS_ENTRADA[nombre])
+        if variante in ("inv", "rot"):
+            opciones = list(pregunta["criteria"].items())
+            opciones = opciones[::-1] if variante == "inv" else opciones[1:] + opciones[:1]
+            pregunta["criteria"] = dict(opciones)
+        elif variante and variante.startswith("red"):
+            pregunta["instructions"] = redacciones["instrucciones"][nombre][int(variante[3:]) - 1]
+        preguntas[clave] = pregunta
+    return preguntas
+
+
+def correr_variantes(casos: list, *, cliente_jev, confirmar: bool = False, redacciones: dict | None = None) -> dict:
+    preguntas = preguntas_variantes(redacciones)
+    if not confirmar:
+        return {"vista_previa": [{"id": c["id"], "state": {"pregunta": _pregunta(c)}} for c in casos],
+                "questions": preguntas}
+    medidor = _Medidor(cliente_jev)
+    resultados = []
+    for caso in casos:
+        medidor.reiniciar()
+        try:
+            medidor.preguntar({"pregunta": _pregunta(caso)}, preguntas)
+        except FallaJev:
+            pass
+        respuesta = medidor.respuesta
+        resultados.append({
+            "id": caso["id"], "pregunta": _pregunta(caso),
+            "respuesta": respuesta.model_dump(mode="json") if respuesta is not None else None,
+            "error": medidor.error, "latencia_ms": medidor.latencia_ms})
+    return {"redacciones_version": (redacciones or cargar_redacciones())["version"],
+            "preguntas": preguntas, "resultados": resultados}
+
+
+def _principal(dato: dict) -> tuple:
+    """(decisión, probabilidad de esa decisión): el lado del Noul o la opción elegida."""
+    if dato["type"] == "noul":
+        return dato["noul"] >= 0.5, dato["noul"]
+    return dato["choice"], dato["probabilities"][dato["choice"]]
+
+
+def analizar_variantes(corrida: dict) -> dict:
+    """Por variante y pregunta: cambios de decisión frente a la base y discrepancia |p1 - p2|."""
+    acumulado = {}
+    n = 0
+    for resultado in corrida["resultados"]:
+        if resultado["respuesta"] is None:
+            continue
+        n += 1
+        datos = resultado["respuesta"]["respuestas"]
+        for clave, nombre, variante in _variantes(PREGUNTAS_ENTRADA):
+            if variante is None:
+                continue
+            base, otra = datos[nombre], datos[clave]
+            decision, p1 = _principal(base)
+            if base["type"] == "noul":
+                p2 = otra["noul"]
+                cambio = (p2 >= 0.5) != decision
+            else:
+                p2 = otra["probabilities"][base["choice"]]
+                cambio = otra["choice"] != decision
+            fila = acumulado.setdefault(variante, {}).setdefault(nombre, {"n": 0, "cambios": 0, "suma": 0.0, "max": 0.0})
+            fila["n"] += 1
+            fila["cambios"] += cambio
+            fila["suma"] += abs(p1 - p2)
+            fila["max"] = max(fila["max"], abs(p1 - p2))
+    return {"n": n, "variantes": {
+        v: {q: {"n": f["n"], "cambios": f["cambios"], "discrepancia_media": f["suma"] / f["n"],
+                "discrepancia_max": f["max"]} for q, f in preguntas.items()}
+        for v, preguntas in acumulado.items()}}
+
+
+def _etiqueta_noul(nombre: str, esperado: dict) -> bool | None:
+    """Verdad esperada de un Noul según la etiqueta del caso; None si la etiqueta no lo decide."""
+    if nombre in MOTIVOS_CRITICOS:
+        return esperado["motivo"] == nombre
+    if nombre == "concreta" and esperado["motivo"] in ("ok", "no_especifica"):
+        return esperado["motivo"] == "ok"
+    return None  # `aplica` no tiene etiqueta propia en los casos.
+
+
+def calibracion(corrida: dict, casos: list) -> dict:
+    """Por Noul con etiqueta: franjas 0-0.3, 0.3-0.7 y 0.7-1 con Wilson, Brier y casos en la franja media."""
+    por_id = {c["id"]: c for c in casos if "esperado" in c}
+    resultado = {}
+    for nombre, pregunta in PREGUNTAS_ENTRADA.items():
+        if pregunta["type"] != "noul":
+            continue
+        pares = []
+        for r in corrida["resultados"]:
+            if r["respuesta"] is None or r["id"] not in por_id:
+                continue
+            verdad = _etiqueta_noul(nombre, por_id[r["id"]]["esperado"])
+            if verdad is not None:
+                pares.append((r["respuesta"]["respuestas"][nombre]["noul"], verdad))
+        if not pares:
+            continue
+        franjas = []
+        for i, (bajo, alto) in enumerate(FRANJAS):
+            # 0.3 y 0.7 pertenecen a la franja media; 1.0 a la alta.
+            dentro = [(p, v) for p, v in pares
+                      if (bajo <= p < alto if i == 0 else bajo < p <= alto if i == 2 else bajo <= p <= alto)]
+            positivos = sum(v for _, v in dentro)
+            franjas.append({"franja": (bajo, alto), "n": len(dentro), "positivos": positivos,
+                            "frecuencia": positivos / len(dentro) if dentro else None,
+                            "probabilidad_media": sum(p for p, _ in dentro) / len(dentro) if dentro else None,
+                            "wilson": wilson(positivos, len(dentro))})
+        resultado[nombre] = {"n": len(pares), "brier": sum((p - v) ** 2 for p, v in pares) / len(pares),
+                             "franjas": franjas, "franja_media": franjas[1]["n"]}
+    return resultado
+
+
 # --- CLI -----------------------------------------------------------------------------
 
 def _leer(ruta):
@@ -338,7 +480,33 @@ def _umbrales(texto: str | None) -> Umbrales:
     return Umbrales(noul_si=si, noul_no=no, choice_min=minimo)
 
 
+def _cmd_variantes(opciones) -> int:
+    casos = _casos_conjunto(opciones.conjunto)
+    if not opciones.confirmar_envio:
+        vista = correr_variantes(casos, cliente_jev=None)
+        print(f"Sin envío: {len(casos)} solicitudes con {len(vista['questions'])} preguntas cada una.")
+        print(json.dumps({"questions": vista["questions"]}, ensure_ascii=False, indent=2))
+        return 0
+    try:
+        cliente = ClienteJevSdk(obtener_configuracion())
+    except FallaJev as falla:
+        print(f"Experimento no iniciado: {falla.codigo}")
+        return 1
+    try:
+        corrida = correr_variantes(casos, cliente_jev=cliente, confirmar=True)
+    finally:
+        cliente.cerrar()
+    corrida.update(conjunto=opciones.conjunto, analisis=analizar_variantes(corrida),
+                   calibracion=calibracion(corrida, _con_etiqueta(casos)))
+    ruta = EXPERIMENTOS / f"variantes_{opciones.conjunto}_{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}.json"
+    _escribir(ruta, corrida)
+    print(f"Registro: {ruta}")
+    return 0
+
+
 def _cmd_correr(opciones) -> int:
+    if opciones.variantes:
+        return _cmd_variantes(opciones)
     casos = _casos_conjunto(opciones.conjunto)
     if not opciones.confirmar_envio:
         vista = correr(casos, cliente_jev=None)
@@ -410,6 +578,8 @@ def main(argumentos=None) -> int:
     ejecutar = sub.add_parser("correr")
     ejecutar.add_argument("conjunto", choices=("desarrollo", "prueba"))
     ejecutar.add_argument("--confirmar-envio", action="store_true")
+    ejecutar.add_argument("--variantes", action="store_true",
+                          help="orden de opciones, redacciones y repetición en la misma solicitud")
     ejecutar.set_defaults(ejecutar=_cmd_correr)
     rej = sub.add_parser("rejilla")
     rej.add_argument("conjunto", choices=("desarrollo", "prueba"), nargs="?", default="desarrollo")
