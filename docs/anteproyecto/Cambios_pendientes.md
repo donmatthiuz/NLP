@@ -9,8 +9,8 @@
 ## Sección 9. Arquitectura
 
 - [ ] Añadir JEV en la capa de decisión (intención y suficiencia) como variante comparada con reglas y LLM, consumida por API alojada. Origen: decisión del 16 de noviembre; [DESIGN](../../DESIGN.md#capa-de-decisión).
-- [ ] Indicar que el LLM generador corre en local y JEV por API. Origen: decisión del 16 de noviembre.
-- [ ] Actualizar el diagrama `arquitectura_igss.svg`: nodo de JEV, estado compartido, guardrails de salida y tratamiento de excepciones como nodos visibles. Origen: instrucciones del curso, sección 6.
+- [ ] Indicar que el LLM generador corre en local por defecto (Qwen3.5-9B sobre `llama-server`), con un interruptor a OpenAI para máquinas sin GPU, y que JEV va por API. Registrar proveedor, versión y parámetros como pide la línea 299. Origen: decisiones del 16 de noviembre; [I2](../consulta/investigacion/I2_llm_local.md).
+- [x] Reemplazar el diagrama `arquitectura_igss.svg` por `diagramas/arquitectura_general.png` y `diagramas/flujo_consulta.png`, con JEV, el estado compartido, las compuertas, las excepciones y la confirmación de la lista como nodos visibles. Referencia de la línea 482 actualizada. Origen: instrucciones del curso, sección 6.
 - [ ] Nombrar el proveedor real de almacenamiento (MinIO o Google Cloud Storage) cuando se decida. Origen: [Pendientes_rol_1](../ingesta/Pendientes_rol_1.md).
 - [ ] Nombrar el stack de API y pantalla cuando se acuerde con el rol 4 (propuesta: FastAPI y React). Origen: [Avisos al rol 4](../plataforma/Avisos_del_rol_3.md).
 
@@ -30,10 +30,15 @@
 ## Sección 12. Evaluación
 
 - [ ] Si se mantiene el experimento de JEV, describir el conjunto etiquetado de decisiones (intención y suficiencia) separado del banco de 20 casos, con desarrollo y prueba distintos. Origen: `advisor-summary.md` de OneDrive y decisión del 16 de noviembre.
+- [ ] **Segunda revisión de fidelidad** (línea 376). La hace un agente revisor independiente, con otra familia de modelos y en una sesión aislada, y el usuario adjudica los desacuerdos. Se declara como limitación: un humano más agentes, no dos personas. Origen: decisión del 16 de noviembre; [I5](../consulta/investigacion/I5_agentes_agnosticos.md).
+- [ ] **Criterio para adoptar JEV.** Se adopta solo si no aumenta los errores críticos, si McNemar da p < 0.05 sobre las mismas preguntas y si el P95 queda dentro de los 15 s.
+  - Reemplaza el criterio anterior: +0.05 de F1, mejor ECE y menos de 300 ms.
+  - Las preguntas de prueba las redacta un agente proponente, las revisa un agente revisor y el usuario da el visto bueno; esta limitación se declara en el informe.
+  - Origen: decisión del 16 de noviembre y la investigación [I4](../consulta/investigacion/I4_evaluacion_y_jev.md).
 
 ## Sección 13. Seguridad
 
-- [ ] Indicar que a JEV, servicio externo, solo se envían la pregunta y textos de documentos públicos; nunca datos de la empresa ni credenciales. Origen: decisión del 16 de noviembre; instrucciones, sección 15 (gobernanza de datos).
+- [ ] Indicar que a los servicios externos (JEV y, si se activa, el LLM en la nube de OpenAI) solo se envían la pregunta y textos de documentos públicos; nunca datos de la empresa ni credenciales. OpenAI no entrena con los datos de la API y los guarda 30 días para vigilar abusos ([política de datos](https://developers.openai.com/api/docs/guides/your-data)). Origen: decisión del 16 de noviembre; instrucciones, sección 15 (gobernanza de datos).
 
 ## Sección 15. Plan de trabajo
 

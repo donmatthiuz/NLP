@@ -15,6 +15,8 @@
 
 ## Peticiones de baja prioridad
 
+- [ ] **Conflicto fuera del numeral modificado.** `posible_conflicto` solo marca fragmentos de las bases bajo el numeral que cambia la modificación (`busqueda.py:118-120`). En el 222, la portada de las bases (`03791a…:00001`) dice que la recepción es el 31 de julio de 2023, y la modificación (`d41480…:00009`) dice el 06 de octubre. La portada no tiene numeral, así que no se marca. Por defecto: el rol 3 lo detecta en `extraer_requisitos` comparando las fechas por actividad, y no se cambia la alerta.
+
 - [ ] **Filtro `tipo_documento` en `buscar()`.** La herramienta `buscar_documentos` lo declara como opcional. Por defecto: el rol 3 filtra los resultados después de recibirlos. Se pide el filtro en SQL solo si ese recorte deja menos de `k` fragmentos en los casos del banco.
 
 ## Configuración y reproducibilidad
@@ -31,3 +33,13 @@
 ## Coordinación de GPU
 
 - [ ] La máquina de desarrollo del rol 3 tiene una RTX 5070 de 12 GB. El reranker y los embeddings de recuperación comparten GPU con el LLM local del rol 3. Pedimos el consumo de VRAM medido de `bge-m3` y `bge-reranker-v2-m3` para repartir memoria. Por defecto: se asumen unos pocos GB y el LLM se elige para caber en el resto.
+
+## GPU para el LLM generador (16 de noviembre)
+
+- [ ] El LLM local (Qwen3.5-9B, unos 6,8 GiB) no cabe junto a `bge-m3` y el reranker tal como se cargan hoy, en fp32 (unos 5,9 GiB), porque el escritorio de Windows ya ocupa unos 2,7 GiB de la RTX 5070 ([I2](../consulta/investigacion/I2_llm_local.md#1-presupuesto-de-vram)). Pedimos:
+  - hacer configurables el dispositivo y el dtype por variables de entorno: reranker en GPU en fp16 y embedding de la pregunta en CPU durante la consulta;
+  - fijar `max_length` del reranker (hoy hereda 8192);
+  - volver a medir Hit@5 en fp16;
+  - medir la VRAM real.
+
+  Por defecto: el rol 3 arranca el LLM con un contexto de 12288 y la caché KV en `q8_0`, y reporta si falta memoria. `make importar` se corre con el servidor del LLM apagado.

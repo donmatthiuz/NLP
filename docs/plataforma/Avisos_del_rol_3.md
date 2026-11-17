@@ -22,3 +22,31 @@
 
 - Núcleo sin dependencias de red ni base de datos, probable con contextos y recuperadores simulados.
 - Validación de parámetros y de citas con el mismo esquema; el rol 4 puede repetirla en la API como segunda barrera.
+
+## Avisos del 16 de noviembre (investigaciones I1 a I4)
+
+Cada aviso trae su texto completo y su opción por defecto en la investigación de origen; aquí va el resumen.
+
+- [ ] **API e interfaz** ([I3](../consulta/investigacion/I3_lista_e_interfaz.md#avisos-propuestos-para-el-rol-4)):
+  - cinco rutas mínimas: consulta, propuesta de lista, listar, guardar y cambiar estado;
+  - `RespuestaEstructurada` tal cual;
+  - guardar la lista solo con `confirmado: true` en una petición aparte del usuario.
+
+  Por defecto: la interfaz web es del rol 3 (React, Vite y TypeScript). Si al cerrar F5 no hay API, el rol 3 escribe un adaptador FastAPI reemplazable, sin tocar `src/licigt/plataforma`.
+- [ ] **Tablas de la lista de verificación:** `lista_items` y `lista_cambios`, con la misma seguridad por fila que el rol 2. Por defecto: las crea el rol 3 en un SQL de su módulo y el rol 4 revisa las políticas.
+- [ ] **Auditoría ampliada.** Campos opcionales nuevos en el evento: `chunk_ids_citados`, `modelo_generador` y `version_prompt` (diapositivas 259 y 263). Por defecto: el rol 3 los envía y la función `auditar` puede ignorarlos.
+- [ ] **Banco y métricas** ([I4](../consulta/investigacion/I4_evaluacion_y_jev.md#avisos-propuestos-para-el-rol-4)):
+  - formato de casos compatible con `casos_desarrollo.json`;
+  - unos 15 casos mínimos del rol 3;
+  - métricas calculadas en código;
+  - plantilla de fidelidad para revisión humana;
+  - reporte separado del experimento de JEV.
+
+  Por defecto: el rol 3 entrega sus casos y la función de métricas en su módulo.
+- [ ] **LLM generador** ([I2](../consulta/investigacion/I2_llm_local.md#6-avisos-para-el-rol-2-y-el-rol-4)):
+  - es un proceso aparte en `127.0.0.1:8080`, sin llave y nunca expuesto fuera de la máquina;
+  - con OpenAI activado, solo salen la pregunta y los fragmentos públicos;
+  - el P95 se reporta con 1 y con 5 usuarios por separado;
+  - el resultado del banco registra el modelo, la revisión, el sha256 y los parámetros.
+
+  Por defecto: el rol 3 añade esos campos al resultado del banco, no a la auditoría.

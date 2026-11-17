@@ -63,6 +63,15 @@ Depende del cliente de JEV de F2. Diseño acordado (cookbook oficial de fechas d
 - [ ] JEV asigna cada candidata a su actividad (`Choice` más `Noul` compañero); el código normaliza, valida y compara fechas.
 - [ ] La confianza mínima entre las partes decide revisión humana; una fecha que el documento no dice siempre va a revisión. Sin JEV, las candidatas salen como no verificadas.
 
+Decisiones del 16 de noviembre, tras los cinco porqués ([encargo](delegacion/F3b_extraer_requisitos.md)):
+
+- El cronograma se consulta siempre con una consulta fija. La firma del anteproyecto no cambia, porque la herramienta promete fechas en cualquier categoría (`Anteproyecto.md:335` y `:338`).
+- Sin `RequisitoCandidato`: los requisitos los redacta F4 con citas y F5 arma la lista.
+- La función vive en `herramientas.py`, con el mismo resultado que las otras dos. La lógica pura de fechas va en `requisitos.py` y las preguntas de JEV en `preguntas_jev.py`.
+- Solo fechas con el mes en español: el formato `dd/mm/aaaa` no aparece en el corpus.
+- La herramienta no consume el presupuesto de llamadas; cuenta como una invocación.
+- La comparación de fechas por actividad detecta el conflicto de recepción del 222 (31 de julio en la portada de las bases, 06 de octubre en la modificación), que la alerta del rol 2 no marca.
+
 ### F4. Generación y validación de salida — 2 días
 - [ ] Prompt aumentado: instrucciones del sistema, evidencia y pregunta separadas; la evidencia se marca como datos no confiables.
 - [ ] El modelo cita por `chunk_id`; instrucción de abstención explícita y manejo de la trampa "si no está en el contexto, dilo".
@@ -76,13 +85,25 @@ Depende del cliente de JEV de F2. Diseño acordado (cookbook oficial de fechas d
 - [ ] Guardar solo tras confirmación explícita del usuario (acción crítica que no ejecuta el modelo).
 - [ ] Marcar ítems y señalar contradicciones para revisión humana.
 
-### F6. Interfaz mínima y demo — 1 día
-- [ ] CLI o vista simple que muestre respuesta, fuentes, página y versión.
-- [ ] Demo con el evento 222: una consulta respondible, una sin evidencia y la comparación del cronograma (bases frente a modificación 1).
+### F6. Interfaz web y demo
+- [ ] Interfaz web desde el inicio: React, Vite y TypeScript, con pnpm, sobre FastAPI. Decisión del 16 de noviembre. El curso solo exige la demo en vivo ([I3](investigacion/I3_lista_e_interfaz.md)); la vista web la promete el anteproyecto (`Anteproyecto.md:146`, `:222`).
+- [ ] Muestra respuesta, fuentes, página, versión, advertencias, revisión humana y aclaración, y confirma la lista explícitamente.
+- [ ] Puede empezar en paralelo con F4, contra respuestas de ejemplo que cumplan `RespuestaEstructurada`.
+- [ ] La API es del rol 4. Si no la entrega al cerrar F5, el rol 3 escribe un adaptador reemplazable, sin tocar `src/licigt/plataforma`.
+- [ ] Demo con el evento 222: una consulta respondible, una sin evidencia, la comparación del cronograma (bases frente a modificación 1), una aclaración, una inyección contra la lista y la falla real de OCR de las páginas 3 y 4.
 
-### F7. Pruebas con el rol 4 — 1 día
+### F7. Pruebas con el rol 4
 - [ ] Casos de herramientas para el banco: ejecución nominal, selección errónea, parámetros fuera de rango, confirmación humana e indisponibilidad del servicio.
-- [ ] Casos de seguridad que tocan este rol: inyección directa, cita falsa, fabricación de un requisito ausente y solicitud de acción no autorizada.
+- [ ] Casos de seguridad que tocan este rol: inyección directa, cita falsa, fabricación de un requisito ausente y solicitud de acción no autorizada. Propuesta de casos en [I4](investigacion/I4_evaluacion_y_jev.md).
+- [ ] **Experimento de JEV**, una mejora que el curso no exige:
+  - las preguntas de prueba nuevas (unas 60) las redacta un agente proponente, las revisa un agente revisor independiente y el usuario da el visto bueno;
+  - un agente adversario aporta los casos engañosos ([I5](investigacion/I5_agentes_agnosticos.md));
+  - las 47 preguntas del sondeo quedan solo para desarrollo.
+- [ ] **Criterio para adoptar JEV** (decisión del 16 de noviembre; reemplaza al del resumen para el asesor):
+  - no aumenta los errores críticos;
+  - McNemar con p < 0.05 sobre las mismas preguntas;
+  - P95 dentro de los 15 s del anteproyecto;
+  - motivo del cambio: con 60 casos, una diferencia de 0.05 no se distingue del ruido, y los 300 ms no tenían respaldo medido.
 
 ## Pruebas
 

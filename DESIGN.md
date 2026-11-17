@@ -1,6 +1,6 @@
 # Diseño de LiciGT
 
-Resumen de las decisiones de diseño vigentes. La referencia completa es el [anteproyecto](docs/anteproyecto/Anteproyecto.md#9-arquitectura) y el diagrama [`arquitectura_igss.svg`](docs/arquitectura/arquitectura_igss.svg). Si este archivo y el anteproyecto difieren, se corrige uno de los dos y se anota en [`docs/Pendientes.md`](docs/Pendientes.md).
+Resumen de las decisiones de diseño vigentes. La referencia completa es el [anteproyecto](docs/anteproyecto/Anteproyecto.md#9-arquitectura) y los diagramas de [`docs/arquitectura/diagramas/`](docs/arquitectura/diagramas/README.md) (`arquitectura_general.png` y `flujo_consulta.png`). Si este archivo y el anteproyecto difieren, se corrige uno de los dos y se anota en [`docs/Pendientes.md`](docs/Pendientes.md).
 
 ## Principios
 
@@ -35,7 +35,10 @@ Las decisiones de intención y suficiencia son clasificadores con umbral. Se com
 - Backend: Python. API propuesta con FastAPI y Pydantic (a acordar con el rol 4).
 - Frontend: propuesto React con Vite y TypeScript (a acordar con el rol 4). Streamlit descartado.
 - Configuración: parámetros sin secretos en `.env` (plantilla `.env.example`), secretos como un archivo por llave en `keys/` (ver `keys/README.md`), modelos de Hugging Face en `models/` mediante `HF_HOME`. El `Makefile` carga `.env` y arma `LICIGT_DB_URL` solo para el proceso que lo usa.
-- LLM: local, detrás de una interfaz intercambiable. Equipo de desarrollo: RTX 5070 de 12 GB y 64 GB de RAM, compartidos con los modelos del rol 2. Sin credenciales en el repo.
+- LLM generador: un solo cliente con la API compatible con OpenAI, así que cambiar de proveedor es configuración (URL, modelo y llave opcional en `keys/`), no código.
+  - **Local (por defecto):** Qwen3.5-9B Q4_K_M sobre `llama-server`, con la versión y el archivo fijados ([I2](docs/consulta/investigacion/I2_llm_local.md)). Equipo de desarrollo: RTX 5070 de 12 GB y 64 GB de RAM, compartidos con los modelos del rol 2.
+  - **Nube (interruptor):** OpenAI, para máquinas sin GPU. A la nube solo van la pregunta y fragmentos de documentos públicos del IGSS; nunca `tenant_id`, usuarios ni datos de la empresa.
+  - Sin credenciales en el repo.
 
 ## Interfaz de usuario
 
