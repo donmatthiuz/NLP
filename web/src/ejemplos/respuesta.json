@@ -1,0 +1,36 @@
+{
+  "answer": "El Seguro de Caución de Cumplimiento debe constituirse por una suma equivalente al diez por ciento (10%) del monto del CONTRATO, dentro del plazo de quince (15) días siguientes a la suscripción del CONTRATO (subnumeral 2.23.2, literal b).",
+  "sources": [
+    {
+      "doc_id": "03791a3471c04c0f9cc260814564756e",
+      "source": "https://www.igssgt.org/wp-content/uploads/2026/10/222-IGSS-2023.pdf",
+      "page": 27,
+      "page_end": null,
+      "chunk_id": "03791a3471c04c0f9cc260814564756e:00118",
+      "version_ingesta": 1,
+      "version_oficial": null,
+      "cita": "Dentro del plazo de quince (15) días siguientes a la suscripción del CONTRATO, el CONTRATISTA deberá presentar Seguro de Caución de Cumplimiento de Contrato."
+    },
+    {
+      "doc_id": "03791a3471c04c0f9cc260814564756e",
+      "source": "https://www.igssgt.org/wp-content/uploads/2026/10/222-IGSS-2023.pdf",
+      "page": 27,
+      "page_end": null,
+      "chunk_id": "03791a3471c04c0f9cc260814564756e:00118",
+      "version_ingesta": 1,
+      "version_oficial": null,
+      "cita": "b) Constituida por una suma equivalente al diez por ciento (10%) del monto del CONTRATO."
+    }
+  ],
+  "abstained": false,
+  "tool_used": "buscar_documentos",
+  "needs_human_review": false,
+  "evento_id": "222-IGSS-2023",
+  "coverage_status": "parcial",
+  "warnings": [
+    "cobertura_incompleta: d41480e5b0ce4c16bf18f66225ada2dc páginas no indexadas 3, 4",
+    "evento_con_modificaciones: 03791a3471c04c0f9cc260814564756e"
+  ],
+  "needs_clarification": false,
+  "clarification_question": null
+}

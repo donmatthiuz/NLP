@@ -31,7 +31,7 @@ EVENTO ?= 222-IGSS-2023
 
 .PHONY: help setup env-init keys-init keys-status key-set db-up db-down db-password-sync \
         importar buscar models-status claude opencode codex test-consulta test-ingesta test-recuperacion \
-        diagramas llm-descargar llm-servidor llm-estado deps-consulta sondeo-jev api experimento-jev
+        diagramas llm-descargar llm-servidor llm-estado deps-consulta sondeo-jev api experimento-jev web web-build
 
 help: ## Muestra esta ayuda
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(firstword $(MAKEFILE_LIST)) \
@@ -109,6 +109,12 @@ experimento-jev: ## Experimento de JEV: CONJUNTO=desarrollo|prueba; CONFIRMAR=1 
 
 api: ## Arranca el adaptador de consulta (demo, sin autenticación) en 127.0.0.1:8000
 	@$(WITH_DB) PYTHONPATH=src $(PYTHON) -m uvicorn licigt.consulta.api:app --host 127.0.0.1 --port 8000
+
+web: ## Arranca la web de consulta en modo desarrollo (Vite; proxy de /api a 127.0.0.1:8000)
+	@pnpm --dir web dev
+
+web-build: ## Compila la web de consulta (tsc y vite build)
+	@pnpm --dir web build
 
 # --- Agentes con los MCP del proyecto -------------------------------------------
 

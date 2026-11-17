@@ -14,6 +14,7 @@ Proyecto final CC3103 (UVG): sistema RAG que analiza licitaciones de medicamento
 - `src/licigt/recuperacion`: rol 2. Índices pgvector y tsvector, búsqueda y alertas.
 - `src/licigt/consulta`: rol 3. Enrutador, herramientas, respuesta con citas y lista de verificación.
 - `src/licigt/plataforma`: rol 4. API, autenticación, auditoría y evaluación.
+- `web/`: interfaz web del rol 3 (React, Vite, TypeScript, pnpm). `web/DISENO.md` es su contrato de diseño.
 - `docs/<módulo>`: planes y resultados de cada rol. `docs/roles/Asignacion_de_roles.md` define responsabilidades.
 - `entregables/recuperacion`: paquete de ingesta que consume el rol 2. No editarlo a mano.
 - `.skills/`: skills compartidas; `.claude/skills`, `.agents/skills` y `.opencode/skills` apuntan ahí.

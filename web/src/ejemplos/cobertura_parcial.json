@@ -1,0 +1,36 @@
+{
+  "answer": "Sí. La Modificación Número 1 indica que la JUNTA puede solicitar a la AUTORIDAD ADMINISTRATIVA SUPERIOR, en forma justificada y por única vez, prórroga para adjudicar, por el mismo plazo o menor. Las páginas 3 y 4 de la modificación no están indexadas, por lo que puede haber más condiciones que no se vieron.",
+  "sources": [
+    {
+      "doc_id": "d41480e5b0ce4c16bf18f66225ada2dc",
+      "source": "https://www.igssgt.org/wp-content/uploads/2026/10/LICITACION-DA-No.-222-IGSS-2023-IGSS.pdf",
+      "page": 1,
+      "page_end": null,
+      "chunk_id": "d41480e5b0ce4c16bf18f66225ada2dc:00012",
+      "version_ingesta": 1,
+      "version_oficial": "Modificación Número 1",
+      "cita": "La JUNTA puede solicitar a la AUTORIDAD ADMINISTRATIVA SUPERIOR en forma justificada"
+    },
+    {
+      "doc_id": "d41480e5b0ce4c16bf18f66225ada2dc",
+      "source": "https://www.igssgt.org/wp-content/uploads/2026/10/LICITACION-DA-No.-222-IGSS-2023-IGSS.pdf",
+      "page": 2,
+      "page_end": null,
+      "chunk_id": "d41480e5b0ce4c16bf18f66225ada2dc:00013",
+      "version_ingesta": 1,
+      "version_oficial": "Modificación Número 1",
+      "cita": "por única vez, prórroga para adjudicar la cual podrá ser por el mismo plazo o menor. (Artículos 33 de la LEY y 21 del REGLAMENTO)."
+    }
+  ],
+  "abstained": false,
+  "tool_used": "buscar_documentos",
+  "needs_human_review": false,
+  "evento_id": "222-IGSS-2023",
+  "coverage_status": "parcial",
+  "warnings": [
+    "cobertura_incompleta: d41480e5b0ce4c16bf18f66225ada2dc páginas no indexadas 3, 4",
+    "evento_con_modificaciones: 03791a3471c04c0f9cc260814564756e"
+  ],
+  "needs_clarification": false,
+  "clarification_question": null
+}

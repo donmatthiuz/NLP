@@ -1,0 +1,15 @@
+{
+  "answer": "No hay información suficiente en los documentos para responder",
+  "sources": [],
+  "abstained": true,
+  "tool_used": "buscar_documentos",
+  "needs_human_review": false,
+  "evento_id": "222-IGSS-2023",
+  "coverage_status": "parcial",
+  "warnings": [
+    "cobertura_incompleta: d41480e5b0ce4c16bf18f66225ada2dc páginas no indexadas 3, 4",
+    "evento_con_modificaciones: 03791a3471c04c0f9cc260814564756e"
+  ],
+  "needs_clarification": false,
+  "clarification_question": null
+}
