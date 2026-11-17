@@ -1,17 +1,20 @@
 """Lista de verificación: modelos y propuesta determinista; este módulo no escribe nada."""
 
+import re
 import time
+import unicodedata
 from typing import Literal
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StrictBool, model_validator
 
 from .entrada import normalizar
 from .esquemas import Categoria, Fuente, RespuestaEstructurada, TextoNoVacio
-from .herramientas import ResultadoHerramienta
+from .esquemas import ExtraerRequisitosParams
+from .herramientas import ResultadoHerramienta, extraer_requisitos
 from .lectura import fuente_desde_fragmento
-from .orquestador import _Ejecucion, _abstencion, _atributo_seguro, _ejecutar, _registrar
+from .orquestador import _RecuperadorObservado, _abstencion, _atributo_seguro, _registrar
 from .preguntas_jev import ACTIVIDADES_CRONOGRAMA
-from .presupuesto import Presupuesto
+from .validacion import _original, normalizar_cita
 
 AVISO_LISTA = ("Los estados de la lista no certifican cumplimiento; la ausencia en los documentos cargados "
                "no prueba que no exista en el expediente.")
@@ -27,7 +30,13 @@ ETIQUETAS_ACTIVIDAD = {
     "adjudicacion": "Adjudicación",
 }
 ETIQUETAS_FECHA = frozenset({*ETIQUETAS_ACTIVIDAD.values(), FECHA_SIN_VERIFICAR})
-MOTIVO_REVISION_RESPUESTA = "La respuesta requiere revisión humana"
+MOTIVO_REVISION_RESPUESTA = "Hay un posible conflicto entre documentos; requiere revisión humana"
+MAX_TRAMO = 300
+MIN_TRAMO_ORACION = 40
+LARGO_MINIMO_CITA = 10
+# Columnas intercaladas por la extracción del PDF: tres o más espacios entre dos textos.
+SEPARACION_COLUMNAS = re.compile(r"(?<=\S) {3,}(?=\S)")
+FIN_ORACION = re.compile(r"[.!?;:](?=\s|$)")
 MOTIVO_FECHAS_DISTINTAS = "Las fuentes difieren; el sistema no decide cuál está vigente"
 
 Caracter = Literal["fundamental", "no_fundamental", "no_indicado"]
@@ -113,25 +122,58 @@ def huella(evento_id: str, item: ItemPropuesto) -> tuple[str, str, str]:
     return evento_id, item.fuentes[0].chunk_id, item.descripcion
 
 
-def proponer_items(respuesta: RespuestaEstructurada, resultado: ResultadoHerramienta) -> list[ItemPropuesto]:
-    """Función pura: los ítems salen de sources (ya validadas) y de las fechas literales, nunca de answer."""
-    if respuesta.tool_used != "extraer_requisitos" or respuesta.abstained or respuesta.needs_clarification:
-        return []
+def _recortar(tramo: str) -> str:
+    """Hasta MAX_TRAMO caracteres, en el último fin de oración (si deja un tramo razonable) o de palabra."""
+    if len(tramo) <= MAX_TRAMO:
+        return tramo
+    ventana = tramo[:MAX_TRAMO + 1]
+    fines = [m.end() for m in FIN_ORACION.finditer(ventana[:MAX_TRAMO]) if m.end() >= MIN_TRAMO_ORACION]
+    if fines:
+        return ventana[:fines[-1]]
+    return ventana[:ventana.rfind(" ", 0, MAX_TRAMO + 1)] if " " in ventana else ventana[:MAX_TRAMO]
+
+
+def tramo_literal(texto: str) -> str | None:
+    """Primer tramo legible del fragmento con los espacios colapsados; es subcadena del texto, nada se genera."""
+    bloque = re.split(r"\n\s*\n", texto.strip(), maxsplit=1)[0]
+    if SEPARACION_COLUMNAS.search(texto):
+        lineas = [linea.strip() for linea in texto.splitlines() if linea.strip()]
+        # Sin una línea libre de columnas, la primera columna de la primera línea.
+        limpia = next((l for l in lineas if not SEPARACION_COLUMNAS.search(l)), None)
+        bloque = limpia if limpia is not None else (SEPARACION_COLUMNAS.split(lineas[0])[0] if lineas else "")
+    tramo = " ".join(bloque.split())
+    return _recortar(tramo) if tramo else None
+
+
+def _cita_valida(fragmento, cita: str) -> bool:
+    """Las mismas comprobaciones con las que guardar revalida una cita contra su fragmento."""
+    literal = normalizar_cita(cita)
+    if len(literal) < LARGO_MINIMO_CITA or sum(c.isalnum() for c in literal) < LARGO_MINIMO_CITA:
+        return False
+    return _original(fragmento.texto, literal, True) == unicodedata.normalize("NFC", " ".join(cita.split()))
+
+
+def proponer_items(resultado: ResultadoHerramienta, evento_id: str) -> list[ItemPropuesto]:
+    """Función pura y sin LLM: un tramo literal por fragmento con categoría, más las fechas literales."""
     fragmentos = {f.chunk_id: f for f in resultado.fragmentos}
     items, vistos = [], set()
 
     def agregar(item: ItemPropuesto) -> None:
-        if huella(respuesta.evento_id, item) not in vistos:
-            vistos.add(huella(respuesta.evento_id, item))
+        if huella(evento_id, item) not in vistos:
+            vistos.add(huella(evento_id, item))
             items.append(item)
 
-    for fuente in respuesta.sources:
-        fragmento = fragmentos.get(fuente.chunk_id)
-        revisar = respuesta.needs_human_review
+    revisar = resultado.needs_human_review
+    for fragmento in resultado.fragmentos:
+        categoria = resultado.categorias.get(fragmento.chunk_id)
+        if categoria is None:
+            continue
+        cita = tramo_literal(fragmento.texto)
+        if cita is None or not _cita_valida(fragmento, cita):
+            continue
         agregar(ItemPropuesto(
-            tipo="requisito", categoria=resultado.categorias.get(fuente.chunk_id),
-            caracter=caracter_de_seccion(fragmento.seccion if fragmento else None),
-            descripcion=fuente.cita, fuentes=[fuente], requiere_revision=revisar,
+            tipo="requisito", categoria=categoria, caracter=caracter_de_seccion(fragmento.seccion),
+            descripcion=cita, fuentes=[fuente_desde_fragmento(fragmento, cita)], requiere_revision=revisar,
             motivo_revision=MOTIVO_REVISION_RESPUESTA if revisar else None))
 
     distintas = {a.removeprefix("fechas_distintas: ") for a in resultado.warnings
@@ -152,28 +194,46 @@ def proponer_items(respuesta: RespuestaEstructurada, resultado: ResultadoHerrami
     return items
 
 
-def proponer_lista(ctx, evento_id, categoria=None, *, recuperador, generador, cliente_jev=None,
+def _respuesta_de_lista(evento_id: str, resultado: ResultadoHerramienta, items: list[ItemPropuesto]):
+    fuentes = list({(i.fuentes[0].chunk_id, i.fuentes[0].cita): i.fuentes[0] for i in items}.values())
+    return RespuestaEstructurada(
+        answer=f"Propuesta de {len(items)} ítems tomados literalmente de los documentos del evento.",
+        sources=fuentes, abstained=False, tool_used="extraer_requisitos",
+        needs_human_review=resultado.needs_human_review, evento_id=evento_id,
+        coverage_status=resultado.coverage_status, warnings=resultado.warnings)
+
+
+def proponer_lista(ctx, evento_id, categoria=None, *, recuperador, cliente_jev=None,
                    auditar=lambda evento: None) -> PropuestaLista:
-    """Acción del usuario, sin enrutador: ejecuta extraer_requisitos con una pregunta fija y no escribe nada."""
+    """Acción del usuario, sin enrutador ni LLM: ejecuta extraer_requisitos con una pregunta fija y no escribe nada."""
     inicio = time.monotonic()
     usuario, tenant_id = _atributo_seguro(ctx, "usuario"), _atributo_seguro(ctx, "tenant_id")
     evento_salida = evento_id if isinstance(evento_id, str) and evento_id.strip() else "sin_evento"
-    respuesta = _abstencion(evento_salida)
-    ejecucion, items, error = _Ejecucion(), [], None
+    respuesta = _abstencion(evento_salida, herramienta="extraer_requisitos")
+    resultado, items, error = None, [], None
     try:
         if evento_salida != evento_id:
             error = "parametros_invalidos"
         else:
             pregunta = f"Requisitos {categoria} y fechas del evento" if categoria else "Requisitos y fechas del evento"
-            respuesta = _ejecutar(ctx, evento_id, evento_salida, pregunta, "extraer_requisitos", Presupuesto(),
-                                  recuperador=recuperador, generador=generador, cliente_jev=cliente_jev,
-                                  ejecucion=ejecucion, categoria=categoria)
-            error = ejecucion.error
-            items = proponer_items(respuesta, ejecucion.resultado) if ejecucion.resultado else []
+            observado = _RecuperadorObservado(recuperador, evento_id)
+            resultado = extraer_requisitos(
+                ctx, ExtraerRequisitosParams(evento_id=evento_id, categoria=categoria, pregunta=pregunta),
+                observado, cliente_jev=cliente_jev)
+            error = resultado.error
+            if observado.evento_distinto or resultado.evento_id != evento_id:
+                error = "evento_distinto"
+                respuesta = _abstencion(evento_salida, resultado, "citas_no_validas")
+            elif resultado.abstener:
+                respuesta = _abstencion(evento_salida, resultado)
+            else:
+                items = proponer_items(resultado, evento_id)
+                respuesta = _respuesta_de_lista(evento_salida, resultado, items) if items else _abstencion(
+                    evento_salida, resultado)
     except Exception:
         error, items = "falla_consulta", []
-        respuesta = _abstencion(evento_salida, ejecucion.resultado, herramienta="extraer_requisitos")
+        respuesta = _abstencion(evento_salida, resultado, herramienta="extraer_requisitos")
     finally:
         _registrar(auditar, usuario, tenant_id, evento_salida, {"accion": "proponer_lista"}, respuesta,
-                   ejecucion.fragmentos, ejecucion.validacion, inicio, error, generador)
+                   resultado.fragmentos if resultado else [], "no_aplica", inicio, error, None)
     return PropuestaLista(evento_id=evento_salida, respuesta=respuesta, items=items)

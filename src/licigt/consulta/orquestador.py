@@ -108,6 +108,7 @@ class _Ejecucion:
     def __init__(self):
         self.resultado, self.fragmentos, self.error, self.validacion = None, [], None, "no_aplica"
         self.citas_jev, self.datos_descartados, self.datos_desde_cita = None, 0, 0
+        self.afirmaciones_descartadas = 0
 
 
 def _ejecutar(ctx, evento_id, evento_salida, pregunta, herramienta, presupuesto, *, recuperador,
@@ -208,6 +209,14 @@ def _ejecutar(ctx, evento_id, evento_salida, pregunta, herramienta, presupuesto,
                 return respuesta
             validacion = "fallida"
             if intento:
+                parcial = None if cortada else _publicacion_parcial(
+                    crudo, verificada, evidencia, resultado, evento_id=evento_id, conflictos=conflictos)
+                if parcial:
+                    respuesta, ejecucion.afirmaciones_descartadas = parcial
+                    validacion = "parcial"
+                    if citas_activas():
+                        respuesta, ejecucion.citas_jev = aplicar_citas(respuesta, fragmentos, cliente_jev)
+                    return respuesta
                 break
             try:
                 presupuesto.usar_regeneracion()
@@ -246,6 +255,38 @@ def _ejecutar(ctx, evento_id, evento_salida, pregunta, herramienta, presupuesto,
         ejecucion.error, ejecucion.validacion = error, validacion
 
 
+def _publicacion_parcial(crudo, errores, evidencia, resultado, *, evento_id, conflictos):
+    """Descarta las afirmaciones con error propio y revalida el resto; (respuesta, descartadas) o None.
+
+    Un error de toda la salida (esquema, JSON, evento, segunda fuente de un conflicto) no es descartable: None.
+    Si tras descartar falta un documento del grupo en conflicto, validar lo devuelve como falta_segunda_fuente."""
+    try:
+        salida = json.loads(crudo)
+        afirmaciones = salida["afirmaciones"]
+        if not isinstance(afirmaciones, list):
+            return None
+    except (TypeError, ValueError, KeyError):
+        return None
+    descartadas = 0
+    for _ in range(len(afirmaciones)):
+        malas = {e.afirmacion for e in errores}
+        if None in malas or not all(isinstance(m, int) and 1 <= m <= len(afirmaciones) for m in malas):
+            return None
+        afirmaciones = [a for i, a in enumerate(afirmaciones, 1) if i not in malas]
+        descartadas += len(malas)
+        if not afirmaciones:
+            return None
+        verificada = validar(json.dumps({**salida, "afirmaciones": afirmaciones}, ensure_ascii=False),
+                             evidencia, resultado, evento_id=evento_id, conflictos=conflictos)
+        if isinstance(verificada, RespuestaEstructurada):
+            if verificada.abstained:
+                return None
+            avisos = [*verificada.warnings, f"afirmaciones_descartadas: {descartadas}"]
+            return verificada.model_copy(update={"warnings": avisos, "coverage_status": "parcial"}), descartadas
+        errores = verificada
+    return None
+
+
 def _desajustes(crudo, errores):
     """Datos y marcadores de cada afirmación con texto_invalido, para decirle al modelo qué no cuadra; sin texto."""
     try:
@@ -269,7 +310,7 @@ def _desajustes(crudo, errores):
 
 def _registrar(auditar, usuario, tenant_id, evento_salida, intencion, respuesta, fragmentos,
                validacion, inicio, error, generador, citas_jev=None, jev_sustituida=None, datos_descartados=0,
-               datos_desde_cita=0):
+               datos_desde_cita=0, afirmaciones_descartadas=0):
     """Evento de auditoría de una consulta; si el registro falla, la respuesta no cambia."""
     try:
         auditar({
@@ -286,6 +327,7 @@ def _registrar(auditar, usuario, tenant_id, evento_salida, intencion, respuesta,
             **({"herramienta_jev_sustituida": jev_sustituida} if jev_sustituida else {}),
             **({"datos_descartados": datos_descartados} if datos_descartados else {}),
             **({"datos_desde_cita": datos_desde_cita} if datos_desde_cita else {}),
+            **({"afirmaciones_descartadas": afirmaciones_descartadas} if afirmaciones_descartadas else {}),
         })
     except Exception:
         pass
@@ -301,6 +343,7 @@ def consultar(ctx, evento_id, pregunta, *, enrutador, recuperador, generador,
     respuesta = _abstencion(evento_salida)
     resultado, herramienta, error, citas_jev = None, None, None, None
     jev_sustituida, datos_descartados, datos_desde_cita = None, 0, 0
+    afirmaciones_descartadas = 0
     fragmentos = []
     intencion = None
     validacion = "no_aplica"
@@ -334,6 +377,7 @@ def consultar(ctx, evento_id, pregunta, *, enrutador, recuperador, generador,
             error, validacion = ejecucion.error or error, ejecucion.validacion
             citas_jev, datos_descartados = ejecucion.citas_jev, ejecucion.datos_descartados
             datos_desde_cita = ejecucion.datos_desde_cita
+            afirmaciones_descartadas = ejecucion.afirmaciones_descartadas
     except LimiteAgotado:
         error = "presupuesto_agotado"
         respuesta = _abstencion(evento_salida, resultado, "citas_no_validas", herramienta)
@@ -349,4 +393,4 @@ def consultar(ctx, evento_id, pregunta, *, enrutador, recuperador, generador,
     finally:
         _registrar(auditar, usuario, tenant_id, evento_salida, intencion, respuesta, fragmentos,
                    validacion, inicio, error, generador, citas_jev, jev_sustituida, datos_descartados,
-                   datos_desde_cita)
+                   datos_desde_cita, afirmaciones_descartadas)

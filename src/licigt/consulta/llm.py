@@ -63,10 +63,11 @@ class ClienteGeneradorOpenAI:
             raise FallaGenerador("api") from None
 
     def generar(self, mensajes: list[dict], esquema: dict, semilla_extra: int = 0) -> str:
-        """semilla_extra se suma a la semilla de la configuración: la regeneración la usa para no repetir la salida."""
+        """semilla_extra > 0 marca la regeneración: suma a la semilla y sube la temperatura para no repetir la salida."""
         if self.perfil == "openai":
             esquema = _esquema_openai(esquema)
-        argumentos = dict(model=self.config.modelo, messages=mensajes, temperature=0,
+        argumentos = dict(model=self.config.modelo, messages=mensajes,
+                          temperature=self.config.temperatura_regeneracion if semilla_extra else 0,
                           seed=self.config.semilla + semilla_extra, max_tokens=self.config.max_tokens,
                           response_format={"type": "json_schema", "json_schema": {
                               "name": "salida_licigt", "schema": esquema, "strict": True}})

@@ -106,6 +106,16 @@ class LlmTests(unittest.TestCase):
         self.assertEqual(fallo.exception.codigo, "respuesta_cortada")
         self.assertNotIn("abstener", str(fallo.exception))
 
+    def test_c14_temperatura_de_regeneracion_configurable(self):
+        with patch.dict(os.environ, {}, clear=True):
+            obtener_configuracion_llm.cache_clear()
+            self.assertEqual(obtener_configuracion_llm().temperatura_regeneracion, 0.3)
+        with patch.dict(os.environ, {"LICIGT_LLM_TEMPERATURA_REGENERACION": "0.5"}, clear=True):
+            obtener_configuracion_llm.cache_clear()
+            self.assertEqual(obtener_configuracion_llm().temperatura_regeneracion, 0.5)
+        with self.assertRaises(ValidationError):
+            ConfiguracionLlm(temperatura_regeneracion=-1)
+
     def test_c9_semilla_extra_cambia_la_semilla_enviada(self):
         sdk, crear = sdk_falso()
         with patch.dict(sys.modules, {"openai": sdk}):

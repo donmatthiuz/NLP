@@ -19,7 +19,7 @@ from licigt.consulta.lista_escritura import (
 from licigt.consulta.orquestador import consultar
 from licigt.consulta.tests.test_lista import (
     CITA_FUND, CITA_NOFUND, FECHA_BASES, FECHA_MOD, FUNDAMENTAL, NO_FUNDAMENTAL, fecha, fragmento, fuente,
-    proponer_items, respuesta, resultado,
+    proponer_items, resultado,
 )
 from licigt.consulta.tests.test_orquestador import GeneradorFalso, RecuperadorFalso
 from datetime import date
@@ -41,9 +41,8 @@ class LectorFalso:
 def propuesta():
     fechas = [fecha(FECHA_BASES, "31 de julio de 2023", date(2023, 7, 31), "recepcion_ofertas", "verificada")]
     return proponer_items(
-        respuesta([fuente(FUNDAMENTAL, CITA_FUND), fuente(NO_FUNDAMENTAL, CITA_NOFUND)]),
         resultado([FUNDAMENTAL, NO_FUNDAMENTAL, FECHA_BASES], fechas=fechas,
-                  categorias={"c-fund": "legal", "c-nofund": "administrativa"}))
+                  categorias={"c-fund": "legal", "c-nofund": "administrativa"}), "222")
 
 
 CONFIRMADO = Confirmacion(confirmado=True)

@@ -49,6 +49,8 @@ class ConfiguracionLlm(BaseModel):
     tiempo_espera: float = Field(default=20, gt=0)
     max_tokens: int = Field(default=3072, gt=0)
     semilla: int = Field(default=42, ge=-(2**63), le=2**63 - 1)
+    # Solo la regeneración: a temperatura 0 la semilla no influye y la salida se repite byte a byte.
+    temperatura_regeneracion: float = Field(default=0.3, ge=0, le=2)
     max_caracteres_evidencia: int = Field(default=36000, gt=0)
 
     @model_validator(mode="before")
@@ -63,6 +65,7 @@ VARIABLES_LLM = {
     "perfil": "LICIGT_LLM", "url": "LICIGT_LLM_URL", "modelo": "LICIGT_LLM_MODELO",
     "archivo_clave": "LICIGT_LLM_API_KEY_FILE", "tiempo_espera": "LICIGT_LLM_TIEMPO_ESPERA",
     "max_tokens": "LICIGT_LLM_MAX_TOKENS", "semilla": "LICIGT_LLM_SEMILLA",
+    "temperatura_regeneracion": "LICIGT_LLM_TEMPERATURA_REGENERACION",
     "max_caracteres_evidencia": "LICIGT_LLM_MAX_CARACTERES_EVIDENCIA",
 }
 

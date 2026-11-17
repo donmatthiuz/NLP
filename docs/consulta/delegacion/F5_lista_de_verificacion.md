@@ -1,5 +1,7 @@
 # Encargo F5: lista de verificación con confirmación explícita
 
+**Actualizado el 17 de noviembre por [C14](C14_lista_sin_llm_y_publicacion_parcial.md):** la propuesta ya no usa el LLM. `proponer_items(resultado, evento_id)` toma tramos literales de los fragmentos recuperados (seleccionar, no generar), por decisión del usuario.
+
 Para Codex u OpenCode. Rama `rol/consulta`. Abre el agente con `make codex` o `make opencode`. El gestor audita el resultado y el agente `adversario` intenta refutarlo; no commitees.
 
 ## Decisiones para el visto bueno del usuario
