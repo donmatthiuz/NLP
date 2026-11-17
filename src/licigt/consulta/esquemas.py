@@ -8,6 +8,8 @@ NombreHerramienta = Literal["buscar_documentos", "extraer_requisitos", "comparar
 TipoDocumento = Literal["bases", "anexo", "aclaracion", "modificacion"]
 Categoria = Literal["administrativa", "legal", "tecnica", "financiera"]
 TEXTO_ABSTENCION = "No hay información suficiente en los documentos para responder"
+TEXTO_ACLARACION_FECHA = "¿A qué fecha o plazo se refiere? Por ejemplo: recepción de ofertas, apertura de plicas o adjudicación."
+TEXTO_ACLARACION = "¿Puede indicar a qué actividad o documento del evento se refiere?"
 
 TextoNoVacio = Annotated[str, StringConstraints(min_length=1, pattern=r"\S")]
 TextoRecortado = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)]
@@ -47,10 +49,18 @@ class RespuestaEstructurada(BaseModel):
     evento_id: TextoNoVacio
     coverage_status: Literal["parcial", "sin_faltantes_detectados"]
     warnings: list[TextoNoVacio] = Field(default_factory=list)
+    needs_clarification: StrictBool = False
+    clarification_question: TextoNoVacio | None = None
 
     @model_validator(mode="after")
     def validar_evidencia(self) -> "RespuestaEstructurada":
-        if not self.abstained and not self.sources:
+        if self.needs_clarification:
+            if (self.abstained or self.clarification_question is None
+                    or self.answer != self.clarification_question or self.tool_used is not None):
+                raise ValueError("La aclaración requiere su pregunta como respuesta, sin abstención ni herramienta")
+        elif self.clarification_question is not None:
+            raise ValueError("Sin aclaración no puede haber pregunta aclaratoria")
+        if not self.abstained and not self.needs_clarification and not self.sources:
             raise ValueError("Una respuesta sin abstención requiere al menos una fuente")
         if self.abstained and self.answer != TEXTO_ABSTENCION:
             raise ValueError("La abstención requiere el texto fijo del contrato")

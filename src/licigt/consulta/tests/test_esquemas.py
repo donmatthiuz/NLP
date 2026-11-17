@@ -24,6 +24,30 @@ def datos_respuesta(**cambios):
 
 
 class EsquemasTests(unittest.TestCase):
+    def test_aclaracion_valida_sin_fuentes(self):
+        from licigt.consulta.esquemas import TEXTO_ACLARACION_FECHA
+        respuesta = RespuestaEstructurada(**datos_respuesta(
+            answer=TEXTO_ACLARACION_FECHA, sources=[], tool_used=None,
+            needs_clarification=True, clarification_question=TEXTO_ACLARACION_FECHA))
+        self.assertFalse(respuesta.abstained)
+        self.assertTrue(respuesta.needs_clarification)
+
+    def test_aclaracion_inconsistente_falla(self):
+        datos = datos_respuesta(answer="¿Qué actividad?", sources=[], tool_used=None,
+                                needs_clarification=True, clarification_question="¿Qué actividad?")
+        for cambios in ({"abstained": True}, {"clarification_question": None},
+                        {"clarification_question": " "}, {"answer": "Otro texto"},
+                        {"tool_used": "buscar_documentos"}, {"needs_clarification": "true"}):
+            with self.subTest(cambios=cambios), self.assertRaises(ValidationError):
+                RespuestaEstructurada(**dict(datos, **cambios))
+
+    def test_sin_aclaracion_no_admite_pregunta(self):
+        with self.assertRaises(ValidationError):
+            RespuestaEstructurada(**datos_respuesta(clarification_question="¿Cuál?"))
+        respuesta = RespuestaEstructurada(**datos_respuesta())
+        self.assertFalse(respuesta.needs_clarification)
+        self.assertIsNone(respuesta.clarification_question)
+
     def test_respuesta_valida(self):
         respuesta = RespuestaEstructurada.model_validate(datos_respuesta())
         self.assertEqual(respuesta.sources[0].chunk_id, "bases-p2")
