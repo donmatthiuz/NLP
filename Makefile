@@ -14,6 +14,12 @@ LICIGT_DB_PORT ?= 5432
 LICIGT_DB_NAME ?= licigt
 LICIGT_DB_USER ?= licigt
 LICIGT_DB_PASSWORD_FILE ?= keys/database/dev.password
+LICIGT_JEV_API_KEY_FILE ?= keys/jev/api.key
+# Exportar las opciones definidas; las ausentes conservan los valores de config.py.
+VARIABLES_JEV := LICIGT_JEV_API_KEY_FILE LICIGT_JEV_MODELO LICIGT_JEV_REINTENTOS \
+                 LICIGT_JEV_TIEMPO_ESPERA LICIGT_JEV_ESPERA_REINTENTO \
+                 LICIGT_JEV_MAX_SOLICITUDES_SEG LICIGT_JEV_ESPERA_FRECUENCIA
+export $(foreach variable,$(VARIABLES_JEV),$(if $(filter undefined,$(origin $(variable))),,$(variable)))
 # Caché de modelos dentro del proyecto, como ruta absoluta.
 export HF_HOME := $(abspath $(HF_HOME))
 
@@ -24,10 +30,11 @@ WITH_DB = LICIGT_DB_URL="postgresql://$(LICIGT_DB_USER):$$(tr -d '\r\n' < $(LICI
 EVENTO ?= 222-IGSS-2023
 
 .PHONY: help setup env-init keys-init keys-status key-set db-up db-down db-password-sync \
-        importar buscar models-status claude opencode codex test-consulta test-ingesta test-recuperacion
+        importar buscar models-status claude opencode codex test-consulta test-ingesta test-recuperacion \
+        diagramas llm-descargar llm-servidor llm-estado deps-consulta sondeo-jev
 
 help: ## Muestra esta ayuda
-	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
+	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(firstword $(MAKEFILE_LIST)) \
 		| awk 'BEGIN {FS = ":.*?## "}; {printf "%s\n\t%s\n", $$1, $$2}'
 
 setup: env-init keys-init ## Deja listo un clon: .env, llaves generadas o vacías para llenar
@@ -72,8 +79,30 @@ buscar: ## Búsqueda de prueba. Uso: make buscar Q="fecha de recepción de ofert
 
 models-status: ## Lista los modelos descargados en models/ con su revisión exacta
 	@shopt -s nullglob; found=0; for d in "$(HF_HOME)"/hub/models--*; do \
-		found=1; printf '%s\t%s\n' "$$(basename "$$d" | sed 's/^models--//; s/--/\//')" "$$(cat "$$d/refs/main" 2>/dev/null || echo sin-revision)"; \
+		found=1; nombre="$$(basename "$$d" | sed 's/^models--//; s/--/\//')"; \
+		for s in "$$d"/snapshots/*; do \
+			printf '%s\t%s\n' "$$nombre" "$$(basename "$$s")"; \
+		done; \
 	done; [ $$found = 1 ] || printf 'sin modelos en %s\n' "$(HF_HOME)"
+
+# --- LLM generador (rol 3) -------------------------------------------------------
+
+llm-descargar: ## Descarga llama.cpp b12441 y el GGUF del LLM a tools/ y models/ (unos 6 GB)
+	@bash scripts/llm.sh descargar
+
+llm-servidor: ## Arranca llama-server con el LLM local en 127.0.0.1 (en primer plano)
+	@bash scripts/llm.sh servidor
+
+llm-estado: ## Muestra el estado del binario, el modelo, la VRAM y el servidor
+	@bash scripts/llm.sh estado
+
+# --- Consulta (rol 3) -----------------------------------------------------------
+
+deps-consulta: ## Instala las dependencias del rol 3, incluido el SDK de JEV
+	@$(PYTHON) -m pip install -r src/licigt/consulta/requirements.txt
+
+sondeo-jev: ## Vista previa del sondeo de JEV; CONFIRMAR=1 autoriza el envío
+	@PYTHONPATH=src $(PYTHON) -m licigt.consulta.sondeo_jev $(if $(filter 1,$(CONFIRMAR)),--confirmar-envio)
 
 # --- Agentes con los MCP del proyecto -------------------------------------------
 
@@ -96,3 +125,8 @@ test-ingesta: ## Pruebas del rol 1
 
 test-recuperacion: ## Pruebas del rol 2 (las de integración requieren make db-up e importar)
 	@$(WITH_DB) PYTHONPATH=src $(PYTHON) -m unittest discover -s src/licigt/recuperacion/tests -v
+
+# --- Diagramas ---------------------------------------------------------------------
+
+diagramas: ## Exporta los diagramas HTML a PNG con Chrome
+	@bash scripts/exportar_diagramas.sh

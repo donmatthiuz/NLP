@@ -10,6 +10,8 @@ keys/
     api.key           clave de TypeSafe para JEV (rol 3)
   database/
     dev.password      contraseña de Postgres de desarrollo; la genera make keys-init    
+  llm/
+    openai.key        # opcional: solo si LICIGT_LLM=openai (máquinas sin GPU)    
 ```
 
 ## Uso

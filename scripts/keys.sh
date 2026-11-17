@@ -4,7 +4,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-EXPECTED=(keys/mcp/context7.token keys/jev/api.key keys/database/dev.password)
+EXPECTED=(keys/mcp/context7.token keys/jev/api.key keys/llm/openai.key keys/database/dev.password)
 # Secretos propios del proyecto: se generan al azar en la máquina que los usa.
 # Los demás vienen de un proveedor y se pegan con make key-set.
 GENERATED='^keys/database/[a-z-]+\.password$'

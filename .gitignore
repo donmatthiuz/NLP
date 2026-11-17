@@ -221,4 +221,5 @@ __marimo__/
 # LiciGT: secretos locales y caché de modelos
 # keys/ tiene su propio .gitignore (lista de permitidos)
 models/
+tools/
 .claude/settings.local.json
