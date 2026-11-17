@@ -57,3 +57,20 @@ export interface PropuestaLista {
   respuesta: RespuestaEstructurada
   items: ItemPropuesto[]
 }
+
+// Copia a mano de DocumentoEvento y DocumentosEvento: src/licigt/consulta/api.py
+export interface DocumentoEvento {
+  doc_id: string
+  tipo_documento: string
+  version_oficial: string | null
+  version_ingesta: number
+  estado: string
+  paginas_total: number | null
+  paginas_no_indexadas: number[]
+  advertencias: string[]
+}
+
+export interface DocumentosEvento {
+  evento_id: string
+  documentos: DocumentoEvento[]
+}

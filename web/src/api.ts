@@ -1,4 +1,4 @@
-import type { EstadoItem, ItemLista, ItemPropuesto, PropuestaLista, RespuestaEstructurada } from './tipos'
+import type { DocumentosEvento, EstadoItem, ItemLista, ItemPropuesto, PropuestaLista, RespuestaEstructurada } from './tipos'
 
 export interface ResultadoApi {
   respuesta: RespuestaEstructurada
@@ -25,6 +25,18 @@ export async function consultarApi(eventoId: string, pregunta: string): Promise<
     respuesta: (await res.json()) as RespuestaEstructurada,
     sinAutenticacion: res.headers.get('X-LiciGT-Autenticacion') === 'ninguna-demo',
   }
+}
+
+// Solo lectura; sin tenant_id: sale de la sesión del servidor.
+export async function documentosApi(eventoId: string): Promise<DocumentosEvento> {
+  let res: Response
+  try {
+    res = await fetch(`/api/eventos/${encodeURIComponent(eventoId)}/documentos`)
+  } catch {
+    throw new ErrorConsulta('La API no respondió')
+  }
+  if (!res.ok) throw new ErrorConsulta(`La API devolvió un error (${res.status})`)
+  return (await res.json()) as DocumentosEvento
 }
 
 export const MENSAJE_CONFLICTO = 'Otro usuario cambió este ítem. Recargue la lista antes de guardar.'

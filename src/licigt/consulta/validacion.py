@@ -174,6 +174,29 @@ def _original(texto: str, tramo: str, plegar: bool, publicar: str | None = None)
     return " ".join(publicar[indices[inicio]:fin].split())
 
 
+# Fin de una fila de tabla y, tras el salto de línea, inicio de la siguiente.
+CRUCE_DE_FILAS = re.compile(r"\|[ \t]*\r?\n\s*\|")
+# Numeral o literal en la primera celda de una fila de tabla ("2.2.1", "1.", "a)", "f.5)"); el encabezado no lo tiene.
+NUMERAL_FILA = r"(?:\d+(?:\.\d+)*\.?|[A-Za-z]{1,3}(?:\.\d+)?\))"
+FILA_DE_DATOS = re.compile(r"^\s*\|\s*" + NUMERAL_FILA + r"\s*\|")
+
+
+def _cruza_filas(texto: str, tramo: str) -> bool:
+    """El tramo normalizado abarca, en el texto original, el final de una fila de datos y el inicio de la siguiente.
+
+    El encabezado de la tabla no es una fila de datos: encabezado y primera fila juntos no mezclan dos datos."""
+    texto = unicodedata.normalize("NFC", texto)
+    plano, indices = _mapa(texto, True)
+    inicio = _buscar(plano, tramo)
+    if inicio == -1:
+        return False
+    desde, fin = indices[inicio], indices[inicio + len(tramo) - 1] + 1
+    for cruce in CRUCE_DE_FILAS.finditer(texto, desde, fin):
+        if FILA_DE_DATOS.match(texto[texto.rfind("\n", 0, cruce.start()) + 1:cruce.end()]):
+            return True
+    return False
+
+
 def _prohibido(texto: str) -> bool:
     """Caracteres de formato o letras que no son latinas; el texto ya va en NFKC."""
     return any(unicodedata.category(c) == "Cf" or (c.isalpha() and "LATIN" not in unicodedata.name(c, ""))
@@ -480,6 +503,9 @@ def validar(salida_cruda: str, evidencia: dict[str, FragmentoRecuperado],
                 tramos[i, j] = _original(f.texto, literal, True, original)
                 if tramos[i, j] is None:
                     errores.append(ErrorValidacion(codigo="cita_no_literal", afirmacion=i, cita=j))
+                elif _cruza_filas(f.texto, literal):
+                    # Dos filas unidas en una cita pueden hacer decir a la segunda lo que dice la primera.
+                    errores.append(ErrorValidacion(codigo="cita_cruza_filas", afirmacion=i, cita=j))
     if errores:
         return errores
 

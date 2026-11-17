@@ -321,6 +321,27 @@ class CategoriasTests(unittest.TestCase):
         self.assertEqual(r.categorias, {})
 
 
+class PosibleConflictoTests(unittest.TestCase):
+    """C16 H6: el resultado distingue la alerta posible_conflicto de las demás causas de revisión."""
+
+    def extraer(self, alertas):
+        class Recuperador:
+            def buscar(self, ctx, evento_id, pregunta, variante="mejorada", k=5, conn=None):
+                return {"evento_id": "222", "variante": "mejorada", "suficiente": True,
+                        "fragmentos": [fragmento(chunk_id="a", texto="Constancia.")], "alertas": alertas}
+        return extraer_requisitos(None, ExtraerRequisitosParams(evento_id="222"), Recuperador())
+
+    def test_c16_con_la_alerta_posible_conflicto(self):
+        r = self.extraer([{"tipo": "posible_conflicto", "doc_id": "m", "chunk_ids_afectados": ["a"]}])
+        self.assertTrue(r.posible_conflicto)
+        self.assertTrue(r.needs_human_review)
+
+    def test_c16_sin_alerta_o_con_otra_no_hay_conflicto(self):
+        self.assertFalse(self.extraer([]).posible_conflicto)
+        r = self.extraer([{"tipo": "evento_con_modificaciones", "doc_id": "m"}])
+        self.assertFalse(r.posible_conflicto)
+
+
 class PreguntaEnExtraerTests(unittest.TestCase):
     """C9-D: la pregunta del usuario es la primera consulta, antes de las fijas y del cronograma."""
 

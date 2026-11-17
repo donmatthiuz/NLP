@@ -195,6 +195,24 @@ class OrquestadorTests(unittest.TestCase):
         self.assertNotIn("entrega", repr(self.eventos[0]))
         self.assertEqual(len(generador.llamadas), 2)
 
+    def test_c16_vigencia_en_una_afirmacion_descartada_pide_revision_humana(self):
+        base = salida_222()["afirmaciones"][0]
+        vigente = {"texto": "La fecha de las bases quedó sin efecto.",
+                   "citas": [{"fragmento": "F1", "cita": "la fecha de las bases quedó sin efecto por completo"}],
+                   "datos": []}
+        sin_senal = {"texto": "La fecha de las bases es otra.",
+                     "citas": [{"fragmento": "F1", "cita": "la fecha de las bases es otra por completo"}], "datos": []}
+        for mala, esperado in ((vigente, True), (sin_senal, False)):
+            with self.subTest(esperado=esperado):
+                self.eventos.clear()
+                recuperador = RecuperadorFalso()
+                recuperador.busqueda["fragmentos"] = [DATOS_222[0]]  # solo las bases: sin modificación que escale
+                salida = json.dumps({"abstener": False, "revision_humana": False, "afirmaciones": [base, mala]})
+                r = self.consultar(recuperador=recuperador, generador=GeneradorFalso([salida, salida]))
+                self.assertFalse(r.abstained)
+                self.assertIn("afirmaciones_descartadas: 1", r.warnings)
+                self.assertEqual(r.needs_human_review, esperado)
+
     def test_c14_conflicto_donde_se_descarta_un_lado_abstiene(self):
         salida = salida_222()
         salida["afirmaciones"][1]["citas"][0]["cita"] = "cita que no existe en el fragmento F2"

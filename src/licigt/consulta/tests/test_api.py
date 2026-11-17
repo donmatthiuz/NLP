@@ -263,8 +263,9 @@ if __name__ == "__main__":
 
 class ConexionFalsa:
     """Doble de la conexión del rol 2: guarda las consultas y devuelve una fila según el valor buscado."""
-    def __init__(self, filas):
+    def __init__(self, filas, documentos=()):
         self.filas, self.consultas, self.cerrada = filas, [], False
+        self.documentos = list(documentos)
 
     def transaction(self):
         from contextlib import nullcontext
@@ -272,6 +273,8 @@ class ConexionFalsa:
 
     def execute(self, sql, params=()):
         self.consultas.append((" ".join(sql.split()), params))
+        if "inventario" in sql:
+            return SimpleNamespace(fetchall=lambda: self.documentos)
         tenant, valor = params if len(params) == 2 else (None, None)
         fila = next((f for f in self.filas if f[0] == tenant and valor in f[1:]), None)
         return SimpleNamespace(fetchone=lambda: (fila[1],) if fila else None)
@@ -283,13 +286,20 @@ class ConexionFalsa:
 @unittest.skipIf(TestClient is None, "fastapi no está instalado: ejecuta make deps-consulta")
 class ResolverEventoTests(unittest.TestCase):
     INTERNO = "69099f7184e65924a3e0aebf0ee238de"
+    # (doc_id, tipo_documento, identificador_version_oficial, version_ingesta, status, paginas_no_indexadas,
+    #  paginas_total, warnings), como las devuelve la consulta de la tabla documentos del rol 2.
+    DOCUMENTOS = [
+        ("d-bases", "bases", None, 1, "completo", [], "35", []),
+        ("d-mod", "modificacion", "Modificación Número 1", 1, "requiere_revision", [4], "4",
+         ["Hay páginas incompletas o ilegibles", "Menciona un anexo de 11 hojas que no está cargado"]),
+    ]
 
     def setUp(self):
         self.entorno = patch.dict(os.environ, {}, clear=True)
         self.entorno.start()
         obtener_configuracion_llm.cache_clear()
         self.conn = ConexionFalsa([("empresa_demo", self.INTERNO, "222-IGSS-2023"),
-                                   ("otra_empresa", "ajeno", "999-IGSS-2024")])
+                                   ("otra_empresa", "ajeno", "999-IGSS-2024")], self.DOCUMENTOS)
         self.sesiones = []
         self.recuperador = RecuperadorFalso()
         self.visto = []
@@ -339,12 +349,83 @@ class ResolverEventoTests(unittest.TestCase):
     def test_evento_de_otra_empresa_o_inexistente_da_404(self):
         for valor in ("999-IGSS-2024", "ajeno", "no-existe"):
             for metodo, ruta in (("post", "consultas"), ("post", "lista/propuesta"), ("get", "lista"),
-                                 ("post", "lista"), ("patch", "lista/x")):
+                                 ("post", "lista"), ("patch", "lista/x"), ("get", "documentos")):
                 with self.subTest(valor=valor, ruta=ruta):
                     r = self.cliente.request(metodo.upper(), f"/api/eventos/{valor}/{ruta}", json={"pregunta": "x"})
                     self.assertEqual(r.status_code, 404, r.text)
                     self.assertEqual(r.json(), {"detail": {"codigo": "evento_no_encontrado"}})
         self.assertEqual(self.recuperador.llamadas, [])
+
+    # C16: el valor de la ruta llega a quien llama en la propuesta, el listado y los ítems guardados.
+    def montar_lista(self):
+        pedido = "222-IGSS-2023"
+        interno = self.INTERNO
+
+        class RecuperadorDelEvento(tl.RecuperadorPorConsulta):
+            def buscar(self, *a, **k):
+                return {**super().buscar(*a, **k), "evento_id": interno}
+
+        self.repo = RepositorioMemoria()
+        api.app.dependency_overrides[api.obtener_repositorio] = lambda: self.repo
+        api.app.dependency_overrides[api.obtener_recuperador] = lambda: RecuperadorDelEvento({
+            tl.CONSULTAS_POR_CATEGORIA["legal"]: [tl.FUNDAMENTAL], tl.CONSULTA_CRONOGRAMA: [tl.FECHA_BASES]})
+        api.app.dependency_overrides[api.obtener_cliente_jev] = lambda: None
+        lector = LectorFalso({interno: {f["chunk_id"]: f for f in (tl.FUNDAMENTAL, tl.FECHA_BASES)}})
+        api.app.dependency_overrides[api.obtener_lector] = lambda: lector
+        return f"/api/eventos/{pedido}", pedido
+
+    def test_c16_la_propuesta_el_listado_y_los_items_guardados_llevan_el_valor_de_la_ruta(self):
+        base, pedido = self.montar_lista()
+        p = self.cliente.post(base + "/lista/propuesta", json={"categoria": "legal"})
+        self.assertEqual(p.status_code, 200, p.text)
+        self.assertEqual((p.json()["evento_id"], p.json()["respuesta"]["evento_id"]), (pedido, pedido))
+        guardados = self.cliente.post(base + "/lista", json={"items": p.json()["items"], "confirmado": True})
+        self.assertEqual(guardados.status_code, 200, guardados.text)
+        self.assertEqual({i["evento_id"] for i in guardados.json()}, {pedido})
+        self.assertEqual({i["evento_id"] for i in self.cliente.get(base + "/lista").json()}, {pedido})
+        item = guardados.json()[0]
+        cambio = self.cliente.patch(f"{base}/lista/{item['item_id']}", json={
+            "estado_anterior": "pendiente", "estado_nuevo": "preparado", "confirmado": True})
+        self.assertEqual(cambio.status_code, 200, cambio.text)
+        self.assertEqual(cambio.json()["evento_id"], pedido)
+        # El repositorio sigue con el id interno.
+        self.assertEqual(len(self.repo.items("empresa_demo", self.INTERNO)), len(guardados.json()))
+        self.assertEqual(self.repo.items("empresa_demo", pedido), [])
+
+    def test_c16_la_propuesta_abstenida_tambien_lleva_el_valor_de_la_ruta(self):
+        r = self.cliente.post("/api/eventos/222-IGSS-2023/lista/propuesta")
+        self.assertEqual(r.json()["evento_id"], "222-IGSS-2023")
+        self.assertEqual(r.json()["respuesta"]["evento_id"], "222-IGSS-2023")
+
+    # C16: panel de cobertura del evento.
+    def test_c16_documentos_del_evento_con_lo_que_falta(self):
+        r = self.cliente.get("/api/eventos/222-IGSS-2023/documentos")
+        self.assertEqual(r.status_code, 200, r.text)
+        cuerpo = r.json()
+        self.assertEqual(cuerpo["evento_id"], "222-IGSS-2023")
+        self.assertEqual(cuerpo["documentos"], [
+            {"doc_id": "d-bases", "tipo_documento": "bases", "version_oficial": None, "version_ingesta": 1,
+             "estado": "completo", "paginas_total": 35, "paginas_no_indexadas": [], "advertencias": []},
+            {"doc_id": "d-mod", "tipo_documento": "modificacion", "version_oficial": "Modificación Número 1",
+             "version_ingesta": 1, "estado": "requiere_revision", "paginas_total": 4, "paginas_no_indexadas": [4],
+             "advertencias": ["Hay páginas incompletas o ilegibles",
+                              "Menciona un anexo de 11 hojas que no está cargado"]}])
+
+    def test_c16_documentos_usa_la_sesion_de_la_empresa_y_solo_lee(self):
+        self.cliente.get("/api/eventos/222-IGSS-2023/documentos")
+        self.assertEqual(self.sesiones, [(self.conn, "empresa_demo")] * 2)  # el evento y los documentos
+        sql, params = self.conn.consultas[-1]
+        self.assertTrue(sql.startswith("SELECT"), sql)
+        self.assertNotIn("texto", sql.lower().replace("inventario", ""))
+        self.assertEqual(params, ("empresa_demo", self.INTERNO))
+        self.assertTrue(all(c[0].startswith("SELECT") for c in self.conn.consultas))
+        self.assertTrue(self.conn.cerrada)
+
+    def test_c16_documentos_sin_filas_da_lista_vacia(self):
+        self.conn.documentos.clear()
+        r = self.cliente.get("/api/eventos/222-IGSS-2023/documentos")
+        self.assertEqual(r.json()["documentos"], [])
+
 
     def test_las_rutas_de_lista_reciben_el_id_resuelto(self):
         recibido = {}

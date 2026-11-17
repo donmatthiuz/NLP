@@ -60,6 +60,27 @@ class PropuestaEntrada(BaseModel):
     categoria: Categoria | None = None
 
 
+class DocumentoEvento(BaseModel):
+    """Un documento del evento con su cobertura; sin texto del PDF."""
+    model_config = ConfigDict(extra="forbid")
+
+    doc_id: str
+    tipo_documento: str
+    version_oficial: str | None
+    version_ingesta: int
+    estado: str
+    paginas_total: int | None
+    paginas_no_indexadas: list[int]
+    advertencias: list[str]
+
+
+class DocumentosEvento(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    evento_id: str
+    documentos: list[DocumentoEvento]
+
+
 class GuardarEntrada(_ConConfirmacion):
     items: list[ItemPropuesto]
 
@@ -173,6 +194,37 @@ def consultar_evento(
     return respuesta.model_copy(update={"evento_id": request.path_params["evento_id"]})
 
 
+@app.get("/api/eventos/{evento_id}/documentos", response_model=DocumentosEvento)
+def documentos_del_evento(
+    evento_id: EventoInterno,
+    request: Request,
+    ctx: Annotated[object, Depends(contexto_demo)],
+):
+    """Documentos incorporados al evento y qué información falta; solo lectura de la tabla documentos, por empresa."""
+    conn, sesion = _abrir_conexion_rol2()
+    try:
+        with conn.transaction():
+            sesion(conn, ctx)
+            filas = conn.execute(
+                """SELECT doc_id, tipo_documento, identificador_version_oficial, version_ingesta, status,
+                          paginas_no_indexadas, inventario->'cobertura'->>'paginas_total', inventario->'warnings'
+                   FROM documentos WHERE tenant_id = %s AND evento_id = %s
+                   ORDER BY CASE tipo_documento WHEN 'bases' THEN 0 ELSE 1 END, tipo_documento, version_ingesta""",
+                (ctx.tenant_id, evento_id)).fetchall()
+    finally:
+        conn.close()
+    return DocumentosEvento(evento_id=request.path_params["evento_id"], documentos=[
+        DocumentoEvento(doc_id=d, tipo_documento=t, version_oficial=o, version_ingesta=v, estado=e,
+                        paginas_total=int(total) if total is not None else None,
+                        paginas_no_indexadas=list(sin_indexar or []), advertencias=list(avisos or []))
+        for d, t, o, v, e, sin_indexar, total, avisos in filas])
+
+
+def _con_evento(modelo, pedido: str):
+    """Quien llama recibe el valor que pidió en la ruta; el repositorio y el orquestador siguen con el id interno."""
+    return modelo.model_copy(update={"evento_id": pedido})
+
+
 def _falla_http(falla: FallaLista) -> HTTPException:
     return HTTPException(ESTADO_HTTP.get(falla.codigo, 422), detail={"codigo": falla.codigo})
 
@@ -180,35 +232,42 @@ def _falla_http(falla: FallaLista) -> HTTPException:
 @app.post("/api/eventos/{evento_id}/lista/propuesta", response_model=PropuestaLista)
 def proponer(
     evento_id: EventoInterno,
+    request: Request,
     ctx: Annotated[object, Depends(contexto_demo)],
     recuperador: Annotated[object, Depends(obtener_recuperador)],
     cliente_jev: Annotated[object, Depends(obtener_cliente_jev)],
     entrada: PropuestaEntrada | None = None,
 ):
-    return proponer_lista(ctx, evento_id, entrada.categoria if entrada else None,
-                          recuperador=recuperador, cliente_jev=cliente_jev, auditar=_auditar_lista)
+    propuesta = proponer_lista(ctx, evento_id, entrada.categoria if entrada else None,
+                               recuperador=recuperador, cliente_jev=cliente_jev, auditar=_auditar_lista)
+    pedido = request.path_params["evento_id"]
+    return propuesta.model_copy(update={"evento_id": pedido, "respuesta": _con_evento(propuesta.respuesta, pedido)})
 
 
 @app.get("/api/eventos/{evento_id}/lista", response_model=list[ItemLista])
 def ver_lista(
     evento_id: EventoInterno,
+    request: Request,
     ctx: Annotated[object, Depends(contexto_demo)],
     repositorio: Annotated[object, Depends(obtener_repositorio)],
 ):
-    return listar(ctx, evento_id, repositorio=repositorio)
+    pedido = request.path_params["evento_id"]
+    return [_con_evento(i, pedido) for i in listar(ctx, evento_id, repositorio=repositorio)]
 
 
 @app.post("/api/eventos/{evento_id}/lista", response_model=list[ItemLista])
 def guardar(
     evento_id: EventoInterno,
     entrada: GuardarEntrada,
+    request: Request,
     ctx: Annotated[object, Depends(contexto_demo)],
     repositorio: Annotated[object, Depends(obtener_repositorio)],
     lector: Annotated[object, Depends(obtener_lector)],
 ):
     try:
-        return guardar_items(ctx, evento_id, entrada.items, Confirmacion(confirmado=True),
-                             repositorio=repositorio, lector=lector, auditar=_auditar_lista)
+        guardados = guardar_items(ctx, evento_id, entrada.items, Confirmacion(confirmado=True),
+                                  repositorio=repositorio, lector=lector, auditar=_auditar_lista)
+        return [_con_evento(i, request.path_params["evento_id"]) for i in guardados]
     except FallaLista as falla:
         raise _falla_http(falla)
 
@@ -218,11 +277,13 @@ def cambiar(
     evento_id: EventoInterno,
     item_id: str,
     entrada: CambioEstadoEntrada,
+    request: Request,
     ctx: Annotated[object, Depends(contexto_demo)],
     repositorio: Annotated[object, Depends(obtener_repositorio)],
 ):
     try:
-        return cambiar_estado(ctx, item_id, entrada.estado_anterior, entrada.estado_nuevo,
+        item = cambiar_estado(ctx, item_id, entrada.estado_anterior, entrada.estado_nuevo,
                               Confirmacion(confirmado=True), repositorio=repositorio, auditar=_auditar_lista)
+        return _con_evento(item, request.path_params["evento_id"])
     except FallaLista as falla:
         raise _falla_http(falla)

@@ -14,7 +14,8 @@ from .herramientas import ResultadoHerramienta, extraer_requisitos
 from .lectura import es_tabla, fuente_desde_fragmento
 from .orquestador import _RecuperadorObservado, _abstencion, _atributo_seguro, _registrar
 from .preguntas_jev import ACTIVIDADES_CRONOGRAMA
-from .validacion import _original, normalizar_cita
+from .requisitos import MESES, encontrar_fechas
+from .validacion import NUMERAL_FILA, TIPOS_QUE_ESCALAN, _original, normalizar_cita
 
 AVISO_LISTA = ("Los estados de la lista no certifican cumplimiento; la ausencia en los documentos cargados "
                "no prueba que no exista en el expediente.")
@@ -31,14 +32,26 @@ ETIQUETAS_ACTIVIDAD = {
 }
 ETIQUETAS_FECHA = frozenset({*ETIQUETAS_ACTIVIDAD.values(), FECHA_SIN_VERIFICAR})
 MOTIVO_REVISION_RESPUESTA = "Hay un posible conflicto entre documentos; requiere revisión humana"
+MOTIVO_REVISION_MODIFICACION = "Una modificación o aclaración toca esta sección; requiere revisión humana"
 MAX_TRAMO = 300
+# La fila de una tabla (`título | texto`) cabe entera hasta el máximo de una cita.
+MAX_TRAMO_FILA = 500
 MIN_TRAMO_ORACION = 40
 LARGO_MINIMO_CITA = 10
 # Columnas intercaladas por la extracción del PDF: tres o más espacios entre dos textos.
 SEPARACION_COLUMNAS = re.compile(r"(?<=\S) {3,}(?=\S)")
-FIN_ORACION = re.compile(r"[.!?;:](?=\s|$)")
-# Fila de tabla con numeral o literal en la primera celda ("2.2.1", "1.", "a)", "f.5)"); queda el resto, `título | texto`.
-FILA_CON_NUMERAL = re.compile(r"^\|\s*(?:\d+(?:\.\d+)*\.?|[A-Za-z]{1,3}(?:\.\d+)?\))\s*\|\s*(?P<resto>\S.*?)\s*\|?\s*$")
+# Un ordinal ("7ª.", "1º.") o una abreviatura ("No.", "Art.") no cierran la oración.
+FIN_ORACION = re.compile(r"(?<![ªº])(?<!\bNo)(?<!\bNúm)(?<!\bArts)(?<!\bArt)(?<!\bInc)(?<!\bLit)(?<!\bLic)(?<!\bSr)"
+                         r"(?<!\bDr)(?<!\bAv)[.!?;:](?=\s|$)")
+# Fila con numeral; queda el resto, `título | texto`.
+FILA_CON_NUMERAL = re.compile(r"^\|\s*" + NUMERAL_FILA + r"\s*\|\s*(?P<resto>\S.*?)\s*\|?\s*$")
+INICIO_FILA = re.compile(r"^\s*\|\s*" + NUMERAL_FILA + r"\s*\|\s*")
+# Primer y segundo componente del numeral de una sección ("2.2" de "2.2.6 Recepción").
+NUMERAL_PRINCIPAL = re.compile(r"^\s*(\d{1,2})(?:\.(\d{1,2}))?(?=[\s.]|$)")
+PALABRA_DE_CONTENIDO = re.compile(r"[^\W\d_]{4,}")
+MIN_PALABRAS_CONTENIDO = 4
+MIN_RESTO_DE_FRASE = 40
+MAX_PALABRAS_ENCABEZADO = 10
 MOTIVO_FECHAS_DISTINTAS = "Las fuentes difieren; el sistema no decide cuál está vigente"
 
 Caracter = Literal["fundamental", "no_fundamental", "no_indicado"]
@@ -124,37 +137,93 @@ def huella(evento_id: str, item: ItemPropuesto) -> tuple[str, str, str]:
     return evento_id, item.fuentes[0].chunk_id, item.descripcion
 
 
-def _recortar(tramo: str) -> str:
-    """Hasta MAX_TRAMO caracteres, en el último fin de oración (si deja un tramo razonable) o de palabra."""
-    if len(tramo) <= MAX_TRAMO:
+def _es_dato(palabra: str | None) -> bool:
+    """Una palabra con dígito o nombre de mes: cortar a su lado deja fuera o parte un número o una fecha."""
+    if not palabra:
+        return False
+    return any(c.isdigit() for c in palabra) or normalizar(palabra.strip(".,;:()")) in MESES
+
+
+def _recortar(tramo: str, tope: int = MAX_TRAMO) -> str:
+    """Hasta `tope` caracteres, en el último fin de oración (si deja un tramo razonable) o de palabra.
+
+    Nunca justo antes de un número ni dentro de un dato (un número, una fecha)."""
+    if len(tramo) <= tope:
         return tramo
-    ventana = tramo[:MAX_TRAMO + 1]
-    fines = [m.end() for m in FIN_ORACION.finditer(ventana[:MAX_TRAMO]) if m.end() >= MIN_TRAMO_ORACION]
+    ventana = tramo[:tope + 1]
+    fines = [m.end() for m in FIN_ORACION.finditer(ventana[:tope]) if m.end() >= MIN_TRAMO_ORACION
+             and not _es_dato(next(iter(tramo[m.end():].split()), None))]
     if fines:
         return ventana[:fines[-1]]
-    return ventana[:ventana.rfind(" ", 0, MAX_TRAMO + 1)] if " " in ventana else ventana[:MAX_TRAMO]
+    if " " not in ventana:
+        return ventana[:tope]
+    for corte in range(len(ventana) - 1, 0, -1):
+        if ventana[corte] == " " and not _es_dato(next(iter(tramo[:corte].split()[-1:]), None)) \
+                and not _es_dato(next(iter(tramo[corte:].split()), None)):
+            return ventana[:corte]
+    return ventana[:ventana.rfind(" ", 0, tope + 1)]
 
 
 def tramo_literal(texto: str) -> str | None:
     """Primer tramo legible del fragmento con los espacios colapsados; es subcadena del texto, nada se genera."""
     bloque = re.split(r"\n\s*\n", texto.strip(), maxsplit=1)[0]
     if SEPARACION_COLUMNAS.search(texto):
-        lineas = [linea.strip() for linea in texto.splitlines() if linea.strip()]
-        # Sin una línea libre de columnas, la primera columna de la primera línea.
-        limpia = next((l for l in lineas if not SEPARACION_COLUMNAS.search(l)), None)
-        bloque = limpia if limpia is not None else (SEPARACION_COLUMNAS.split(lineas[0])[0] if lineas else "")
+        lineas = [linea.strip() for linea in texto.splitlines()]
+        # Desde la primera línea libre de columnas, las que siguen seguidas y libres también, hasta una línea en blanco
+        # o con columnas: así la oración no se corta antes de un número que empieza la línea siguiente.
+        inicio = next((i for i, l in enumerate(lineas) if l and not SEPARACION_COLUMNAS.search(l)), None)
+        if inicio is None:
+            primera = next((l for l in lineas if l), "")
+            bloque = SEPARACION_COLUMNAS.split(primera)[0] if primera else ""
+        else:
+            fin = next((i for i in range(inicio, len(lineas))
+                        if not lineas[i] or SEPARACION_COLUMNAS.search(lineas[i])), len(lineas))
+            bloque = " ".join(lineas[inicio:fin])
     tramo = " ".join(bloque.split())
     return _recortar(tramo) if tramo else None
 
 
 def tramos_de_tabla(texto: str) -> list[str]:
-    """Un tramo por fila con numeral: el `título | texto` contiguo de la fila, recortado; el encabezado se salta."""
+    """Un tramo por fila con numeral: el `título | texto` contiguo de la fila, entero hasta 500 caracteres; el encabezado se salta."""
     tramos = []
     for linea in texto.splitlines():
         fila = FILA_CON_NUMERAL.match(linea.strip())
         if fila:
-            tramos.append(_recortar(" ".join(fila["resto"].split())))
+            tramos.append(_recortar(" ".join(fila["resto"].split()), MAX_TRAMO_FILA))
     return tramos
+
+
+def _es_basura(cita: str) -> bool:
+    """Un encabezado en mayúsculas, un resto de frase o un tramo de menos de 4 palabras de contenido no es un requisito."""
+    if len(PALABRA_DE_CONTENIDO.findall(cita)) < MIN_PALABRAS_CONTENIDO:
+        return True
+    letras = [c for c in cita if c.isalpha()]
+    if letras and not any(c.islower() for c in letras) and len(cita.split()) <= MAX_PALABRAS_ENCABEZADO:
+        return True
+    return cita[:1].islower() and len(cita) < MIN_RESTO_DE_FRASE
+
+
+def _numeral_principal(seccion: str | None) -> str | None:
+    """"2.2" de "2.2.6 Recepción" y de "2.2   CRONOGRAMA"; None si la sección no empieza por un numeral."""
+    m = NUMERAL_PRINCIPAL.match(seccion or "")
+    return ".".join(g for g in m.groups() if g) if m else None
+
+
+def _cita_de_fecha(fragmento, literal: str, ocurrencia: int) -> str:
+    """En una tabla, el tramo contiguo de la fila desde el título hasta la fecha; si no, la fecha sola."""
+    texto = fragmento.texto
+    if not es_tabla(texto):
+        return literal
+    posiciones = [p for l, _, p in encontrar_fechas(texto) if l == literal]
+    if ocurrencia >= len(posiciones):
+        return literal
+    fin = posiciones[ocurrencia] + len(literal)
+    fila = texto[texto.rfind("\n", 0, posiciones[ocurrencia]) + 1:fin]
+    inicio = INICIO_FILA.match(fila)
+    cita = " ".join((fila[inicio.end():] if inicio else fila.lstrip(" |")).split())
+    if len(cita) > MAX_TRAMO_FILA:
+        cita = cita[len(cita) - MAX_TRAMO_FILA:].split(" ", 1)[-1]
+    return cita if _cita_valida(fragmento, cita) else literal
 
 
 def _cita_valida(fragmento, cita: str) -> bool:
@@ -175,34 +244,44 @@ def proponer_items(resultado: ResultadoHerramienta, evento_id: str) -> list[Item
             vistos.add(huella(evento_id, item))
             items.append(item)
 
-    revisar = resultado.needs_human_review
+    # Con un conflicto entre documentos se revisa todo; si no, solo las secciones que toca una modificación o aclaración.
+    modificadas = {_numeral_principal(f.seccion) for f in resultado.fragmentos
+                   if f.tipo_documento in TIPOS_QUE_ESCALAN} - {None}
     for fragmento in resultado.fragmentos:
         categoria = resultado.categorias.get(fragmento.chunk_id)
         if categoria is None:
             continue
+        if resultado.posible_conflicto:
+            motivo = MOTIVO_REVISION_RESPUESTA
+        else:
+            motivo = MOTIVO_REVISION_MODIFICACION if _numeral_principal(fragmento.seccion) in modificadas else None
         citas = tramos_de_tabla(fragmento.texto) if es_tabla(fragmento.texto) else [tramo_literal(fragmento.texto)]
         for cita in citas:
-            if cita is None or not _cita_valida(fragmento, cita):
+            if cita is None or _es_basura(cita) or not _cita_valida(fragmento, cita):
                 continue
             agregar(ItemPropuesto(
                 tipo="requisito", categoria=categoria, caracter=caracter_de_seccion(fragmento.seccion),
-                descripcion=cita, fuentes=[fuente_desde_fragmento(fragmento, cita)], requiere_revision=revisar,
-                motivo_revision=MOTIVO_REVISION_RESPUESTA if revisar else None))
+                descripcion=cita, fuentes=[fuente_desde_fragmento(fragmento, cita)],
+                requiere_revision=motivo is not None, motivo_revision=motivo))
 
     distintas = {a.removeprefix("fechas_distintas: ") for a in resultado.warnings
                  if a.startswith("fechas_distintas: ")}
+    ocurrencias = {}
     for fecha in resultado.fechas:
         fragmento = fragmentos.get(fecha.chunk_id)
+        # La n-ésima fecha con el mismo literal de un fragmento es la n-ésima de encontrar_fechas.
+        ocurrencia = ocurrencias[fecha.chunk_id, fecha.literal] = ocurrencias.get((fecha.chunk_id, fecha.literal), -1) + 1
         if fecha.estado == "fuera_del_cronograma" or fragmento is None:
             continue
+        cita = _cita_de_fecha(fragmento, fecha.literal, ocurrencia)
         etiqueta = ETIQUETAS_ACTIVIDAD.get(fecha.actividad or "", FECHA_SIN_VERIFICAR)
         motivo = FECHA_SIN_VERIFICAR if fecha.estado == "no_verificada" else None
         if fecha.actividad in distintas:
             motivo = MOTIVO_FECHAS_DISTINTAS
         agregar(ItemPropuesto(
             tipo="fecha", categoria=None, caracter="no_indicado",
-            descripcion=f"{etiqueta}: {fecha.literal}",
-            fuentes=[fuente_desde_fragmento(fragmento, fecha.literal)],
+            descripcion=f"{etiqueta}: {cita}",
+            fuentes=[fuente_desde_fragmento(fragmento, cita)],
             requiere_revision=motivo is not None, motivo_revision=motivo))
     return items
 

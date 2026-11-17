@@ -72,6 +72,8 @@ class ResultadoHerramienta(BaseModel):
     categorias: dict[str, Categoria] = {}
     abstener: StrictBool
     needs_human_review: StrictBool
+    # La alerta posible_conflicto del rol 2, aparte de las demás causas de revisión (la lista la usa para marcar todo).
+    posible_conflicto: StrictBool = False
     coverage_status: Literal["parcial", "sin_faltantes_detectados"]
     warnings: list[str]
     error: Literal["falla_recuperacion", "contrato_invalido", "documento_fuera_del_evento"] | None
@@ -210,6 +212,7 @@ def extraer_requisitos(ctx, params: ExtraerRequisitosParams, recuperador: Recupe
         for alerta in resultado.alertas:
             alertas.setdefault((alerta.tipo, alerta.doc_id), alerta)
     revisar, parcial, avisos = _interpretar(list(alertas.values()))
+    conflicto = any(a.tipo == "posible_conflicto" for a in alertas.values())
     abstener = not any(r.suficiente for r in resultados) or not fragmentos
 
     fechas, candidatas = [], {}
@@ -226,7 +229,11 @@ def extraer_requisitos(ctx, params: ExtraerRequisitosParams, recuperador: Recupe
                 tabla = es_tabla(fragmento.texto)
                 inicio_fila = fragmento.texto.rfind("\n", 0, posicion) + 1 if tabla else 0
                 antes = re.sub(r"\s+", " ", fragmento.texto[inicio_fila:posicion])[-400 if tabla else -150:]
-                despues = re.sub(r"\s+", " ", fragmento.texto[posicion + len(literal):])[:150]
+                resto = fragmento.texto[posicion + len(literal):]
+                # En una tabla el contexto posterior termina en el fin de la fila: la siguiente es otra actividad.
+                if tabla and "\n" in resto:
+                    resto = resto[:resto.index("\n")]
+                despues = re.sub(r"\s+", " ", resto)[:150]
                 candidatas[identificador] = {
                     "seccion": fragmento.seccion,
                     "pasaje": antes + literal + despues,
@@ -279,6 +286,6 @@ def extraer_requisitos(ctx, params: ExtraerRequisitosParams, recuperador: Recupe
         herramienta="extraer_requisitos", evento_id=params.evento_id,
         fragmentos=list(fragmentos.values()), fechas=fechas, categorias=categorias,
         abstener=abstener,
-        needs_human_review=revisar,
+        needs_human_review=revisar, posible_conflicto=conflicto,
         coverage_status="parcial" if parcial else "sin_faltantes_detectados",
         warnings=avisos, error=None)

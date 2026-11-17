@@ -18,7 +18,7 @@ from .herramientas import buscar_documentos, comparar_versiones, extraer_requisi
 from .lectura import ResultadoBusqueda
 from .llm import FallaGenerador
 from .presupuesto import LimiteAgotado, Presupuesto
-from .validacion import MARCADOR, validar
+from .validacion import MARCADOR, VIGENCIA, normalizar_cita, validar
 
 
 class _RecuperadorObservado:
@@ -234,6 +234,7 @@ def _ejecutar(ctx, evento_id, evento_salida, pregunta, herramienta, presupuesto,
                 + "".join(f"Desajuste: {d}.\n" for d in desajustes) +
                 "Corrige esos puntos: copia tramos exactos o elimina la afirmación.\n"
                 "- cita_no_literal: copia la cita completa desde el fragmento, sin empezar ni terminar a mitad de una palabra o número.\n"
+                "- cita_cruza_filas: la cita no puede abarcar el final de una fila de la tabla y el inicio de la siguiente; copia solo una fila.\n"
                 "- esquema_invalido: la cita, con los espacios y saltos de línea colapsados a uno, mide como máximo 500 caracteres; acórtala.\n"
                 "- marcador_pegado: cada marcador {n} va solo, entre espacios o antes de . , ; : ), sin letras, dígitos ni símbolos pegados, sin otro marcador contiguo y una sola vez.\n"
                 "- dato_no_literal: el literal debe ser un tramo exacto de la cita indicada, sin cambiar ceros ni formato.\n"
@@ -267,11 +268,15 @@ def _publicacion_parcial(crudo, errores, evidencia, resultado, *, evento_id, con
             return None
     except (TypeError, ValueError, KeyError):
         return None
-    descartadas = 0
+    descartadas, con_vigencia = 0, False
     for _ in range(len(afirmaciones)):
         malas = {e.afirmacion for e in errores}
         if None in malas or not all(isinstance(m, int) and 1 <= m <= len(afirmaciones) for m in malas):
             return None
+        # Una afirmación descartada que hablaba de vigencia deja la respuesta sin esa parte: lo decide una persona.
+        con_vigencia = con_vigencia or any(
+            isinstance(a, dict) and isinstance(a.get("texto"), str) and VIGENCIA.search(normalizar_cita(a["texto"]))
+            for i, a in enumerate(afirmaciones, 1) if i in malas)
         afirmaciones = [a for i, a in enumerate(afirmaciones, 1) if i not in malas]
         descartadas += len(malas)
         if not afirmaciones:
@@ -282,7 +287,10 @@ def _publicacion_parcial(crudo, errores, evidencia, resultado, *, evento_id, con
             if verificada.abstained:
                 return None
             avisos = [*verificada.warnings, f"afirmaciones_descartadas: {descartadas}"]
-            return verificada.model_copy(update={"warnings": avisos, "coverage_status": "parcial"}), descartadas
+            cambios = {"warnings": avisos, "coverage_status": "parcial"}
+            if con_vigencia:
+                cambios["needs_human_review"] = True
+            return verificada.model_copy(update=cambios), descartadas
         errores = verificada
     return None
 

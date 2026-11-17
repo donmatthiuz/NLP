@@ -238,6 +238,18 @@ class FechasEnTablaTests(unittest.TestCase):
                          [("adquirir_documentos", "verificada"), ("induccion", "verificada"),
                           ("recepcion_ofertas", "verificada")])
 
+    def test_c16_el_pasaje_de_una_fecha_de_tabla_termina_en_el_fin_de_su_fila(self):
+        jev = JevFalso(elecciones={"c0": "adquirir_documentos", "c1": "induccion", "c2": "recepcion_ofertas"})
+        recuperador = RecuperadorFalso([busqueda([DATOS_TABLA])] * 5)
+        extraer_requisitos(None, ExtraerRequisitosParams(evento_id="222"), recuperador, cliente_jev=jev)
+        candidatas = jev.llamadas[0][0]["candidatas"]
+        for identificador, otra_fila in (("c0", "2.2.2"), ("c1", "2.2.3"), ("c2", "2.2.7")):
+            with self.subTest(candidata=identificador):
+                self.assertNotIn(otra_fila, candidatas[identificador]["pasaje"])
+        self.assertTrue(candidatas["c0"]["pasaje"].endswith("31 de julio de 2023. |"))
+        self.assertNotIn("Fecha y hora para inducción", candidatas["c0"]["pasaje"])
+
+
     def test_c15_la_consulta_del_cronograma_nombra_las_actividades_de_la_tabla(self):
         # Medido: con la consulta anterior, la tabla 2.2 (chunk 00041) no salía entre los 5 mejores del evento 222.
         consulta = CONSULTA_CRONOGRAMA.lower()

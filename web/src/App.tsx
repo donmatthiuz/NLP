@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ErrorConsulta, consultarApi } from './api'
 import { IconoInfo } from './componentes/Iconos'
+import { DocumentosEvento } from './componentes/DocumentosEvento'
 import { Resultado } from './componentes/Resultado'
 import { ZonaFuentes } from './componentes/Fuentes'
 import { ListaVerificacion } from './componentes/ListaVerificacion'
@@ -86,6 +87,7 @@ export default function App() {
         </div>
       </header>
       <main className="contenedor">
+        <DocumentosEvento eventoId={EVENTO_ID} modoEjemplos={MODO_EJEMPLOS} />
         <form
           className="consulta"
           aria-label="Consulta"

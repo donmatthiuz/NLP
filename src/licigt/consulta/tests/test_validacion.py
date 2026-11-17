@@ -1206,6 +1206,30 @@ class TablasValidacionTests(unittest.TestCase):
                 r = self.verificar(DATOS_TABLA["texto"], cita)
                 self.assertEqual([e.codigo for e in r], ["cita_no_literal"])
 
+    def test_c16_la_cita_que_cruza_el_fin_de_una_fila_y_el_inicio_de_la_siguiente_se_rechaza(self):
+        for cita in ("hasta el día 31 de julio de 2023. 2.2.2 Fecha y hora para inducción a interesados",
+                     "hasta el día 31 de julio de 2023. | 2.2.2 | Fecha y hora para inducción a interesados",
+                     "| 2.2.1 | Período para adquirir los DOCUMENTOS DE LICITACIÓN | A partir de su publicación en GUATECOMPRAS,"
+                     " hasta el día 31 de julio de 2023. |\n| 2.2.2 | Fecha y hora para inducción"):
+            with self.subTest(cita=cita):
+                r = self.verificar(DATOS_TABLA["texto"], cita)
+                self.assertEqual([e.codigo for e in r], ["cita_cruza_filas"])
+
+    def test_c16_el_encabezado_y_la_primera_fila_no_son_dos_filas_de_datos(self):
+        cita = "| DESCRIPCIÓN | FECHA | | 2.2.1 | Período para adquirir los DOCUMENTOS DE LICITACIÓN"
+        self.assertIsInstance(self.verificar(DATOS_TABLA["texto"], cita), RespuestaEstructurada)
+        self.assertIsInstance(self.verificar(DATOS_TABLA["texto"], "DESCRIPCIÓN FECHA 2.2.1 Período para adquirir"),
+                              RespuestaEstructurada)
+
+    def test_c16_la_cita_dentro_de_una_fila_con_o_sin_barras_sigue_publicando(self):
+        for cita in ("| 2.2.2 | Fecha y hora para inducción a interesados en ofertar el OBJETO de los DOCUMENTOS DE LICITACIÓN."
+                     " | El día 19 de julio de 2023, a las 10:00 horas. |",
+                     "2.2.2 Fecha y hora para inducción a interesados en ofertar el OBJETO de los DOCUMENTOS DE LICITACIÓN.",
+                     "El día 19 de julio de 2023, a las 10:00 horas. La inducción se impartirá de forma virtual",
+                     "| 2.2.7 | Apertura de PLICAS. | Después de concluido el período de presentación y recepción de OFERTAS. |"):
+            with self.subTest(cita=cita):
+                self.assertIsInstance(self.verificar(DATOS_TABLA["texto"], cita), RespuestaEstructurada)
+
     def test_c15_un_dato_inventado_en_la_fila_falla(self):
         r = self.verificar(DATOS_TABLA["texto"], "El día 19 de julio de 2023, a las 10:00 horas",
                            afirmacion="La inducción es el {1}.", datos=["20 de julio de 2023"])

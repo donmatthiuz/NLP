@@ -13,12 +13,12 @@ from licigt.consulta.esquemas import Fuente, RespuestaEstructurada, TEXTO_ABSTEN
 from licigt.consulta.herramientas import ResultadoHerramienta
 from licigt.consulta.lectura import FragmentoRecuperado, fuente_desde_fragmento
 from licigt.consulta.lista import (
-    AVISO_LISTA, ItemPropuesto, MOTIVO_FECHAS_DISTINTAS, caracter_de_seccion, proponer_items, proponer_lista,
-    tramo_literal,
+    AVISO_LISTA, FIN_ORACION, ItemPropuesto, MOTIVO_FECHAS_DISTINTAS, MOTIVO_REVISION_MODIFICACION,
+    caracter_de_seccion, proponer_items, proponer_lista, tramo_literal,
 )
 from licigt.consulta.lista_escritura import _fuente_vigente
 from licigt.consulta.tests.test_generacion import DATOS_222, DATOS_TABLA
-from licigt.consulta.requisitos import CONSULTAS_POR_CATEGORIA, CONSULTA_CRONOGRAMA, FechaCandidata
+from licigt.consulta.requisitos import CONSULTAS_POR_CATEGORIA, CONSULTA_CRONOGRAMA, FechaCandidata, encontrar_fechas
 
 
 def frag(chunk_id, texto, seccion, doc_id="222-bases", tipo="bases", pagina=5):
@@ -56,11 +56,12 @@ def fecha(datos, literal, dia, actividad=None, estado="no_verificada"):
                           estado=estado)
 
 
-def resultado(fragmentos, *, fechas=(), categorias=None, warnings=(), revisar=False):
+def resultado(fragmentos, *, fechas=(), categorias=None, warnings=(), revisar=False, conflicto=False):
     return ResultadoHerramienta(
         herramienta="extraer_requisitos", evento_id="222", fragmentos=[fragmento(f) for f in fragmentos],
         fechas=list(fechas), categorias=categorias or {}, abstener=False, needs_human_review=revisar,
-        coverage_status="sin_faltantes_detectados", warnings=list(warnings), error=None)
+        coverage_status="sin_faltantes_detectados", warnings=list(warnings), error=None,
+        posible_conflicto=conflicto)
 
 
 def respuesta(fuentes, *, answer="Respuesta [1]", revisar=False, herramienta="extraer_requisitos"):
@@ -157,7 +158,7 @@ class ProponerItemsTests(unittest.TestCase):
 
     def test_revision_por_conflicto_llega_a_todos_los_requisitos(self):
         categorias = {"c-fund": "legal", "c-pie": "legal"}
-        items = proponer_items(resultado([FUNDAMENTAL, PIE], categorias=categorias, revisar=True), "222")
+        items = proponer_items(resultado([FUNDAMENTAL, PIE], categorias=categorias, conflicto=True), "222")
         self.assertTrue(all(i.requiere_revision and i.motivo_revision for i in items))
         items = proponer_items(resultado([PIE], categorias={"c-pie": "legal"}), "222")
         self.assertFalse(items[0].requiere_revision)
@@ -220,7 +221,7 @@ class FilasDeTablaTests(unittest.TestCase):
         self.assertFalse(any("DESCRIPCIÓN" in i.descripcion for i in items))
         for i in items:
             self.assertEqual(i.descripcion, i.fuentes[0].cita)
-            self.assertLessEqual(len(i.descripcion), 300)
+            self.assertLessEqual(len(i.descripcion), 500)
             self.assertIn(" | ", i.descripcion)
             self.assertNotIn(" ".join(i.descripcion.split()) + "x", datos["texto"])
             self.assertTrue(_fuente_vigente(i, fragmento(datos)))
@@ -228,10 +229,11 @@ class FilasDeTablaTests(unittest.TestCase):
         self.assertTrue(items[-1].descripcion.startswith("Apertura de PLICAS. | Después de concluido"))
 
     def test_c15_fila_larga_se_recorta_en_fin_de_oracion_y_revalida(self):
-        items, datos = self.items()
-        inducion = items[1]
-        self.assertTrue(inducion.descripcion.endswith("a las 10:00 horas."), inducion.descripcion)
-        self.assertTrue(_fuente_vigente(inducion, fragmento(datos)))
+        texto = ("| 2.2.2 | Fecha y hora para inducción | " + " ".join(["El oferente presenta el documento firmado."] * 20) + " |")
+        items, datos = self.items(texto)
+        self.assertLessEqual(len(items[0].descripcion), 500)
+        self.assertTrue(items[0].descripcion.endswith("firmado."), items[0].descripcion)
+        self.assertTrue(_fuente_vigente(items[0], fragmento(datos)))
 
     def test_c15_tabla_sin_numerales_no_da_items_y_sin_categoria_tampoco(self):
         self.assertEqual(self.items("| DOCUMENTO | PARÁMETROS QUE DEBERÁ INGRESAR |\n| FORMULARIO | texto largo de ejemplo |")[0], [])
@@ -247,6 +249,148 @@ class FilasDeTablaTests(unittest.TestCase):
     def test_c15_el_texto_sin_tabla_sigue_igual(self):
         items = proponer_items(resultado([FUNDAMENTAL], categorias={"c-fund": "legal"}), "222")
         self.assertEqual([i.descripcion for i in items], [CITA_FUND])
+
+
+class FilaCompletaTests(unittest.TestCase):
+    """C16 H3: la cita de una fila es `título | texto` completo hasta 500 caracteres, sin cortar antes de un dato."""
+
+    def items(self, texto=None):
+        datos = {**DATOS_TABLA, **({"texto": texto} if texto is not None else {})}
+        return proponer_items(resultado([datos], categorias={datos["chunk_id"]: "administrativa"}), "222"), datos
+
+    def test_c16_la_fila_2_2_6_trae_la_fecha_de_recepcion(self):
+        items, datos = self.items()
+        recepcion = next(i for i in items if i.descripcion.startswith("Lugar, dirección, fecha y hora"))
+        self.assertIn("31 de julio de 2023", recepcion.descripcion)
+        self.assertIn("7ª. Avenida 22-72", recepcion.descripcion)
+        self.assertLessEqual(len(recepcion.descripcion), 500)
+        self.assertTrue(_fuente_vigente(recepcion, fragmento(datos)))
+
+    def test_c16_la_fila_corta_va_completa_sin_recorte(self):
+        items, datos = self.items()
+        induccion = next(i for i in items if i.descripcion.startswith("Fecha y hora para inducción"))
+        self.assertTrue(induccion.descripcion.endswith("la invitación correspondiente."), induccion.descripcion)
+
+    def test_c16_el_ordinal_y_la_abreviatura_no_son_fin_de_oracion(self):
+        for texto in ("ubicados en la 7ª. Avenida", "en el 1º. Nivel", "Oferta No. 5 del evento", "el Art. 24 de la LEY"):
+            with self.subTest(texto=texto):
+                self.assertIsNone(FIN_ORACION.search(texto))
+        self.assertIsNotNone(FIN_ORACION.search("fue firmada. Otra oración"))
+
+    def test_c16_el_recorte_no_cae_justo_antes_de_un_numero_ni_dentro_de_una_fecha(self):
+        relleno = " ".join(["documento"] * 29)  # 29 * 10 - 1 = 289 caracteres
+        for cola in ("31 de julio de 2023 y más texto " * 10, "7ª. Avenida 22-72 zona 1 y más texto " * 10,
+                     "tres (3) días hábiles y más texto " * 10):
+            with self.subTest(cola=cola[:20]):
+                tramo = tramo_literal(relleno + " " + cola)
+                self.assertTrue(tramo.endswith("documento") or tramo.endswith(("2023", "ª.", "(3) días", "hábiles", "texto")), tramo)
+                self.assertFalse(tramo.endswith((" 31", " de", " julio", " 7ª.", " tres", " (3)")), tramo)
+
+    def test_c16_fila_de_mas_de_500_se_recorta_en_fin_de_oracion_antes_de_500(self):
+        texto = "| 1.1 | Título | " + " ".join(["El oferente presenta el documento firmado en el lugar 7ª. Avenida."] * 12) + " |"
+        items, datos = self.items(texto)
+        self.assertLessEqual(len(items[0].descripcion), 500)
+        self.assertGreater(len(items[0].descripcion), 300)
+        self.assertTrue(items[0].descripcion.endswith("Avenida."), items[0].descripcion)
+        self.assertTrue(_fuente_vigente(items[0], fragmento(datos)))
+
+
+class FechasDeTablaTests(unittest.TestCase):
+    """C16 H4: cada fecha candidata de una tabla da su propio ítem, con la cita contigua de su fila."""
+
+    def fechas_de(self, datos, estado="no_verificada"):
+        return [fecha(datos, literal, f) for literal, f, _ in encontrar_fechas(datos["texto"])]
+
+    def test_c16_una_fecha_por_candidata_igual_al_numero_de_encontrar_fechas(self):
+        fechas = self.fechas_de(DATOS_TABLA)
+        self.assertEqual(len(fechas), 3)
+        items = [i for i in proponer_items(resultado([DATOS_TABLA], fechas=fechas), "222") if i.tipo == "fecha"]
+        self.assertEqual(len(items), 3)
+        self.assertEqual(len({i.fuentes[0].cita for i in items}), 3)
+
+    def test_c16_la_cita_es_el_tramo_de_su_fila_desde_el_titulo_hasta_la_fecha(self):
+        fechas = self.fechas_de(DATOS_TABLA)
+        items = [i for i in proponer_items(resultado([DATOS_TABLA], fechas=fechas), "222") if i.tipo == "fecha"]
+        citas = [i.fuentes[0].cita for i in items]
+        self.assertTrue(citas[0].startswith("Período para adquirir los DOCUMENTOS DE LICITACIÓN | A partir de su"))
+        self.assertTrue(citas[0].endswith("hasta el día 31 de julio de 2023"))
+        self.assertTrue(citas[1].startswith("Fecha y hora para inducción") and citas[1].endswith("19 de julio de 2023"))
+        self.assertTrue(citas[2].startswith("Lugar, dirección, fecha y hora para la recepción de OFERTAS.")
+                        and citas[2].endswith("el día 31 de julio de 2023"))
+        for i, cita in zip(items, citas):
+            self.assertEqual(i.descripcion, f"Fecha sin verificar: {cita}")
+            self.assertLessEqual(len(cita), 500)
+            self.assertNotIn("2.2.", cita)
+            self.assertTrue(_fuente_vigente(i, fragmento(DATOS_TABLA)), cita)
+
+    def test_c16_el_texto_sin_tabla_sigue_con_el_literal(self):
+        fechas = [fecha(FECHA_BASES, "31 de julio de 2023", date(2023, 7, 31))]
+        items = proponer_items(resultado([FECHA_BASES], fechas=fechas), "222")
+        self.assertEqual(items[0].fuentes[0].cita, "31 de julio de 2023")
+
+
+class BasuraTests(unittest.TestCase):
+    """C16: no se propone un encabezado, un resto de frase ni un tramo de menos de 4 palabras de contenido."""
+
+    def propuestos(self, *textos):
+        fragmentos = [frag(f"c-{n}", t, "Sin sección") for n, t in enumerate(textos)]
+        res = resultado(fragmentos, categorias={f["chunk_id"]: "tecnica" for f in fragmentos})
+        return [i.descripcion for i in proponer_items(res, "222")]
+
+    def test_c16_encabezados_restos_y_tramos_cortos_no_se_proponen(self):
+        basura = ["4. ESPECIFICACIONES TÉCNICAS", "CANTIDAD TOTAL", "3. ESPECIFICACIONES GENERALES", "correspondiente.",
+                  "siguientes:", "Constancia vigente del RTU", "ANEXO 6.2 de los presentes"]
+        valido = "El oferente debe presentar la constancia de inscripción en el RTU actualizada."
+        self.assertEqual(self.propuestos(*basura, valido), [valido])
+
+    def test_c16_una_fila_de_tabla_basura_tampoco(self):
+        texto = "| 1 | CANTIDAD TOTAL | 5 |\n| 2 | Muestra | El oferente debe presentar una muestra vigente del producto ofertado |"
+        datos = {**DATOS_TABLA, "texto": texto}
+        items = proponer_items(resultado([datos], categorias={datos["chunk_id"]: "legal"}), "222")
+        self.assertEqual([i.descripcion[:7] for i in items], ["Muestra"])
+
+
+class RevisionPorModificacionTests(unittest.TestCase):
+    """C16 H6: pide revisión el ítem cuya sección comparte el numeral principal con una modificación o aclaración."""
+
+    MOD = frag("c-mod", "El día 06 de octubre de 2023, a las 11:00 horas, en el mismo lugar indicado.",
+               "2.2.6 Recepción", doc_id="222-mod", tipo="modificacion", pagina=1)
+
+    def items(self, *fragmentos, revisar=False, conflicto=False):
+        categorias = {f["chunk_id"]: "legal" for f in fragmentos}
+        return {i.fuentes[0].chunk_id: i for i in proponer_items(
+            resultado(list(fragmentos), categorias=categorias, revisar=revisar, conflicto=conflicto), "222")}
+
+    def test_c16_solo_las_secciones_con_el_mismo_numeral_principal_piden_revision(self):
+        tabla = {**DATOS_TABLA, "chunk_id": "c-tabla"}                     # 2.2 CRONOGRAMA
+        literal = frag("c-lit", "d.3) Que el oferente no está comprendido en ninguna prohibición legal.", "2.7 Listado")
+        items = self.items(tabla, FUNDAMENTAL, literal, self.MOD)
+        self.assertTrue(items["c-tabla"].requiere_revision)
+        self.assertEqual(items["c-tabla"].motivo_revision, MOTIVO_REVISION_MODIFICACION)
+        self.assertFalse(items["c-fund"].requiere_revision)
+        self.assertFalse(items["c-lit"].requiere_revision)
+
+    def test_c16_los_literales_de_2_7_piden_revision_si_la_modificacion_es_de_2_7(self):
+        mod = frag("c-mod", "Se modifica la literal e) del subnumeral 2.7 de las bases.", "2.7 Listado de documentos",
+                   doc_id="222-mod", tipo="aclaracion", pagina=1)
+        literal = frag("c-lit", "d.3) Que el oferente no está comprendido en ninguna prohibición legal.", "2.7.1 Declaración")
+        items = self.items(literal, FUNDAMENTAL, mod)
+        self.assertTrue(items["c-lit"].requiere_revision)
+        self.assertFalse(items["c-fund"].requiere_revision)
+
+    def test_c16_sin_modificacion_en_la_evidencia_nadie_pide_revision_aunque_el_resultado_si(self):
+        items = self.items(FUNDAMENTAL, PIE, revisar=True)
+        self.assertFalse(any(i.requiere_revision for i in items.values()))
+
+    def test_c16_la_alerta_posible_conflicto_sigue_marcando_todo(self):
+        items = self.items(FUNDAMENTAL, PIE, conflicto=True)
+        self.assertTrue(all(i.requiere_revision and i.motivo_revision for i in items.values()))
+
+    def test_c16_una_seccion_sin_numeral_no_comparte_numeral(self):
+        mod = frag("c-mod", "Se modifica la fecha de recepción de las ofertas del evento.", "Sin sección",
+                   doc_id="222-mod", tipo="modificacion", pagina=1)
+        items = self.items(PIE, FUNDAMENTAL, mod)
+        self.assertFalse(items["c-pie"].requiere_revision or items["c-fund"].requiere_revision)
 
 
 class RecuperadorPorConsulta:
