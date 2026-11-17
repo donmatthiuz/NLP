@@ -38,7 +38,7 @@ export const Resultado = forwardRef<HTMLHeadingElement, Props>(function Resultad
       </header>
       {motivo && (
         <p className="banda-revision">
-          <strong>Requiere revisión humana.</strong> {motivo}
+          {estado !== 'revision' && <strong>Requiere revisión humana. </strong>}{motivo}
         </p>
       )}
       <div className="resultado__cuerpo">

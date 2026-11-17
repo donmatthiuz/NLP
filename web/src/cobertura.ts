@@ -16,6 +16,17 @@ export function faltantesDe(d: DocumentoEvento): string[] {
   return [...faltantes, ...d.advertencias]
 }
 
+// Solo las advertencias del documento: las páginas sin indexar y el estado ya van en la línea de resumen de la tarjeta.
+export const advertenciasDe = (d: DocumentoEvento): string[] => d.advertencias
+
+// doc_id a tipo legible, para rotular las citas con el tipo antes del hash.
+export type MapaTipos = Record<string, string>
+export const mapaTipos = (documentos: DocumentoEvento[]): MapaTipos =>
+  Object.fromEntries(documentos.map((d) => [d.doc_id, rotuloTipoDocumento(d.tipo_documento)]))
+
+// Sin el documento en el mapa (modo ejemplo o falla de carga) queda solo el hash.
+export const rotuloDocumento = (docId: string, tipos?: MapaTipos) => (tipos?.[docId] ? `${tipos[docId]} · ${docId}` : docId)
+
 export function textoPaginas(d: DocumentoEvento): string {
   if (d.paginas_total === null) return 'Páginas no informadas'
   const paginas = `${d.paginas_total} ${d.paginas_total === 1 ? 'página' : 'páginas'}`

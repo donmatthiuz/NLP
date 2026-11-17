@@ -1,7 +1,10 @@
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { documentosApi, ErrorConsulta } from './api'
 import { EJEMPLO_DOCUMENTOS } from './ejemplos'
-import { faltantesDe, resumenCobertura, rotuloEstadoDocumento, rotuloTipoDocumento, textoPaginas } from './cobertura'
+import { ListaDocumentos } from './componentes/DocumentosEvento'
+import { advertenciasDe, faltantesDe, mapaTipos, rotuloDocumento, resumenCobertura, rotuloEstadoDocumento, rotuloTipoDocumento, textoPaginas } from './cobertura'
 import type { DocumentoEvento } from './tipos'
 
 const [bases, modificacion] = EJEMPLO_DOCUMENTOS.documentos
@@ -60,5 +63,37 @@ describe('documentosApi', () => {
     await expect(documentosApi('x')).rejects.toBeInstanceOf(ErrorConsulta)
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('red')))
     await expect(documentosApi('x')).rejects.toThrow('La API no respondió')
+  })
+})
+
+describe('tipo del documento antes del hash', () => {
+  const tipos = mapaTipos(EJEMPLO_DOCUMENTOS.documentos)
+
+  it('arma el mapa doc_id a tipo con el rótulo legible', () => {
+    expect(tipos).toEqual({ [bases.doc_id]: 'Bases', [modificacion.doc_id]: 'Modificación' })
+  })
+
+  it('el rótulo lleva el tipo antes del hash', () => {
+    expect(rotuloDocumento(bases.doc_id, tipos)).toBe(`Bases · ${bases.doc_id}`)
+  })
+
+  it('sin mapa o sin el documento muestra solo el hash', () => {
+    expect(rotuloDocumento(bases.doc_id)).toBe(bases.doc_id)
+    expect(rotuloDocumento('zzz', tipos)).toBe('zzz')
+  })
+
+  it('el panel lista solo las advertencias del documento como faltantes', () => {
+    expect(advertenciasDe(modificacion)).toEqual(modificacion.advertencias)
+    expect(advertenciasDe(completo({ estado: 'incompleto' }))).toEqual([])
+  })
+
+  it('el panel muestra el doc_id y el tipo como título, y la versión no indicada como texto secundario', () => {
+    const html = renderToStaticMarkup(createElement(ListaDocumentos, { documentos: EJEMPLO_DOCUMENTOS.documentos }))
+    expect(html).toContain(`<code class="mono">${bases.doc_id}</code>`)
+    expect(html).toContain('<span class="etiqueta">Bases</span>')
+    expect(html).toContain('Versión oficial no indicada')
+    expect(html).toMatch(/etiqueta--suave[^>]*>Versión oficial no indicada/)
+    expect(html).not.toContain('Páginas sin indexar: 4')
+    expect(html).toContain('Hay páginas incompletas o ilegibles')
   })
 })

@@ -70,3 +70,11 @@ export function reducirLista(filas: FilaLista[], a: AccionLista): FilaLista[] {
 
 // Una cita de tabla llega como `título | texto`; en pantalla la barra se lee como ": " (o un espacio tras un punto), sin cambiar la cita guardada.
 export const mostrarCita = (cita: string) => cita.replace(/(?<=(\S)) \| (?=\S)/g, (_, previo: string) => ('.:;?!'.includes(previo) ? ' ' : ': '))
+
+// La etiqueta de la actividad (lo que precede a la cita en la descripción) va fuera de la cita; la cita es la de la fuente.
+export function partesItem(i: ItemPropuesto): { etiqueta: string | null; cita: string } {
+  const cita = i.fuentes[0].cita
+  if (i.descripcion === cita || !i.descripcion.endsWith(cita)) return { etiqueta: null, cita }
+  const etiqueta = i.descripcion.slice(0, -cita.length).replace(/[:\s]+$/, '')
+  return { etiqueta: etiqueta || null, cita }
+}

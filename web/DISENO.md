@@ -27,10 +27,23 @@ En orden del DOM, que es también el orden visual y el de lectura y tabulación:
 4. **Aviso fijo** (`.aviso-fijo`): "La respuesta se basa en los documentos cargados del evento". Siempre presente, también antes de la primera consulta y durante la carga. Va justo encima del resultado, no se cierra ni se oculta y no cambia con el estado.
 5. **Resultado** (`section.resultado[data-estado]`): cabecera de estado, banda de revisión humana si corresponde, texto de la respuesta, metadatos y avisos de cobertura.
 6. **Fuentes** (`section.fuentes`): tarjetas de fuente, o el contraste lado a lado cuando hay conflicto.
-7. **Lista de verificación** (`section.lista`): zona reservada para F6d. Ver "Lista de verificación (reservada)".
+7. **Lista de verificación** (`section.lista`): propuesta, guardado con confirmación y estados por ítem. Ver "Lista de verificación".
 8. **Pie** (`footer`): una línea con "LiciGT, proyecto CC3103 (UVG). No presenta ofertas ni decide la vigencia de documentos."
 
-Fuera de esta versión: el panel de documentos incorporados al evento y de información faltante (`DESIGN.md`, "Interfaz de usuario"). No hay ruta que lo entregue; mientras tanto, lo faltante solo se ve en los avisos de cobertura de cada respuesta.
+El panel de documentos del evento (`section.documentos`) va entre el encabezado y la consulta. Ver "Documentos del evento".
+
+## Documentos del evento
+
+Panel `section.documentos`, con `h2` "Documentos del evento", arriba de la consulta. Lo alimenta la ruta `GET /api/eventos/{evento_id}/documentos` (`DocumentoEvento`); `App` carga los documentos una sola vez y de ellos arma el mapa `doc_id` a tipo que usan las fuentes y la lista.
+
+- **Línea de resumen** (`.documentos__resumen`): "N documentos, sin información faltante" o "N documentos, M con información faltante" (en `--estado-revision` si hay faltantes); "No hay documentos cargados para este evento" si no hay ninguno. Cuenta como faltante una página sin indexar, un estado distinto de "completo" o una advertencia.
+- **Una tarjeta por documento** (`.documento`, con borde y fondo de revisión si le falta información), con:
+  - título: etiqueta del tipo ("Bases", "Modificación", "Aclaración"), la versión oficial (si no existe, "Versión oficial no indicada" como texto secundario, sin ocupar el lugar del título) y "v" más la versión de ingesta;
+  - el `doc_id` en `--fuente-mono` y `--texto-sm`;
+  - páginas y estado: "35 páginas, todas indexadas; estado: completo" o "4 páginas, 1 sin indexar (p. 4); estado: requiere revisión";
+  - si hay advertencias del documento, el rótulo "Falta información" y la lista de esas advertencias. Las páginas sin indexar y el estado no se repiten ahí: ya están en la línea anterior.
+- **Carga:** "Cargando documentos…" (`aria-busy`). **Error:** "No se pudieron cargar los documentos." y el motivo, en `role="alert"`; la consulta sigue disponible y las citas muestran solo el hash.
+- **Modo ejemplos:** documentos fijos del 222.
 
 ## Rejilla y ancho
 
@@ -92,6 +105,8 @@ Cada estado lleva tres señales que no son color, más el color como refuerzo:
 ### Panel de revisión humana
 
 - Cabecera: ícono, rótulo "Requiere revisión humana".
+- Con cero fuentes el motivo es neutro: "El sistema marcó esta consulta para revisión humana; revise los documentos originales." Sin ambigüedad ni vigencia.
+- El rótulo en negrita "Requiere revisión humana." va en la banda solo cuando el estado mostrado es otro (abstención, aclaración); en el estado de revisión ya está en el `h2` y no se repite.
 - **Banda de revisión** (`.banda-revision`), arriba del texto, a todo el ancho del panel, con fondo `--estado-revision-fondo`, borde inferior sólido y el texto: "Las fuentes difieren o un dato crítico es ambiguo. El sistema no decide cuál está vigente; revise los documentos originales."
 - Luego `answer` tal cual, metadatos y avisos.
 - Si las fuentes vienen de dos o más `doc_id` distintos, la zona de fuentes se muestra como **contraste lado a lado** (ver "Contradicciones"). Si todas son del mismo documento, como lista normal.
@@ -136,16 +151,20 @@ Una `article.fuente` por cada elemento de `sources`, en el orden recibido, numer
 
 Contenido, en este orden:
 
-- **Título:** "[n] " más el `doc_id`, en `--texto-base` y peso 600.
+- **Título:** "[n] " más el tipo del documento y el `doc_id` ("[1] Bases · 03791a…"), en `--texto-base` y peso 600. Regla del tipo antes del hash: ver "Tipo del documento".
 - **Metadatos** (`dl`, dos columnas desde 40rem):
   - "Página": "p. 8" si `page_end` es nulo o igual a `page`; "pp. 16–17" si es un rango;
   - "Versión de ingesta": "v" más `version_ingesta` (por ejemplo, "v1");
   - "Versión oficial": el texto de `version_oficial` o "No indicada" si es nulo;
   - "Fragmento": `chunk_id` en `--fuente-mono` y `--texto-sm`, seleccionable.
-- **Cita literal:** `blockquote.cita` con borde izquierdo de 3 px en `--color-borde-control`, fondo `--color-superficie-2`, `lang="es"`, texto tal cual (sin recortar más allá de lo que trae el campo, sin reformatear fechas ni mayúsculas).
+- **Cita literal:** `blockquote.cita` con borde izquierdo de 3 px en `--color-borde-control`, fondo `--color-superficie-2`, `lang="es"`, texto tal cual (sin recortar más allá de lo que trae el campo, sin reformatear fechas ni mayúsculas). Única excepción de pantalla: una cita de tabla llega como `título | texto` y la barra se lee como ": " (o un espacio tras un punto), igual en la tarjeta y en la lista; lo guardado no cambia.
 - **Acceso al original:**
   - si `source` empieza con `https://`: enlace "Abrir documento original" con el texto visible "(página 8)" al lado y la indicación accesible "abre en una pestaña nueva"; `target="_blank"` y `rel="noopener noreferrer"`. La URL no se modifica (no se añade `#page=`);
   - si no: el texto "Original no disponible en línea" y el `doc_id`, sin enlace.
+
+### Tipo del documento
+
+Cada vez que la web nombra un documento, el tipo va antes del hash: "Bases · 03791a…" o "Modificación · d41480…". Aplica al título de la tarjeta de fuente, a la cabecera de cada columna del conflicto (su nombre accesible incluye el tipo) y al origen de cada ítem de la lista. Si el mapa no tiene el documento (modo ejemplos o falla de carga), se muestra solo el hash.
 
 La versión de ingesta y la oficial se rotulan por separado siempre, porque el anteproyecto pide no confundir la carga con la modificación oficial.
 
@@ -159,24 +178,26 @@ Se activa cuando `needs_human_review = true` y las fuentes vienen de dos o más 
 - En móvil las columnas se apilan; cada una conserva su cabecera para que no se pierda de qué documento es cada cita.
 - Más de dos documentos: tantas columnas como quepan con un mínimo de 18rem; si no caben, se apilan.
 
-## Lista de verificación (reservada)
+## Lista de verificación
 
-F6d llega después de F5 y se redacta con el contrato que F5 deje (`PropuestaLista`, `ItemLista` y las rutas de guardar y cambiar estado). Aquí queda fijado lo que no depende de ese contrato:
+Implementada en F6d sobre `PropuestaLista`, `ItemLista` y las rutas de proponer, guardar y cambiar estado:
 
-- **Posición:** `section.lista` después de las fuentes, con título `h2` "Lista de verificación". F6b no pinta un marcador de posición: la zona no existe en la página hasta F6d, para no mostrar en la demo controles que no funcionan.
+- **Posición:** `section.lista` después de las fuentes, con título `h2` "Lista de verificación".
 - **Aviso fijo de la lista**, siempre visible arriba de la lista: "Los estados de la lista no certifican cumplimiento." (`DESIGN.md`, "Interfaz de usuario").
 - **Estados del ítem**, con texto e ícono, no solo color:
   - "Pendiente": círculo vacío;
   - "Preparado": círculo lleno a la mitad;
   - "Revisado": círculo con marca de verificación.
-- **Cada ítem** muestra categoría, carácter ("Fundamental", "No fundamental", "No indicado"), la cita, el documento, la página y las dos versiones, con la misma tarjeta de fuente reducida. Los ítems con revisión pendiente llevan la banda de revisión con su motivo, y los ítems en conflicto aparecen los dos, sin elegir.
+- **Cada ítem** muestra categoría, carácter ("Fundamental", "No fundamental", "No indicado"), la cita, el documento, la página y las dos versiones, con la misma tarjeta de fuente reducida. Detalle:
+  - la cita del ítem (`blockquote.cita`) es la de su fuente (`fuentes[0].cita`), con el mismo tratamiento de ` | ` que la tarjeta de fuente; en los ítems de fecha, la etiqueta de la actividad ("Recepción de ofertas") va fuera de la cita, como `.etiqueta--suave` junto a los rótulos;
+  - el origen empieza con el tipo y el hash ("Bases · 03791a…"), luego página y las dos versiones. Los ítems con revisión pendiente llevan la banda de revisión con su motivo, y los ítems en conflicto aparecen los dos, sin elegir.
 - **Cambios locales:** marcar un ítem solo cambia el estado en pantalla y añade el rótulo "Sin guardar" junto al ítem. Nada se guarda al marcar.
 - **Confirmación explícita:**
   - un botón aparte, "Guardar cambios (N)" o "Guardar N ítems", abre un `dialog` modal nativo con el resumen de lo que se va a guardar, una línea por ítem ("Requisito X: Pendiente a Preparado");
   - el modal tiene "Confirmar y guardar" y "Cancelar"; el foco entra en el título del modal, queda atrapado dentro y vuelve al botón de origen al cerrar; `Escape` cancela;
   - sin confirmación no hay petición de escritura.
 - **Conflicto (409):** mensaje "Otro usuario cambió este ítem. Recargue la lista antes de guardar." El cambio local no se aplica.
-- **Propuesta:** botón "Proponer lista"; los ítems propuestos llevan una casilla "Incluir" para descartar antes de guardar. La cita no se edita.
+- **Propuesta:** botón "Proponer lista"; los ítems propuestos llevan una casilla "Incluir" para descartar antes de guardar, enlazada con `aria-describedby` a la cita de su ítem para que se anuncie con él. La cita no se edita.
 
 ## Variables CSS
 
@@ -293,9 +314,11 @@ Clases en español, con el patrón bloque y elemento (`.fuente`, `.fuente__cita`
 | Tarjeta de fuente | `.fuente` | borde `--borde-fino` `--color-borde`, radio `--radio-panel` |
 | Contraste | `.contraste`, `.contraste__columna` | rejilla `repeat(auto-fit, minmax(18rem, 1fr))` |
 | Error | `.error-consulta` | borde sólido `--color-error`, fondo `--color-error-fondo` |
-| Lista (F6d) | `.lista`, `.item-lista`, `dialog.confirmacion` | ver "Lista de verificación (reservada)" |
+| Lista (F6d) | `.lista`, `.item-lista`, `dialog.confirmacion` | ver "Lista de verificación" |
+| Documentos | `.documentos`, `.documento` | ver "Documentos del evento" |
+| Etiqueta | `.etiqueta` | `--texto-sm`; `--texto-xs` queda solo para contadores |
 
-Pruebas de la web (encargo F6b): solo `estadoDe` con Vitest; el resto se valida con `tsc`, el build y la compuerta de F6e contra este archivo.
+Pruebas de la web: Vitest sobre la lógica pura (`estado`, `lista`, `cobertura`) y sobre el HTML de las fuentes, la lista, el panel y el resultado con `renderToStaticMarkup`; el resto se valida con `tsc`, el build y la compuerta de F6e contra este archivo.
 
 ## Accesibilidad
 
@@ -459,7 +482,7 @@ Borde punteado; sin metadatos de herramienta ni zona de fuentes. El botón lleva
 
 Sin aviso destacado; si hay `warnings`, se listan igual.
 
-### Lista de verificación (F6d, referencia)
+### Lista de verificación (referencia)
 
 ```text
 | Lista de verificación                               <h2>             |

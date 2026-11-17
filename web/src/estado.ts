@@ -29,6 +29,7 @@ export function motivoRevision(r: Pick<RespuestaEstructurada, 'needs_human_revie
   if (!r.needs_human_review) return null
   const comun = 'El sistema no decide cuál está vigente; revise los documentos originales.'
   const documentos = new Set(r.sources.map((f) => f.doc_id)).size
+  if (documentos === 0) return 'El sistema marcó esta consulta para revisión humana; revise los documentos originales.'
   return documentos >= 2
     ? `Las fuentes difieren o un dato crítico es ambiguo. ${comun}`
     : `Un dato crítico es ambiguo o puede estar desactualizado. ${comun}`

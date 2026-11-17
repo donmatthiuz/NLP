@@ -1,8 +1,10 @@
 import { useEffect, useId, useMemo, useReducer, useRef, useState } from 'react'
+import { rotuloDocumento } from '../cobertura'
+import type { MapaTipos } from '../cobertura'
 import { ErrorLista, cambiarEstadoApi, guardarApi, listarApi, proponerApi } from '../api'
 import { crearListaEjemplos } from '../listaEjemplos'
 import {
-  ESTADOS_ITEM, ROTULOS_ESTADO_ITEM, cambiosPendientes, itemsAGuardar, mostrarCita, reducirLista, sinGuardar,
+  ESTADOS_ITEM, ROTULOS_ESTADO_ITEM, cambiosPendientes, itemsAGuardar, mostrarCita, partesItem, reducirLista, sinGuardar,
 } from '../lista'
 import type { FilaLista } from '../lista'
 import type { EstadoItem, ItemLista, ItemPropuesto, PropuestaLista } from '../tipos'
@@ -27,8 +29,9 @@ interface ApiLista {
   cambiarEstado: (itemId: string, anterior: EstadoItem, nuevo: EstadoItem, confirmado: boolean) => Promise<ItemLista>
 }
 
-function FilaItem({ fila, alIncluir, alMarcar, alGuardarCambio, alDescartar }: {
+export function FilaItem({ fila, tipos, alIncluir, alMarcar, alGuardarCambio, alDescartar }: {
   fila: FilaLista
+  tipos?: MapaTipos
   alIncluir: () => void
   alMarcar: (e: EstadoItem) => void
   alGuardarCambio: (origen: HTMLElement) => void
@@ -37,6 +40,8 @@ function FilaItem({ fila, alIncluir, alMarcar, alGuardarCambio, alDescartar }: {
   const { item: i } = fila
   const f = i.fuentes[0]
   const grupo = useId()
+  const idCita = useId()
+  const { etiqueta, cita } = partesItem(i)
   const guardado = fila.itemId !== null
   const pendiente = sinGuardar(fila)
   return (
@@ -49,10 +54,11 @@ function FilaItem({ fila, alIncluir, alMarcar, alGuardarCambio, alDescartar }: {
           <span className="etiqueta">{TIPOS[i.tipo]}</span>
           {i.categoria && <span className="etiqueta">{CATEGORIAS[i.categoria]}</span>}
           <span className="etiqueta">{CARACTERES[i.caracter]}</span>
+          {etiqueta && <span className="etiqueta etiqueta--suave">{etiqueta}</span>}
         </p>
-        <blockquote className="cita" lang="es">{mostrarCita(i.descripcion)}</blockquote>
+        <blockquote className="cita" lang="es" id={idCita}>{mostrarCita(cita)}</blockquote>
         <p className="item-lista__origen">
-          <span className="mono">{f.doc_id}</span>, {paginas(f.page, f.page_end)}; versión de ingesta v{f.version_ingesta};
+          <span className="mono">{rotuloDocumento(f.doc_id, tipos)}</span>, {paginas(f.page, f.page_end)}; versión de ingesta v{f.version_ingesta};
           versión oficial: {f.version_oficial ?? 'No indicada'}
         </p>
         {guardado ? (
@@ -68,7 +74,7 @@ function FilaItem({ fila, alIncluir, alMarcar, alGuardarCambio, alDescartar }: {
           </fieldset>
         ) : (
           <label className="incluir">
-            <input type="checkbox" checked={fila.incluir} onChange={alIncluir} />
+            <input type="checkbox" checked={fila.incluir} onChange={alIncluir} aria-describedby={idCita} />
             <span>Incluir</span>
             <span className="etiqueta etiqueta--suave">No guardado</span>
           </label>
@@ -86,7 +92,7 @@ function FilaItem({ fila, alIncluir, alMarcar, alGuardarCambio, alDescartar }: {
   )
 }
 
-export function ListaVerificacion({ eventoId, modoEjemplos }: { eventoId: string; modoEjemplos: boolean }) {
+export function ListaVerificacion({ eventoId, modoEjemplos, tipos }: { eventoId: string; modoEjemplos: boolean; tipos?: MapaTipos }) {
   const api = useMemo<ApiLista>(() => {
     if (modoEjemplos) {
       const e = crearListaEjemplos(eventoId, new URLSearchParams(window.location.search).get('conflicto') === '1')
@@ -203,7 +209,7 @@ export function ListaVerificacion({ eventoId, modoEjemplos }: { eventoId: string
         <ul className="lista__items">
           {filas.map((f) => (
             <FilaItem
-              key={f.clave} fila={f}
+              key={f.clave} fila={f} tipos={tipos}
               alIncluir={() => despachar({ tipo: 'alternarIncluir', clave: f.clave })}
               alMarcar={(estado) => despachar({ tipo: 'marcar', clave: f.clave, estado })}
               alGuardarCambio={(el) => { origen.current = el; setConfirmando({ tipo: 'cambio', fila: f }) }}

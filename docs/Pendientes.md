@@ -107,3 +107,4 @@ El plan por fases está en [Plan_rol_3](consulta/Plan_rol_3.md). Orden sugerido:
 - [ ] F6. Interfaz mínima y demo con el evento 222.
 - [ ] F7. Casos de herramientas y seguridad para el banco del rol 4.
 - [ ] Repasar las notas de la semana 15.1 (grounding, abstención, versionado), 2.2 (guardrails) y 7.1 (agentes) para justificar decisiones en el documento y la defensa.
+- [ ] Carácter de los literales del numeral 2.7 (listado de documentos): hoy salen `no_indicado` porque `caracter_de_seccion` solo lee la sección del propio fragmento. Saber si cada documento es fundamental exige cruzarlo con lo que dicen los numerales 2.8 y 2.9 del mismo evento. Mientras tanto se declara como limitación: la lista no inventa el carácter.

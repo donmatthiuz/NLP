@@ -1,11 +1,12 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { ErrorConsulta, consultarApi } from './api'
 import { IconoInfo } from './componentes/Iconos'
-import { DocumentosEvento } from './componentes/DocumentosEvento'
+import { DocumentosEvento, useDocumentosEvento } from './componentes/DocumentosEvento'
 import { Resultado } from './componentes/Resultado'
 import { ZonaFuentes } from './componentes/Fuentes'
 import { ListaVerificacion } from './componentes/ListaVerificacion'
 import { SelectorTema } from './componentes/Tema'
+import { mapaTipos } from './cobertura'
 import { EJEMPLOS } from './ejemplos'
 import { ROTULOS, alAclarar, estadoDe } from './estado'
 import type { RespuestaEstructurada } from './tipos'
@@ -26,6 +27,8 @@ export default function App() {
   const [situacion, setSituacion] = useState<Situacion>({ tipo: 'vacia' })
   const [sinAutenticacion, setSinAutenticacion] = useState(false)
   const [anuncio, setAnuncio] = useState('')
+  const documentos = useDocumentosEvento(EVENTO_ID, MODO_EJEMPLOS)
+  const tipos = useMemo(() => (documentos.tipo === 'listo' ? mapaTipos(documentos.datos.documentos) : undefined), [documentos])
   const cajaRef = useRef<HTMLTextAreaElement>(null)
   const rotuloRef = useRef<HTMLHeadingElement>(null)
 
@@ -87,7 +90,7 @@ export default function App() {
         </div>
       </header>
       <main className="contenedor">
-        <DocumentosEvento eventoId={EVENTO_ID} modoEjemplos={MODO_EJEMPLOS} />
+        <DocumentosEvento carga={documentos} />
         <form
           className="consulta"
           aria-label="Consulta"
@@ -150,11 +153,11 @@ export default function App() {
               }}
             />
             {estado !== 'aclaracion' && (
-              <ZonaFuentes fuentes={r.sources} abstencion={r.abstained} conflicto={r.needs_human_review} />
+              <ZonaFuentes fuentes={r.sources} abstencion={r.abstained} conflicto={r.needs_human_review} tipos={tipos} />
             )}
           </>
         )}
-        <ListaVerificacion eventoId={EVENTO_ID} modoEjemplos={MODO_EJEMPLOS} />
+        <ListaVerificacion eventoId={EVENTO_ID} modoEjemplos={MODO_EJEMPLOS} tipos={tipos} />
       </main>
       <footer className="pie">
         <div className="contenedor">LiciGT, proyecto CC3103 (UVG). No presenta ofertas ni decide la vigencia de documentos.</div>

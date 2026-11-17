@@ -30,6 +30,11 @@ describe('motivo de la banda de revisión', () => {
     expect(m).not.toBeNull()
     expect(m).not.toContain('Las fuentes difieren')
   })
+  it('sin fuentes el motivo es neutro: sin ambigüedad, desactualización ni vigencia', () => {
+    const m = motivoRevision({ needs_human_review: true, sources: [] })
+    expect(m).toBe('El sistema marcó esta consulta para revisión humana; revise los documentos originales.')
+    expect(m).not.toMatch(/ambigu|desactualiz|vigen/i)
+  })
   it('fuentes de un solo documento tampoco', () =>
     expect(motivoRevision({ needs_human_review: true, sources: [comparacion.sources[0]] })).not.toContain('Las fuentes difieren'))
 })

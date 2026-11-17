@@ -179,6 +179,7 @@ dd { font-weight: var(--peso-fuerte); overflow-wrap: anywhere; }
 }
 .documento[data-faltantes="true"] { border: var(--borde-estado) solid var(--estado-revision); background: var(--estado-revision-fondo); }
 .documento__titulo { display: flex; flex-wrap: wrap; align-items: center; gap: var(--espacio-2); font-weight: var(--peso-fuerte); }
+.documento__id { overflow-wrap: anywhere; }
 .documento__datos { font-size: var(--texto-sm); color: var(--color-texto-secundario); }
 .documento__faltantes { display: grid; gap: var(--espacio-2); justify-items: start; }
 .documento__faltantes ul { margin: 0; padding-left: var(--espacio-6); font-size: var(--texto-sm); font-weight: var(--peso-fuerte); }
@@ -205,7 +206,7 @@ dd { font-weight: var(--peso-fuerte); overflow-wrap: anywhere; }
 .item-lista__cambio { display: flex; flex-wrap: wrap; align-items: center; gap: var(--espacio-3); }
 .item-lista__cambio .boton { padding-inline: var(--espacio-4); }
 .etiqueta {
-  font-size: var(--texto-xs); font-weight: var(--peso-fuerte); padding: var(--espacio-1) var(--espacio-2);
+  font-size: var(--texto-sm); font-weight: var(--peso-fuerte); padding: var(--espacio-1) var(--espacio-2);
   border: var(--borde-fino) solid var(--color-borde-control); border-radius: var(--radio); background: var(--color-superficie-2);
 }
 .etiqueta--aviso { border-color: var(--estado-revision); color: var(--estado-revision); background: var(--estado-revision-fondo); }
