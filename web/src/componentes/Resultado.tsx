@@ -1,5 +1,5 @@
 import { forwardRef } from 'react'
-import { ROTULOS, estadoDe } from '../estado'
+import { ROTULOS, estadoDe, motivoRevision } from '../estado'
 import type { RespuestaEstructurada } from '../tipos'
 import { IconoCobertura, IconoEstado } from './Iconos'
 
@@ -29,15 +29,16 @@ export const Resultado = forwardRef<HTMLHeadingElement, Props>(function Resultad
 ) {
   const estado = estadoDe(r)
   const aclaracion = estado === 'aclaracion'
+  const motivo = motivoRevision(r)
   return (
     <section className="resultado" data-estado={estado} aria-label="Resultado">
       <header className="resultado__cabecera">
         <IconoEstado estado={estado} />
         <h2 ref={rotuloRef} tabIndex={-1}>{ROTULOS[estado]}</h2>
       </header>
-      {r.needs_human_review && (
+      {motivo && (
         <p className="banda-revision">
-          Las fuentes difieren o un dato crítico es ambiguo. El sistema no decide cuál está vigente; revise los documentos originales.
+          <strong>Requiere revisión humana.</strong> {motivo}
         </p>
       )}
       <div className="resultado__cuerpo">

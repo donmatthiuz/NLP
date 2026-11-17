@@ -361,8 +361,20 @@ class TemaComparacionTests(unittest.TestCase):
             with self.subTest(pregunta=pregunta):
                 self.assertEqual(tema_comparacion(pregunta), tema)
 
+    def test_que_cambio_en_y_numero_de_modificacion_c12(self):
+        for pregunta, tema in (
+            ("¿Qué cambió en el cronograma entre las bases y la modificación 1?", "cronograma"),
+            ("¿Qué cambia en el cronograma entre las bases y la modificación Número 1?", "cronograma"),
+            ("¿Qué diferencias hay en la fecha de recepción de ofertas entre las bases y la aclaración 2?",
+             "fecha de recepción de ofertas"),
+            ("Compara el cronograma entre las bases y la modificación 1", "cronograma"),
+            ("¿Qué cambió en la fecha de recepción de ofertas?", "fecha de recepción de ofertas"),
+        ):
+            with self.subTest(pregunta=pregunta):
+                self.assertEqual(tema_comparacion(pregunta), tema)
+
     def test_lo_que_no_tiene_orden_se_deja_igual(self):
-        for pregunta in ("¿Qué cambió en el cronograma con la modificación 1?", "fecha de recepción de ofertas"):
+        for pregunta in ("¿Qué cambió con la modificación 1?", "fecha de recepción de ofertas"):
             with self.subTest(pregunta=pregunta):
                 self.assertEqual(tema_comparacion(pregunta), pregunta)
 

@@ -302,7 +302,18 @@ class ResolverEventoTests(unittest.TestCase):
         r = self.cliente.post("/api/eventos/222-IGSS-2023/consultas", json={"pregunta": "¿Dónde se reciben ofertas?"})
         self.assertEqual(r.status_code, 200, r.text)
         self.assertEqual(self.recuperador.llamadas[0][1], self.INTERNO)
+        self.assertEqual(r.json()["evento_id"], "222-IGSS-2023")
+
+    def test_la_respuesta_lleva_el_valor_de_la_ruta_tambien_con_el_id_interno(self):
+        r = self.cliente.post(f"/api/eventos/{self.INTERNO}/consultas", json={"pregunta": "¿Dónde se reciben ofertas?"})
+        self.assertEqual(r.status_code, 200, r.text)
         self.assertEqual(r.json()["evento_id"], self.INTERNO)
+
+    def test_la_abstencion_tambien_lleva_el_valor_de_la_ruta(self):
+        self.recuperador.busqueda["suficiente"] = False
+        r = self.cliente.post("/api/eventos/222-IGSS-2023/consultas", json={"pregunta": "¿Dónde se reciben ofertas?"})
+        self.assertTrue(r.json()["abstained"])
+        self.assertEqual(r.json()["evento_id"], "222-IGSS-2023")
 
     def test_acepta_el_id_interno_y_usa_la_sesion_de_la_empresa(self):
         r = self.cliente.get(f"/api/eventos/{self.INTERNO}/lista")

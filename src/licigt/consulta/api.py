@@ -5,7 +5,7 @@ import os
 from functools import lru_cache
 from typing import Annotated, Literal
 
-from fastapi import Depends, FastAPI, HTTPException, Path
+from fastapi import Depends, FastAPI, HTTPException, Path, Request
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from .enrutador import crear_enrutador
@@ -151,13 +151,16 @@ async def cabecera_demo(request, call_next):
 def consultar_evento(
     evento_id: EventoInterno,
     entrada: ConsultaEntrada,
+    request: Request,
     ctx: Annotated[object, Depends(contexto_demo)],
     enrutador: Annotated[object, Depends(obtener_enrutador)],
     recuperador: Annotated[object, Depends(obtener_recuperador)],
     generador: Annotated[object, Depends(obtener_generador)],
 ):
-    return consultar(ctx, evento_id, entrada.pregunta, enrutador=enrutador,
-                     recuperador=recuperador, generador=generador, auditar=_auditar)
+    respuesta = consultar(ctx, evento_id, entrada.pregunta, enrutador=enrutador,
+                          recuperador=recuperador, generador=generador, auditar=_auditar)
+    # El orquestador trabaja con el id interno; quien llama recibe el valor que pidió en la ruta.
+    return respuesta.model_copy(update={"evento_id": request.path_params["evento_id"]})
 
 
 def _falla_http(falla: FallaLista) -> HTTPException:

@@ -355,7 +355,7 @@ class OrquestadorTests(unittest.TestCase):
             salida.update(abstener=abstener, revision_humana=revision)
             r = self.consultar(generador=GeneradorFalso([json.dumps(salida)]))
             self.assertEqual(r.abstained, abstener)
-            self.assertEqual(r.needs_human_review, revision)
+            self.assertEqual(r.needs_human_review, revision and not abstener)
 
     def test_222_recepcion_parcial_dos_fuentes_y_fechas(self):
         r = self.consultar("¿Cuál es la fecha y hora de recepción de ofertas?",
@@ -383,6 +383,32 @@ class OrquestadorTests(unittest.TestCase):
         r = self.consultar("Compara la fecha de recepción de ofertas entre las bases y la modificación")
         self.assertEqual(r.tool_used, "comparar_versiones")
         self.assertEqual({l[2] for l in self.recuperador.llamadas}, {"fecha de recepción de ofertas"})
+
+    def test_c12_abstencion_sin_conflicto_no_pide_revision(self):
+        # La comparación de una modificación pide revisión al responder, no al abstenerse.
+        r = self.consultar("Compara la fecha de recepción de ofertas entre las bases y la modificación",
+                           recuperador=RecuperadorFalso(suficiente=False))
+        self.assertTrue(r.abstained)
+        self.assertFalse(r.needs_human_review)
+
+    def test_c12_abstencion_con_conflicto_si_pide_revision(self):
+        r = self.consultar(recuperador=RecuperadorFalso(suficiente=False, conflicto=True))
+        self.assertTrue(r.abstained)
+        self.assertTrue(r.needs_human_review)
+
+    def test_c12_abstencion_del_modelo_sin_conflicto_no_pide_revision(self):
+        salida = salida_222()
+        salida.update(abstener=True, revision_humana=True)
+        r = self.consultar("Compara la fecha de recepción de ofertas entre las bases y la modificación",
+                           generador=GeneradorFalso([json.dumps(salida)]))
+        self.assertTrue(r.abstained)
+        self.assertFalse(r.needs_human_review)
+
+    def test_c12_citas_no_validas_sin_conflicto_no_pide_revision(self):
+        r = self.consultar("Compara la fecha de recepción de ofertas entre las bases y la modificación",
+                           generador=GeneradorFalso(["{}", "{}"]))
+        self.assertTrue(r.abstained)
+        self.assertFalse(r.needs_human_review)
 
     def test_c9_tema_vacio_pide_aclaracion(self):
         r = self.consultar("Compara las bases y la modificación")

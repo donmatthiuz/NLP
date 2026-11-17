@@ -19,17 +19,19 @@ from .requisitos import (
 )
 
 
-# Orden de comparar al inicio ("compara", "la diferencia entre las bases y la modificación en") y al final
-# ("entre las bases y la modificación"); lo que queda es el tema que el reranker del rol 2 puede puntuar.
+# Orden de comparar al inicio ("compara", "la diferencia entre las bases y la modificación en", "qué cambió en") y al
+# final ("entre las bases y la modificación 1"); lo que queda es el tema que el reranker del rol 2 puede puntuar.
 ORDEN_VERBO = re.compile(r"(?:compara(?:r|n|me)?|compare(?:n)?|contrasta(?:r)?)\s+", re.IGNORECASE)
+CAMBIO = r"(?:modificaci[oó]n|modificaciones|aclaraci[oó]n|aclaraciones)(?:\s+(?:n[uú]mero\s+)?\d+)?"
 ORDEN_DIFERENCIA = re.compile(
+    r"(?:qu[eé]\s+(?:cambi[oó]|cambia|cambiaron)\s+en\b|qu[eé]\s+diferencias?\s+hay\s+en\b|"
     r"(?:cu[aá]l(?:es)?\s+(?:es|son)\s+)?(?:la\s+|las\s+)?diferencias?(?:\s+que\s+hay)?"
     r"(?:\s+entre\s+(?:las\s+)?(?:bases|versiones|documentos)"
-    r"(?:\s+y\s+(?:la\s+|las\s+)?(?:modificaci[oó]n|modificaciones|aclaraci[oó]n|aclaraciones))?)?"
-    r"(?:\s+(?:en|de|sobre)\b)?\s*", re.IGNORECASE)
+    r"(?:\s+y\s+(?:la\s+|las\s+)?" + CAMBIO + r")?)?"
+    r"(?:\s+(?:en|de|sobre)\b)?)\s*", re.IGNORECASE)
 ORDEN_SOLO_DOCUMENTOS = re.compile(
     r"(?:las?\s+)?(?:bases|(?:dos\s+)?versiones|documentos)"
-    r"(?:\s+y\s+(?:la\s+|las\s+)?(?:modificaci[oó]n|modificaciones|aclaraci[oó]n|aclaraciones))?", re.IGNORECASE)
+    r"(?:\s+y\s+(?:la\s+|las\s+)?" + CAMBIO + r")?", re.IGNORECASE)
 ORDEN_COLA = re.compile(r"\s+(?:entre|en)\s+(?:las?\s+|los\s+)?(?:bases|versiones|documentos)\b.*$", re.IGNORECASE)
 ARTICULO = re.compile(r"(?:la|el|las|los)\s+", re.IGNORECASE)
 

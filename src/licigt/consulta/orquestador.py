@@ -83,14 +83,15 @@ def _conflictos(busquedas, fragmentos):
     return grupos, afectados
 
 
-def _abstencion(evento_id, resultado=None, aviso=None, herramienta=None):
+def _abstencion(evento_id, resultado=None, aviso=None, herramienta=None, conflicto=False):
+    """Revisión humana en una abstención solo si la herramienta trajo un posible_conflicto; la vigencia aplica al publicar."""
     avisos = list(resultado.warnings) if resultado else []
     if aviso and aviso not in avisos:
         avisos.append(aviso)
     return RespuestaEstructurada(
         answer=TEXTO_ABSTENCION, sources=[], abstained=True,
         tool_used=resultado.herramienta if resultado else herramienta, evento_id=evento_id,
-        needs_human_review=resultado.needs_human_review if resultado else False,
+        needs_human_review=conflicto,
         coverage_status=resultado.coverage_status if resultado else "sin_faltantes_detectados",
         warnings=avisos)
 
@@ -144,17 +145,18 @@ def _ejecutar(ctx, evento_id, evento_salida, pregunta, herramienta, presupuesto,
             return respuesta
         fragmentos = _evidencia(resultado)
         error = resultado.error
+        hay_conflicto = lambda: bool(_conflictos(observado.busquedas, fragmentos)[0])
         if observado.evento_distinto:
             error = "evento_distinto"
-            respuesta = _abstencion(evento_salida, resultado, "citas_no_validas")
+            respuesta = _abstencion(evento_salida, resultado, "citas_no_validas", conflicto=hay_conflicto())
             validacion = "fallida"
             return respuesta
         if resultado.abstener:
-            respuesta = _abstencion(evento_salida, resultado)
+            respuesta = _abstencion(evento_salida, resultado, conflicto=hay_conflicto())
             return respuesta
         if resultado.evento_id != evento_id:
             error = "evento_distinto"
-            respuesta = _abstencion(evento_salida, resultado, "citas_no_validas")
+            respuesta = _abstencion(evento_salida, resultado, "citas_no_validas", conflicto=hay_conflicto())
             validacion = "fallida"
             return respuesta
 
@@ -169,7 +171,7 @@ def _ejecutar(ctx, evento_id, evento_salida, pregunta, herramienta, presupuesto,
             max_caracteres=config.max_caracteres_evidencia)
         resultado = resultado.model_copy(update={"warnings": list(dict.fromkeys([*resultado.warnings, *avisos]))})
         if not evidencia:
-            respuesta = _abstencion(evento_salida, resultado)
+            respuesta = _abstencion(evento_salida, resultado, conflicto=hay_conflicto())
             return respuesta
         informe, cortada = {}, False
         for intento in range(2):
@@ -181,16 +183,16 @@ def _ejecutar(ctx, evento_id, evento_salida, pregunta, herramienta, presupuesto,
             except FallaGenerador as exc:
                 if exc.codigo != "respuesta_cortada":
                     error = exc.codigo
-                    respuesta = _abstencion(evento_salida, resultado, "generador_no_disponible")
+                    respuesta = _abstencion(evento_salida, resultado, "generador_no_disponible", conflicto=hay_conflicto())
                     return respuesta
                 cortada = True
             except TimeoutError:
                 error = "tiempo_agotado"
-                respuesta = _abstencion(evento_salida, resultado, "generador_no_disponible")
+                respuesta = _abstencion(evento_salida, resultado, "generador_no_disponible", conflicto=hay_conflicto())
                 return respuesta
             except Exception:
                 error = "api"
-                respuesta = _abstencion(evento_salida, resultado, "generador_no_disponible")
+                respuesta = _abstencion(evento_salida, resultado, "generador_no_disponible", conflicto=hay_conflicto())
                 return respuesta
             if cortada:
                 verificada, crudo = [], None
@@ -238,7 +240,7 @@ def _ejecutar(ctx, evento_id, evento_salida, pregunta, herramienta, presupuesto,
                 'Si no queda ninguna afirmación respaldada, devuelve "abstener": true.')}]
         if cortada:
             error = "respuesta_cortada"
-        respuesta = _abstencion(evento_salida, resultado, "citas_no_validas")
+        respuesta = _abstencion(evento_salida, resultado, "citas_no_validas", conflicto=hay_conflicto())
         return respuesta
     finally:
         ejecucion.resultado, ejecucion.fragmentos = resultado, fragmentos

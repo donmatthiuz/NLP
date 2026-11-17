@@ -784,7 +784,7 @@ class ValidacionTests(unittest.TestCase):
         salida["afirmaciones"][0]["citas"][0]["cita"] = "tramo que no existe"
         self.assertEqual(self.verificar(salida, herramienta(evento_id="otro"))[0].codigo, "evento_distinto")
 
-    def test_abstencion_gana_sobre_afirmaciones_y_respeta_revision(self):
+    def test_abstencion_gana_sobre_afirmaciones_y_solo_un_conflicto_pide_revision(self):
         salida = salida_222()
         salida.update(abstener=True, revision_humana=True)
         salida["afirmaciones"][0]["citas"][0]["fragmento"] = "F999"
@@ -792,7 +792,9 @@ class ValidacionTests(unittest.TestCase):
         self.assertTrue(respuesta.abstained)
         self.assertEqual(respuesta.answer, TEXTO_ABSTENCION)
         self.assertEqual(respuesta.sources, [])
-        self.assertTrue(respuesta.needs_human_review)
+        self.assertFalse(respuesta.needs_human_review)
+        grupos = [{f.doc_id for f in fragmentos_222()}]
+        self.assertTrue(self.verificar(salida, conflictos=grupos).needs_human_review)
 
     def test_fuente_invalida_y_defensa_de_pagina(self):
         f = fragmentos_222()[0].model_copy(update={"pagina_inicio": 0})
