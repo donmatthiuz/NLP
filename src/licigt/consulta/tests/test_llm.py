@@ -95,7 +95,7 @@ class LlmTests(unittest.TestCase):
                     self.assertNotIn("extra_body", argumentos)
                 c.cerrar()
 
-    def test_a7_openai_no_envia_longitud_de_cadenas(self):
+    def test_a7_openai_no_envia_longitud_ni_rangos_numericos(self):
         sdk, crear = sdk_falso()
         esquema = esquema_salida(["F1", "F2"])
         copia = deepcopy(esquema)
@@ -106,11 +106,15 @@ class LlmTests(unittest.TestCase):
         texto = json.dumps(enviado)
         self.assertNotIn("minLength", texto)
         self.assertNotIn("maxLength", texto)
+        self.assertNotIn('"minimum"', texto)
+        self.assertNotIn('"maximum"', texto)
+        self.assertIn('"Dato"', texto)
         self.assertIn("minItems", texto)
         self.assertIn("maxItems", texto)
         self.assertIn('"enum": ["F1", "F2"]', texto)
         self.assertEqual(esquema, copia)
         self.assertIn("maxLength", json.dumps(esquema))
+        self.assertIn('"minimum"', json.dumps(esquema))
 
     def test_b7_openai_solo_con_su_host(self):
         sdk, _ = sdk_falso()

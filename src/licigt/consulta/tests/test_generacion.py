@@ -10,7 +10,7 @@ from datetime import date
 
 from pydantic import ValidationError
 
-from licigt.consulta.generacion import SalidaModelo, construir_prompt, esquema_salida
+from licigt.consulta.generacion import VERSION_PROMPT, SalidaModelo, construir_prompt, esquema_salida
 from licigt.consulta.lectura import FragmentoRecuperado
 from licigt.consulta.requisitos import FechaCandidata
 
@@ -55,10 +55,12 @@ def fragmentos_222():
 
 def salida_222():
     return {"abstener": False, "revision_humana": False, "afirmaciones": [
-        {"texto": "Las bases indican recepción el 31 de julio de 2023.",
-         "citas": [{"fragmento": "F1", "cita": "La recepción de ofertas se llevará a cabo el 31 de julio de 2023"}]},
-        {"texto": "La modificación indica recepción el 6 de octubre de 2023.",
-         "citas": [{"fragmento": "F2", "cita": "INSTITUTO, el día 06 de octubre de 2023"}]}]}
+        {"texto": "Las bases indican recepción el {1}.",
+         "citas": [{"fragmento": "F1", "cita": "La recepción de ofertas se llevará a cabo el 31 de julio de 2023"}],
+         "datos": [{"cita": 1, "literal": "31 de julio de 2023"}]},
+        {"texto": "La modificación indica recepción el {1}.",
+         "citas": [{"fragmento": "F2", "cita": "INSTITUTO, el día 06 de octubre de 2023"}],
+         "datos": [{"cita": 1, "literal": "06 de octubre de 2023"}]}]}
 
 
 class GeneracionTests(unittest.TestCase):
@@ -132,6 +134,30 @@ class GeneracionTests(unittest.TestCase):
         self.assertLess(len(evidencia), 10)
         self.assertIn("evidencia_recortada", avisos)
 
+    def test_h8_el_tope_no_vacia_la_evidencia_y_el_bloque_lleva_solo_fechas_elegidas(self):
+        base = fragmentos_222()[0]
+        fragmentos = [base.model_copy(update={"chunk_id": f"chunk-{i}", "texto": "x" * 3000,
+                                              "score": 1 - i / 100}) for i in range(10)]
+        fechas = [FechaCandidata(chunk_id=f"chunk-{i}", doc_id=base.doc_id, tipo_documento="bases",
+                                pagina=1, literal="y" * 10000, fecha=date(2023, 7, 31))
+                  for i in (0, 9) for _ in range(20)]
+        mensajes, evidencia, _, avisos = construir_prompt("dato", fragmentos, fechas=fechas, max_caracteres=6000)
+        contenido = mensajes[1]["content"]
+        self.assertEqual([f.chunk_id for f in evidencia.values()], ["chunk-0"])
+        self.assertIn("x" * 3000, contenido)
+        self.assertEqual(contenido.count('"fragmento": "F1"'), 20)
+        self.assertEqual(contenido.count('"fragmento"'), 20)
+        self.assertIn("evidencia_recortada", avisos)
+
+    def test_prompt_pide_datos_literales_con_ejemplo_y_marcadores(self):
+        mensajes, _, esquema, _ = construir_prompt("dato", fragmentos_222())
+        sistema = mensajes[0]["content"]
+        self.assertEqual(VERSION_PROMPT, "f4-v3")
+        for texto in ("{1}", '"datos"', "una sola cita", "marcador"):
+            self.assertIn(texto, sistema)
+        ejemplo = sistema[sistema.index('{"abstener"'):sistema.index("\n", sistema.index('{"abstener"'))]
+        SalidaModelo.model_validate_json(ejemplo)
+
     def test_orden_delimitadores_y_ausencia_de_contexto(self):
         fragmentos = fragmentos_222()
         mensajes, evidencia, esquema, avisos = construir_prompt("¿Cuándo se reciben ofertas?", fragmentos)
@@ -169,10 +195,23 @@ class GeneracionTests(unittest.TestCase):
         for modelo in [esquema, *esquema["$defs"].values()]:
             self.assertFalse(modelo["additionalProperties"])
             self.assertEqual(set(modelo["required"]), set(modelo["properties"]))
+        dato = esquema["$defs"]["Dato"]
+        self.assertEqual(set(dato["properties"]), {"cita", "literal"})
+        self.assertIn("datos", esquema["$defs"]["Afirmacion"]["required"])
         for cambio in ({"abstener": "false"}, {"tenant_id": "ajeno"},
                        {"afirmaciones": salida_222()["afirmaciones"] * 5}):
             with self.subTest(cambio=cambio), self.assertRaises(ValidationError):
                 SalidaModelo.model_validate_json(json.dumps({**salida_222(), **cambio}))
+        for dato in ({"cita": 0, "literal": "31"}, {"cita": "1", "literal": "31"}, {"cita": 1, "literal": ""},
+                     {"cita": 1}, {"cita": 1, "literal": "31", "extra": 1}):
+            salida = salida_222()
+            salida["afirmaciones"][0]["datos"] = [dato]
+            with self.subTest(dato=dato), self.assertRaises(ValidationError):
+                SalidaModelo.model_validate_json(json.dumps(salida))
+        salida = salida_222()
+        del salida["afirmaciones"][0]["datos"]
+        with self.assertRaises(ValidationError):
+            SalidaModelo.model_validate_json(json.dumps(salida))
 
     def test_fechas_despues_de_documentos_y_antes_de_pregunta(self):
         f = fragmentos_222()[0]

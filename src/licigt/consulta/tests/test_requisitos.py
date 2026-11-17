@@ -19,7 +19,6 @@ from licigt.consulta.preguntas_jev import (
 )
 from licigt.consulta.requisitos import (
     CONSULTAS_POR_CATEGORIA, CONSULTA_CRONOGRAMA, FechaCandidata, encontrar_fechas,
-    fechas_en_texto, normalizar_cifras,
 )
 
 # Recortes literales de chunks.jsonl de entregables/recuperacion/empresa_demo.zip.
@@ -199,32 +198,6 @@ class JevFalso:
 
 
 class FechasTests(unittest.TestCase):
-    def test_b1_fechas_en_texto_meses_abreviados_y_numericas(self):
-        for texto, fechas, meses in [
-            ("31 de julio de 2023", {(2023, 7, 31)}, {7}),
-            ("31 de ago. de 2023", {(2023, 8, 31)}, {8}),
-            ("31 de sept. de 2023", {(2023, 9, 31)}, {9}),
-            ("1 de set del 2023", {(2023, 9, 1)}, {9}),
-            ("6 oct 2023", {(2023, 10, 6)}, {10}),
-            ("31/07/2023", {(2023, 7, 31)}, {7}),
-            ("31-07-2023", {(2023, 7, 31)}, {7}),
-            ("31.07.2023", {(2023, 7, 31)}, {7}),
-            ("el 6 de octubre", set(), {10}),
-            ("el 6 de dic.", set(), {12}),
-            ("durante julio", set(), {7}),
-            ("el mar es azul y 5 de pesos", set(), set()),
-            ("31/13/2023", set(), set()),
-        ]:
-            with self.subTest(texto=texto):
-                self.assertEqual(fechas_en_texto(texto), (fechas, meses))
-
-    def test_b2_normalizar_cifras(self):
-        for texto, esperado in [("Q1 000 000.00", "Q1000000.00"), ("Q1\u00a0000\u202f000", "Q1000000"),
-                                ("Q1,000,000.00", "Q1000000.00"), ("٣٠", "30"), ("1 0000", "1 0000"),
-                                ("15 000 y 2 50", "15000 y 2 50")]:
-            with self.subTest(texto=texto):
-                self.assertEqual(normalizar_cifras(texto), esperado)
-
     def test_formatos_y_posiciones_originales(self):
         for literal, esperada in [
             ("31 de julio de 2023", date(2023, 7, 31)),

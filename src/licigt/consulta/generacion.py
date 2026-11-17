@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from .lectura import FragmentoRecuperado
 from .requisitos import FechaCandidata
 
-VERSION_PROMPT = "f4-v2"
+VERSION_PROMPT = "f4-v3"
 
 
 class CitaModelo(BaseModel):
@@ -19,11 +19,19 @@ class CitaModelo(BaseModel):
     cita: str = Field(min_length=10, max_length=200)
 
 
+class Dato(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
+
+    cita: int = Field(ge=1)
+    literal: str = Field(min_length=1, max_length=200)
+
+
 class Afirmacion(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
 
     texto: str = Field(min_length=1, max_length=400)
     citas: list[CitaModelo] = Field(min_length=1)
+    datos: list[Dato]
 
 
 class SalidaModelo(BaseModel):
@@ -62,21 +70,25 @@ def construir_prompt(pregunta: str, fragmentos: list[FragmentoRecuperado], *,
         if f.doc_id in docs_conflicto and (f.doc_id not in mejores or f.score > mejores[f.doc_id].score):
             mejores[f.doc_id] = f
     obligatorios.update(f.chunk_id for f in mejores.values())
-    # El bloque de fechas cuenta contra el tope; el literal de cada fecha se recorta a 60 caracteres.
+    # El literal de cada fecha se recorta a 60 caracteres; cada fragmento cuesta su texto más el JSON de sus fechas.
     fechas = [f.model_copy(update={"literal": f.literal[:60]}) for f in fechas]
-    ids = {f.chunk_id for f in fragmentos}
-    reserva = len(json.dumps([{"fragmento": "F00", "literal": _neutralizar(f.literal),
-                               "actividad": f.actividad, "estado": f.estado}
-                              for f in fechas if f.chunk_id in ids], ensure_ascii=False)) if fechas else 0
-    usados = sum(len(f.texto) for f in fragmentos if f.chunk_id in obligatorios)
+    propias = {f.chunk_id: [{"fragmento": "F00", "literal": _neutralizar(d.literal),
+                             "actividad": d.actividad, "estado": d.estado}
+                            for d in fechas if d.chunk_id == f.chunk_id] for f in fragmentos}
+    costo = {f.chunk_id: len(f.texto) + (len(json.dumps(propias[f.chunk_id], ensure_ascii=False))
+                                         if propias[f.chunk_id] else 0) for f in fragmentos}
+    # Con el presupuesto demasiado chico entra al menos el mejor fragmento, para no dejar al modelo sin evidencia.
+    if not obligatorios and fragmentos:
+        obligatorios.add(fragmentos[0].chunk_id)
+    usados = sum(costo[c] for c in obligatorios)
     elegidos = set(obligatorios)
     for f in fragmentos:
         if f.chunk_id in elegidos:
             continue
-        if usados + reserva + len(f.texto) > max_caracteres:
+        if usados + costo[f.chunk_id] > max_caracteres:
             break
         elegidos.add(f.chunk_id)
-        usados += len(f.texto)
+        usados += costo[f.chunk_id]
     avisos = (["evidencia_recortada"] if len(elegidos) < len(fragmentos)
               or usados > max_caracteres else [])
     evidencia = {f"F{i}": f.model_copy(update={"texto": _neutralizar(f.texto)})
@@ -90,7 +102,15 @@ def construir_prompt(pregunta: str, fragmentos: list[FragmentoRecuperado], *,
         '4. Si los fragmentos no responden la pregunta, devuelve "abstener": true y ninguna afirmación.\n'
         '5. Si dos fragmentos dicen cosas distintas sobre el mismo dato, incluye ambas con su cita y marca "revision_humana": true. No decidas cuál está vigente.\n'
         "6. En <fechas>, el estado no_verificada indica una fecha sin confirmar: no la presentes como confirmada. Las fechas también requieren cita del fragmento.\n"
-        "7. Responde en español y solo con JSON que cumpla este esquema: "
+        "7. Toda fecha, hora, cifra, porcentaje, monto o mes se escribe en \"texto\" como marcador {1}, {2}, ... en el orden de \"datos\"; "
+        "su texto exacto va en \"datos\" como {\"cita\": posición de la cita desde 1, \"literal\": tramo copiado tal cual de esa cita}. "
+        "Todos los datos de una afirmación salen de una sola cita; si necesitas datos de dos citas, escribe dos afirmaciones. "
+        "Fuera de los marcadores, \"texto\" no lleva dígitos ni nombres de mes.\n"
+        "8. Ejemplo: "
+        '{"abstener": false, "revision_humana": false, "afirmaciones": [{"texto": "El plazo de entrega es de {1}.", '
+        '"citas": [{"fragmento": "F1", "cita": "el plazo de entrega será de 15 días calendario"}], '
+        '"datos": [{"cita": 1, "literal": "15 días calendario"}]}]}\n'
+        "9. Responde en español y solo con JSON que cumpla este esquema: "
         + json.dumps(esquema, ensure_ascii=False)
     )
     bloques = ["<documentos>"]

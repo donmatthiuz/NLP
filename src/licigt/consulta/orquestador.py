@@ -106,7 +106,6 @@ def consultar(ctx, evento_id, pregunta, *, enrutador, recuperador, generador,
     inicio = time.monotonic()
     usuario = _atributo_seguro(ctx, "usuario")
     tenant_id = _atributo_seguro(ctx, "tenant_id")
-    modelo_generador = _atributo_seguro(generador, "modelo_generador")
     # Incluso un id inválido debe producir una respuesta compatible con TextoNoVacio.
     evento_salida = evento_id if isinstance(evento_id, str) and evento_id.strip() else "sin_evento"
     respuesta = _abstencion(evento_salida)
@@ -207,7 +206,13 @@ def consultar(ctx, evento_id, pregunta, *, enrutador, recuperador, generador,
             errores = json.dumps([e.model_dump(exclude_none=True) for e in verificada], ensure_ascii=False)
             mensajes = [*mensajes, {"role": "assistant", "content": crudo}, {"role": "user", "content": (
                 "La salida anterior no pasó la validación: " + errores + "\n"
-                'Corrige esos puntos: copia tramos exactos o elimina la afirmación. Si no queda ninguna afirmación respaldada, devuelve "abstener": true.')}]
+                "Corrige esos puntos: copia tramos exactos o elimina la afirmación.\n"
+                "- cita_no_literal: copia la cita completa desde el fragmento, sin empezar ni terminar a mitad de una palabra o número.\n"
+                "- dato_no_literal: el literal debe ser un tramo exacto de la cita indicada, sin cambiar ceros ni formato.\n"
+                "- datos_de_varias_citas: divide en dos afirmaciones, cada una con datos de una sola cita.\n"
+                "- dato_fuera_de_literal: quita del texto todo dígito y nombre de mes; ponlo como marcador {n} con su literal en datos.\n"
+                '- texto_invalido: usa solo letras latinas, sin saltos de línea, sin [n], y cada marcador {n} con su dato y cada dato con su marcador.\n'
+                'Si no queda ninguna afirmación respaldada, devuelve "abstener": true.')}]
         respuesta = _abstencion(evento_salida, resultado, "citas_no_validas")
         return respuesta
     except LimiteAgotado:
@@ -232,7 +237,7 @@ def consultar(ctx, evento_id, pregunta, *, enrutador, recuperador, generador,
                 "needs_human_review": respuesta.needs_human_review, "validacion": validacion,
                 "latencia_ms": (time.monotonic() - inicio) * 1000, "error": error,
                 "chunk_ids_citados": list(dict.fromkeys(f.chunk_id for f in respuesta.sources)),
-                "modelo_generador": modelo_generador,
+                "modelo_generador": _atributo_seguro(generador, "modelo_generador"),
                 "version_prompt": VERSION_PROMPT,
             })
         except Exception:

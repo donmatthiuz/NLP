@@ -7,8 +7,9 @@ from .config import ConfiguracionLlm, obtener_configuracion_llm
 
 HOSTS_LOCALES = {"127.0.0.1", "localhost"}
 # Modo estricto de OpenAI: https://developers.openai.com/api/docs/guides/structured-outputs#supported-schemas
-# lista minItems, maxItems y enum, pero no minLength ni maxLength; el validador local las aplica igual.
-PALABRAS_NO_ADMITIDAS = ("minLength", "maxLength")
+# lista minItems, maxItems y enum, pero no minLength ni maxLength; documenta minimum y maximum solo para "number", no para "integer".
+# Sin verificar en integer no se envían; el validador local las aplica igual.
+PALABRAS_NO_ADMITIDAS = ("minLength", "maxLength", "minimum", "maximum")
 
 
 def _esquema_openai(nodo):

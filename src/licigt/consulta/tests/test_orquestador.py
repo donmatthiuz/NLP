@@ -101,6 +101,50 @@ class OrquestadorTests(unittest.TestCase):
         self.assertEqual(len(self.eventos), 1)
         self.assertIsNone(self.eventos[0]["modelo_generador"])
 
+    def test_h7_modelo_se_lee_despues_de_generar(self):
+        class GeneradorQueCambia(GeneradorFalso):
+            def generar(self, mensajes, esquema):
+                self.modelo_generador = "modelo-resuelto"
+                return super().generar(mensajes, esquema)
+
+        self.consultar(generador=GeneradorQueCambia())
+        self.assertEqual(self.eventos[0]["modelo_generador"], "modelo-resuelto")
+
+    def test_h7_propiedad_que_lanza_despues_de_generar_deja_none(self):
+        class GeneradorRotoAlFinal(GeneradorFalso):
+            roto = False
+
+            @property
+            def modelo_generador(self):
+                if self.roto:
+                    raise RuntimeError("secreto remoto")
+                return "antes"
+
+            def generar(self, mensajes, esquema):
+                self.roto = True
+                return super().generar(mensajes, esquema)
+
+        self.consultar(generador=GeneradorRotoAlFinal())
+        self.assertEqual(len(self.eventos), 1)
+        self.assertIsNone(self.eventos[0]["modelo_generador"])
+
+    def test_regeneracion_nombra_los_codigos_nuevos_y_como_corregirlos(self):
+        dos_citas = salida_222()
+        dos_citas["afirmaciones"] = [{
+            "texto": "Recepción el {1} y el {2}.",
+            "citas": [a["citas"][0] for a in dos_citas["afirmaciones"]],
+            "datos": [{"cita": 1, "literal": "31 de julio de 2023"}, {"cita": 2, "literal": "06 de octubre de 2023"}]}]
+        generador = GeneradorFalso([json.dumps(dos_citas), json.dumps(salida_222())])
+        r = self.consultar(generador=generador)
+        self.assertFalse(r.abstained)
+        mensaje = generador.llamadas[1][0][-1]["content"]
+        self.assertIn("datos_de_varias_citas", mensaje)
+        for codigo in ("dato_no_literal", "dato_fuera_de_literal", "texto_invalido"):
+            self.assertIn(codigo, mensaje)
+        self.assertIn("dos afirmaciones", mensaje)
+        self.assertNotIn("julio", mensaje)
+        self.assertNotIn("ofertas", mensaje)
+
     def test_a5_contexto_se_captura_antes_de_enrutar(self):
         clasificar = EnrutadorReglas().clasificar
         def cambiar(pregunta):
@@ -182,6 +226,8 @@ class OrquestadorTests(unittest.TestCase):
         self.assertIs(self.recuperador.llamadas[0][0], self.ctx)
         self.assertEqual(self.eventos[0]["validacion"], "ok")
         self.assertEqual(len(self.eventos[0]["chunk_ids_citados"]), 2)
+        self.assertIn("31 de julio de 2023", r.answer)
+        self.assertTrue(r.needs_human_review)
         self.assertEqual(self.eventos[0]["modelo_generador"], "generador-falso")
         self.assertEqual(self.eventos[0]["usuario"], self.ctx.usuario)
 
