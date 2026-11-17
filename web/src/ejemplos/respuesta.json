@@ -1,5 +1,5 @@
 {
-  "answer": "El Seguro de Caución de Cumplimiento debe constituirse por una suma equivalente al diez por ciento (10%) del monto del CONTRATO, dentro del plazo de quince (15) días siguientes a la suscripción del CONTRATO (subnumeral 2.23.2, literal b).",
+  "answer": "El plazo para presentar el Seguro de Caución de Cumplimiento es de quince (15) días siguientes a la suscripción del CONTRATO. [1]\nLa suma asegurada debe ser equivalente al diez por ciento (10%) del monto del CONTRATO. [2]",
   "sources": [
     {
       "doc_id": "03791a3471c04c0f9cc260814564756e",
@@ -28,8 +28,8 @@
   "evento_id": "222-IGSS-2023",
   "coverage_status": "parcial",
   "warnings": [
-    "cobertura_incompleta: d41480e5b0ce4c16bf18f66225ada2dc páginas no indexadas 3, 4",
-    "evento_con_modificaciones: 03791a3471c04c0f9cc260814564756e"
+    "cobertura_incompleta: d41480e5b0ce4c16bf18f66225ada2dc páginas no indexadas 4",
+    "evento_con_modificaciones: d41480e5b0ce4c16bf18f66225ada2dc"
   ],
   "needs_clarification": false,
   "clarification_question": null

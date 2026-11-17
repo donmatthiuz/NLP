@@ -36,9 +36,40 @@ class EjemplosWebTests(unittest.TestCase):
         self.assertTrue(r["aclaracion"].needs_clarification)
         self.assertTrue(r["comparacion"].needs_human_review)
         self.assertGreaterEqual(len({s.doc_id for s in r["comparacion"].sources}), 2)
+        self.assertFalse(r["respuesta"].abstained or r["respuesta"].needs_human_review or r["respuesta"].needs_clarification)
+        # Citar una modificación escala a revisión humana (validación.TIPOS_QUE_ESCALAN).
+        self.assertFalse(r["cobertura_parcial"].abstained or r["cobertura_parcial"].needs_clarification)
+        self.assertTrue(r["cobertura_parcial"].needs_human_review)
+        self.assertIn("d41480e5b0ce4c16bf18f66225ada2dc:00015", {s.chunk_id for s in r["cobertura_parcial"].sources})
         for n in ("respuesta", "cobertura_parcial"):
-            self.assertFalse(r[n].abstained or r[n].needs_human_review or r[n].needs_clarification)
             self.assertTrue(r[n].sources)
+
+    def test_answer_lleva_marcadores_como_el_validador(self):
+        for nombre in NOMBRES:
+            r = RespuestaEstructurada.model_validate(self.cargar(nombre))
+            if not r.sources:
+                continue
+            with self.subTest(nombre=nombre):
+                lineas = r.answer.split("\n")
+                for linea in lineas:
+                    self.assertRegex(linea, r" \[\d+\](?:\[\d+\])*$")
+                usados = {int(n) for n in re.findall(r"\[(\d+)\]", r.answer)}
+                self.assertEqual(usados, set(range(1, len(r.sources) + 1)))
+
+    @unittest.skipUnless(PAQUETE.exists(), "falta entregables/recuperacion/empresa_demo.zip")
+    def test_avisos_de_cobertura_salen_del_inventario(self):
+        with zipfile.ZipFile(PAQUETE) as z:
+            docs = json.loads(z.read("inventario.json"))["documents"]
+        esperados = {
+            f"cobertura_incompleta: {d['doc_id']} páginas no indexadas " + ", ".join(map(str, d["paginas_no_indexadas"]))
+            for d in docs if d["numero_evento"] == "222-IGSS-2023" and d["paginas_no_indexadas"]
+        }
+        for nombre in NOMBRES:
+            r = RespuestaEstructurada.model_validate(self.cargar(nombre))
+            if r.tool_used is None:
+                continue
+            with self.subTest(nombre=nombre):
+                self.assertEqual({w for w in r.warnings if w.startswith("cobertura_incompleta")}, esperados)
 
     def test_ningun_ejemplo_lleva_tenant_id(self):
         for nombre in NOMBRES:

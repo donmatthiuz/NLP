@@ -9,7 +9,7 @@ describe('estadoDe con los cinco ejemplos', () => {
   it('abstención', () => expect(estadoEjemplo('abstencion')).toBe('abstencion'))
   it('revisión humana', () => expect(estadoEjemplo('comparacion')).toBe('revision'))
   it('aclaración', () => expect(estadoEjemplo('aclaracion')).toBe('aclaracion'))
-  it('cobertura parcial sigue siendo respuesta', () => expect(estadoEjemplo('cobertura_parcial')).toBe('respuesta'))
+  it('cobertura parcial citando una modificación escala a revisión', () => expect(estadoEjemplo('cobertura_parcial')).toBe('revision'))
 })
 
 describe('precedencia', () => {

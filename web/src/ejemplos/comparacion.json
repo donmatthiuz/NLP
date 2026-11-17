@@ -1,5 +1,5 @@
 {
-  "answer": "La fecha de recepción de ofertas difiere entre los documentos. Bases, página 8: el día 31 de julio de 2023, a las 11:00 horas (hora límite 11:30). Modificación Número 1, página 1: el día 06 de octubre de 2023, a las 11:00 horas (hora límite 11:30).",
+  "answer": "Bases: el día 31 de julio de 2023, a las 11:00 horas (hora límite 11:30). [1]\nModificación Número 1: el día 06 de octubre de 2023, a las 11:00 horas (hora límite 11:30). [2]",
   "sources": [
     {
       "doc_id": "03791a3471c04c0f9cc260814564756e",
@@ -28,8 +28,7 @@
   "evento_id": "222-IGSS-2023",
   "coverage_status": "parcial",
   "warnings": [
-    "cobertura_incompleta: d41480e5b0ce4c16bf18f66225ada2dc páginas no indexadas 3, 4",
-    "evento_con_modificaciones: 03791a3471c04c0f9cc260814564756e"
+    "cobertura_incompleta: d41480e5b0ce4c16bf18f66225ada2dc páginas no indexadas 4"
   ],
   "needs_clarification": false,
   "clarification_question": null
