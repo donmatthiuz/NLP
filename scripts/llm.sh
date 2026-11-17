@@ -11,7 +11,7 @@ URL_LLAMACPP="https://github.com/ggml-org/llama.cpp/releases/download/${VERSION_
 DIR_BINARIO="tools/llama.cpp/${VERSION_LLAMACPP}"
 # El release no publica checksums. Anotar aquí el sha256 del tarball descargado:
 # `make llm-descargar` lo imprime cuando esta constante está vacía.
-SHA256_BINARIO=""
+SHA256_BINARIO="fa045da495821f344351e79e3d2035bf1f5de6f64e16d1b165c363842ca11a57"
 
 # Modelo principal (I2, sección 4).
 REPO_PRINCIPAL="unsloth/Qwen3.5-9B-GGUF"
@@ -39,7 +39,7 @@ sha256_archivo() {
 # Ruta esperada del GGUF dentro de la caché de Hugging Face (revisión fijada).
 modelo_archivo() {
     local repo="$1" archivo="$2" revision="$3"
-    printf '%s/hub/models--%s/snapshots/%s/%s\n' "${HF_HOME}" "$(printf '%s' "${repo}" | tr '/' '--')" "${revision}" "${archivo}"
+    printf '%s/hub/models--%s/snapshots/%s/%s\n' "${HF_HOME}" "${repo//\//--}" "${revision}" "${archivo}"
 }
 
 # Binario llama-server extraído del tarball.
