@@ -295,3 +295,18 @@ Servidores y hardware:
 - Guía de migración a Blackwell (CUDA 12.8): https://forums.developer.nvidia.com/t/software-migration-guide-for-nvidia-blackwell-rtx-gpus-a-guide-to-cuda-12-8-pytorch-tensorrt-and-llama-cpp/321330
 - Rendimiento en RTX 5070: https://www.hardware-corner.net/gpu-llm-benchmarks/rtx-5070/
 - Cuantización en llama.cpp: https://arxiv.org/abs/2601.14277
+
+## Configuración medida para la demo (17 de noviembre)
+
+- **LLM:** contexto de 12288 (valor por defecto desde ahora; con 16384 no caben los modelos del rol 2). Con el LLM cargado, la GPU queda en 7377 MiB, contando los 1653 MiB del escritorio.
+- **Modelos del rol 2 en la misma GPU** (proceso de la API sin `CUDA_VISIBLE_DEVICES` vacío): la GPU queda en 11442 de 12227 MiB.
+- **Latencias reales del 222 por la API:**
+  - consulta respondible: de 6 a 7,5 s (16 s en la primera, que carga los modelos);
+  - abstención: 0,8 s;
+  - propuesta de lista con 41 ítems: 4 s.
+- **Con la recuperación en CPU** las mismas operaciones tardaban:
+  - consulta respondible: de 15 a 24 s;
+  - abstención: 7 s;
+  - propuesta de lista: de 67 a 70 s.
+- **Riesgo:** quedan unos 800 MiB libres. Si el escritorio crece, la recuperación vuelve a CPU con `CUDA_VISIBLE_DEVICES=` en el proceso de la API.
+

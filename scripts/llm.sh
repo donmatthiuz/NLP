@@ -154,7 +154,7 @@ servidor() {
         --model "${modelo}" \
         --host 127.0.0.1 --port "${LICIGT_LLM_PUERTO:-8080}" \
         --alias qwen3.5-9b \
-        --ctx-size "${LICIGT_LLM_CTX:-16384}" \
+        --ctx-size "${LICIGT_LLM_CTX:-12288}" \
         -np 1 \
         --no-mmproj \
         --flash-attn on \
@@ -182,7 +182,7 @@ servidor_docker() {
         --model "${ruta_modelo}" \
         --host 0.0.0.0 --port 8080 \
         --alias qwen3.5-9b \
-        --ctx-size "${LICIGT_LLM_CTX:-16384}" \
+        --ctx-size "${LICIGT_LLM_CTX:-12288}" \
         -np 1 \
         --no-mmproj \
         --flash-attn on \
