@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import type { Estado } from '../tipos'
+import type { Estado, EstadoItem } from '../tipos'
 
 function Svg({ children }: { children: ReactNode }) {
   return (
@@ -26,3 +26,11 @@ export const IconoInfo = () => (
 export const IconoCobertura = () => (
   <Svg><path d="M6 3h8l4 4v14H6z" /><path d="M14 3v4h4" /><path d="M9 12h6" strokeDasharray="2 2" /><path d="M9 16h6" strokeDasharray="2 2" /></Svg>
 )
+
+const ICONOS_ITEM: Record<EstadoItem, ReactNode> = {
+  pendiente: (<circle cx="12" cy="12" r="9" />),
+  preparado: (<><circle cx="12" cy="12" r="9" /><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" /></>),
+  revisado: (<><circle cx="12" cy="12" r="9" /><path d="M8 12.5l3 3 5-6" /></>),
+}
+
+export const IconoItem = ({ estado }: { estado: EstadoItem }) => <Svg>{ICONOS_ITEM[estado]}</Svg>

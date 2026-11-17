@@ -3,6 +3,7 @@ import { ErrorConsulta, consultarApi } from './api'
 import { IconoInfo } from './componentes/Iconos'
 import { Resultado } from './componentes/Resultado'
 import { ZonaFuentes } from './componentes/Fuentes'
+import { ListaVerificacion } from './componentes/ListaVerificacion'
 import { SelectorTema } from './componentes/Tema'
 import { EJEMPLOS } from './ejemplos'
 import { ROTULOS, estadoDe } from './estado'
@@ -141,6 +142,7 @@ export default function App() {
             )}
           </>
         )}
+        <ListaVerificacion eventoId={EVENTO_ID} modoEjemplos={MODO_EJEMPLOS} />
       </main>
       <footer className="pie">
         <div className="contenedor">LiciGT, proyecto CC3103 (UVG). No presenta ofertas ni decide la vigencia de documentos.</div>

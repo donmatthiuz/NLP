@@ -1,0 +1,142 @@
+{
+  "evento_id": "222-IGSS-2023",
+  "respuesta": {
+    "answer": "Se propone una lista de 4 ítems: 2 requisitos y 2 fechas de recepción de ofertas. [1][2][3][4]",
+    "sources": [
+      {
+        "doc_id": "03791a3471c04c0f9cc260814564756e",
+        "source": "https://www.igssgt.org/wp-content/uploads/2026/10/222-IGSS-2023.pdf",
+        "page": 16,
+        "page_end": null,
+        "chunk_id": "03791a3471c04c0f9cc260814564756e:00078",
+        "version_ingesta": 1,
+        "version_oficial": null,
+        "cita": "La presentación del FORMULARIO ELECTRÓNICO en forma física dentro de la PLICA"
+      },
+      {
+        "doc_id": "03791a3471c04c0f9cc260814564756e",
+        "source": "https://www.igssgt.org/wp-content/uploads/2026/10/222-IGSS-2023.pdf",
+        "page": 18,
+        "page_end": null,
+        "chunk_id": "03791a3471c04c0f9cc260814564756e:00081",
+        "version_ingesta": 1,
+        "version_oficial": null,
+        "cita": "podrán ser subsanados de forma física en virtud que GUATECOMPRAS no permite modificaciones"
+      },
+      {
+        "doc_id": "03791a3471c04c0f9cc260814564756e",
+        "source": "https://www.igssgt.org/wp-content/uploads/2026/10/222-IGSS-2023.pdf",
+        "page": 1,
+        "page_end": null,
+        "chunk_id": "03791a3471c04c0f9cc260814564756e:00001",
+        "version_ingesta": 1,
+        "version_oficial": null,
+        "cita": "31 de julio de 2023"
+      },
+      {
+        "doc_id": "d41480e5b0ce4c16bf18f66225ada2dc",
+        "source": "https://www.igssgt.org/wp-content/uploads/2026/10/LICITACION-DA-No.-222-IGSS-2023-IGSS.pdf",
+        "page": 1,
+        "page_end": null,
+        "chunk_id": "d41480e5b0ce4c16bf18f66225ada2dc:00009",
+        "version_ingesta": 1,
+        "version_oficial": "Modificación Número 1",
+        "cita": "06 de octubre de 2023"
+      }
+    ],
+    "abstained": false,
+    "tool_used": "extraer_requisitos",
+    "needs_human_review": false,
+    "evento_id": "222-IGSS-2023",
+    "coverage_status": "parcial",
+    "warnings": [
+      "cobertura_incompleta: d41480e5b0ce4c16bf18f66225ada2dc páginas no indexadas 4",
+      "evento_con_modificaciones: d41480e5b0ce4c16bf18f66225ada2dc",
+      "fechas_distintas: recepcion_ofertas"
+    ],
+    "needs_clarification": false,
+    "clarification_question": null
+  },
+  "items": [
+    {
+      "tipo": "requisito",
+      "categoria": "administrativa",
+      "caracter": "fundamental",
+      "descripcion": "La presentación del FORMULARIO ELECTRÓNICO en forma física dentro de la PLICA",
+      "fuentes": [
+        {
+          "doc_id": "03791a3471c04c0f9cc260814564756e",
+          "source": "https://www.igssgt.org/wp-content/uploads/2026/10/222-IGSS-2023.pdf",
+          "page": 16,
+          "page_end": null,
+          "chunk_id": "03791a3471c04c0f9cc260814564756e:00078",
+          "version_ingesta": 1,
+          "version_oficial": null,
+          "cita": "La presentación del FORMULARIO ELECTRÓNICO en forma física dentro de la PLICA"
+        }
+      ],
+      "requiere_revision": false,
+      "motivo_revision": null
+    },
+    {
+      "tipo": "requisito",
+      "categoria": "administrativa",
+      "caracter": "no_fundamental",
+      "descripcion": "podrán ser subsanados de forma física en virtud que GUATECOMPRAS no permite modificaciones",
+      "fuentes": [
+        {
+          "doc_id": "03791a3471c04c0f9cc260814564756e",
+          "source": "https://www.igssgt.org/wp-content/uploads/2026/10/222-IGSS-2023.pdf",
+          "page": 18,
+          "page_end": null,
+          "chunk_id": "03791a3471c04c0f9cc260814564756e:00081",
+          "version_ingesta": 1,
+          "version_oficial": null,
+          "cita": "podrán ser subsanados de forma física en virtud que GUATECOMPRAS no permite modificaciones"
+        }
+      ],
+      "requiere_revision": false,
+      "motivo_revision": null
+    },
+    {
+      "tipo": "fecha",
+      "categoria": null,
+      "caracter": "no_indicado",
+      "descripcion": "Recepción de ofertas: 31 de julio de 2023",
+      "fuentes": [
+        {
+          "doc_id": "03791a3471c04c0f9cc260814564756e",
+          "source": "https://www.igssgt.org/wp-content/uploads/2026/10/222-IGSS-2023.pdf",
+          "page": 1,
+          "page_end": null,
+          "chunk_id": "03791a3471c04c0f9cc260814564756e:00001",
+          "version_ingesta": 1,
+          "version_oficial": null,
+          "cita": "31 de julio de 2023"
+        }
+      ],
+      "requiere_revision": true,
+      "motivo_revision": "Las fuentes difieren; el sistema no decide cuál está vigente"
+    },
+    {
+      "tipo": "fecha",
+      "categoria": null,
+      "caracter": "no_indicado",
+      "descripcion": "Recepción de ofertas: 06 de octubre de 2023",
+      "fuentes": [
+        {
+          "doc_id": "d41480e5b0ce4c16bf18f66225ada2dc",
+          "source": "https://www.igssgt.org/wp-content/uploads/2026/10/LICITACION-DA-No.-222-IGSS-2023-IGSS.pdf",
+          "page": 1,
+          "page_end": null,
+          "chunk_id": "d41480e5b0ce4c16bf18f66225ada2dc:00009",
+          "version_ingesta": 1,
+          "version_oficial": "Modificación Número 1",
+          "cita": "06 de octubre de 2023"
+        }
+      ],
+      "requiere_revision": true,
+      "motivo_revision": "Las fuentes difieren; el sistema no decide cuál está vigente"
+    }
+  ]
+}

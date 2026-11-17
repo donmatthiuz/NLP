@@ -7,6 +7,7 @@ import zipfile
 from pathlib import Path
 
 from licigt.consulta.esquemas import RespuestaEstructurada
+from licigt.consulta.lista import MOTIVO_FECHAS_DISTINTAS, PropuestaLista
 
 RAIZ = Path(__file__).resolve().parents[4]
 EJEMPLOS = RAIZ / "web" / "src" / "ejemplos"
@@ -22,8 +23,8 @@ class EjemplosWebTests(unittest.TestCase):
     def cargar(self, nombre: str) -> dict:
         return json.loads((EJEMPLOS / f"{nombre}.json").read_text(encoding="utf-8"))
 
-    def test_hay_cinco_ejemplos(self):
-        self.assertEqual(sorted(p.stem for p in EJEMPLOS.glob("*.json")), sorted(NOMBRES))
+    def test_hay_cinco_ejemplos_y_la_propuesta_de_lista(self):
+        self.assertEqual(sorted(p.stem for p in EJEMPLOS.glob("*.json")), sorted([*NOMBRES, "lista"]))
 
     def test_cada_ejemplo_valida_contra_el_esquema(self):
         for nombre in NOMBRES:
@@ -87,6 +88,37 @@ class EjemplosWebTests(unittest.TestCase):
                     self.assertEqual(int(real["pagina_inicio"]), fuente.page)
                     self.assertEqual(real["url_origen"], fuente.source)
                     self.assertIn(fuente.cita, colapsar(real["texto"]))
+
+    def test_la_propuesta_de_lista_valida_contra_propuesta_lista(self):
+        propuesta = PropuestaLista.model_validate(self.cargar("lista"))
+        self.assertEqual(propuesta.evento_id, "222-IGSS-2023")
+        self.assertEqual(propuesta.respuesta.tool_used, "extraer_requisitos")
+        self.assertEqual({i.tipo for i in propuesta.items}, {"requisito", "fecha"})
+        self.assertEqual({i.caracter for i in propuesta.items if i.tipo == "requisito"}, {"fundamental", "no_fundamental"})
+        fechas = [i for i in propuesta.items if i.tipo == "fecha"]
+        self.assertEqual(len(fechas), 2)
+        self.assertTrue(all(i.requiere_revision and i.motivo_revision == MOTIVO_FECHAS_DISTINTAS for i in fechas))
+        self.assertEqual(len({i.fuentes[0].doc_id for i in fechas}), 2)
+
+    def test_las_fuentes_de_la_lista_salen_del_paquete_real(self):
+        if not PAQUETE.exists():
+            self.skipTest("falta entregables/recuperacion/empresa_demo.zip")
+        with zipfile.ZipFile(PAQUETE) as z:
+            reales = {c["chunk_id"]: c for c in map(json.loads, z.read("chunks.jsonl").decode().splitlines())}
+        propuesta = PropuestaLista.model_validate(self.cargar("lista"))
+        self.assertEqual({s.chunk_id for s in propuesta.respuesta.sources}, {i.fuentes[0].chunk_id for i in propuesta.items})
+        for item in propuesta.items:
+            fuente = item.fuentes[0]
+            with self.subTest(chunk=fuente.chunk_id):
+                real = reales[fuente.chunk_id]
+                self.assertEqual((real["doc_id"], int(real["pagina_inicio"]), real["url_origen"]),
+                                 (fuente.doc_id, fuente.page, fuente.source))
+                self.assertIn(fuente.cita, colapsar(real["texto"]))
+                if item.tipo == "requisito":
+                    self.assertIn("fundamentales", colapsar(real["seccion"]).lower())
+
+    def test_el_ejemplo_de_lista_no_lleva_tenant_id(self):
+        self.assertNotIn("tenant_id", (EJEMPLOS / "lista.json").read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

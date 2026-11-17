@@ -1,8 +1,9 @@
-import type { RespuestaEstructurada } from '../tipos'
+import type { PropuestaLista, RespuestaEstructurada } from '../tipos'
 import abstencion from './abstencion.json'
 import aclaracion from './aclaracion.json'
 import cobertura_parcial from './cobertura_parcial.json'
 import comparacion from './comparacion.json'
+import lista from './lista.json'
 import respuesta from './respuesta.json'
 
 export interface Ejemplo {
@@ -20,3 +21,6 @@ export const EJEMPLOS: Ejemplo[] = [
   { id: 'aclaracion', titulo: 'Aclaración', pregunta: '¿Cuál es la fecha?', respuesta: aclaracion },
   { id: 'cobertura_parcial', titulo: 'Cobertura parcial', pregunta: '¿Se puede prorrogar el plazo para adjudicar?', respuesta: cobertura_parcial },
 ] as Ejemplo[]
+
+// Propuesta de lista con datos reales del 222: dos requisitos y las dos fechas de recepción de ofertas que difieren.
+export const EJEMPLO_PROPUESTA = lista as PropuestaLista

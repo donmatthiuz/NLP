@@ -26,3 +26,34 @@ export interface RespuestaEstructurada {
 }
 
 export type Estado = 'respuesta' | 'abstencion' | 'revision' | 'aclaracion'
+
+// Copia a mano de ItemPropuesto, ItemLista y PropuestaLista: src/licigt/consulta/lista.py
+export type Categoria = 'administrativa' | 'legal' | 'tecnica' | 'financiera'
+export type Caracter = 'fundamental' | 'no_fundamental' | 'no_indicado'
+export type EstadoItem = 'pendiente' | 'preparado' | 'revisado'
+
+export interface ItemPropuesto {
+  tipo: 'requisito' | 'fecha'
+  categoria: Categoria | null
+  caracter: Caracter
+  descripcion: string
+  fuentes: Fuente[]
+  requiere_revision: boolean
+  motivo_revision: string | null
+}
+
+export interface ItemLista extends ItemPropuesto {
+  item_id: string
+  evento_id: string
+  estado: EstadoItem
+  creado_por: string
+  creado_en: string
+  actualizado_por: string
+  actualizado_en: string
+}
+
+export interface PropuestaLista {
+  evento_id: string
+  respuesta: RespuestaEstructurada
+  items: ItemPropuesto[]
+}
