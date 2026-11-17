@@ -1,5 +1,8 @@
+import json
+import os
 import re
 import tempfile
+import zipfile
 import unittest
 from collections import Counter
 from pathlib import Path
@@ -16,11 +19,15 @@ from licigt.ingesta.pipeline import _units, make_chunks
 from licigt.ingesta.tests.test_pipeline import metadata
 
 
+RAIZ = Path(__file__).resolve().parents[4]
+ZIP_ACTUAL = Path(os.environ.get("LICIGT_ZIP_CORPUS") or RAIZ / "entregables" / "recuperacion" / "empresa_demo.zip")
+
+
 def _escapar(texto: str) -> str:
     return texto.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
 
 
-def pdf_sintetico(filas, anchos, *, encabezado=None, alto_linea=11, y0=700) -> bytes:
+def pdf_sintetico(filas, anchos, *, encabezado=None, alto_linea=11, y0=700, libre=()) -> bytes:
     """PDF de una página con una tabla de bordes dibujados; cada celda es una lista de líneas."""
     ops, y = [], y0
     x = [50]
@@ -39,6 +46,8 @@ def pdf_sintetico(filas, anchos, *, encabezado=None, alto_linea=11, y0=700) -> b
             for k, linea in enumerate(celda):
                 ops.append(f"BT /F1 9 Tf {izquierda + 4} {y - 12 - k * alto_linea} Td ({_escapar(linea)}) Tj ET")
         y -= alto
+    for izquierda, arriba, linea in libre:  # texto suelto, sin respetar las columnas
+        ops.append(f"BT /F1 9 Tf {izquierda} {arriba} Td ({_escapar(linea)}) Tj ET")
     flujo = "\n".join(ops).encode("latin-1")
     objetos = [
         b"<< /Type /Catalog /Pages 2 0 R >>",
@@ -73,6 +82,21 @@ CANTIDADES = [
     [["1"], ["Acetaminofen 500 mg"], ["400 unidades"]],
     [["2"], ["Ibuprofeno 400 mg"], ["1200 unidades"]],
 ]
+
+
+VIGENCIA = [
+    "VIGENCIA DEL CONTRATO",
+    "La vigencia del CONTRATO sera a partir del dia siguiente de la notificacion de la",
+    "Resolucion de aprobacion del CONTRATO, hasta que el INSTITUTO a traves de cada",
+    "UNIDAD SOLICITANTE extienda la constancia de haber recibido a satisfaccion la",
+    "totalidad de lo contratado en la presente negociacion.",
+]
+
+
+def pdf_vigencia() -> bytes:
+    """Párrafo numerado sangrado cuyos bordes de columna caen en medio de las líneas."""
+    libre = [(125, 700 - 12 - k * 11, linea) for k, linea in enumerate(VIGENCIA)]
+    return pdf_sintetico([[["2.25", "", "", "", ""], [], [], []]], [75, 240, 15, 170], libre=libre)
 
 
 def extraer(contenido: bytes) -> Page:
@@ -128,6 +152,67 @@ class TablasDeDescripcionTests(unittest.TestCase):
     def test_sin_pdfplumber_se_conserva_el_texto_actual(self):
         with patch.object(pdf, "pdfplumber", None):
             self.assertEqual(extraer(self.contenido).text, self.actual().text)
+
+
+@unittest.skipIf(pdfplumber is None, "pdfplumber no está instalado")
+class OrdenEnTablasTests(unittest.TestCase):
+    def test_un_parrafo_numerado_sangrado_conserva_el_orden_de_sus_palabras(self):
+        texto = " ".join(extraer(pdf_vigencia()).text.split())
+        self.assertIn("a partir del dia siguiente de la notificacion de la Resolucion de aprobacion", texto)
+        self.assertIn("hasta que el INSTITUTO a traves de cada UNIDAD SOLICITANTE extienda", texto)
+
+    def test_ese_parrafo_no_se_reescribe_como_tabla(self):
+        self.assertNotIn("|", extraer(pdf_vigencia()).text)
+
+    def test_la_salvaguarda_compara_el_orden_de_las_palabras_de_cada_celda(self):
+        self.assertFalse(pdf._en_orden("uno tres dos cuatro", "2.25 uno dos tres cuatro"))
+        self.assertTrue(pdf._en_orden("uno tres cuatro", "2.25 uno dos tres cuatro"))
+
+    def test_una_celda_con_las_palabras_trocadas_devuelve_el_texto_actual(self):
+        contenido = pdf_sintetico(CRONOGRAMA, [45, 120, 345])
+        original = pdf._filas_por_palabras
+
+        def trocadas(tabla, palabras):
+            filas = original(tabla, palabras)
+            for fila in filas or []:
+                fila[2] = fila[2].replace("Hasta el dia 31", "el Hasta dia 31")
+            return filas
+
+        with patch.object(pdf, "_filas_por_palabras", side_effect=trocadas):
+            texto = extraer(contenido).text
+        with patch.object(pdf, "_con_tablas", return_value=None):
+            self.assertEqual(texto, extraer(contenido).text)
+
+    def test_ningun_digito_cambia_en_el_parrafo(self):
+        contenido = pdf_vigencia()
+        with patch.object(pdf, "_con_tablas", return_value=None):
+            actual = extraer(contenido).text
+        self.assertEqual(digitos(extraer(contenido).text), digitos(actual))
+
+
+@unittest.skipUnless(ZIP_ACTUAL.is_file(), "requiere el paquete del corpus")
+class VigenciaEnElCorpusTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        with zipfile.ZipFile(ZIP_ACTUAL) as z:
+            cls.chunks = [json.loads(l) for l in z.read("chunks.jsonl").splitlines() if l.strip()]
+
+    def test_el_2_25_de_los_cinco_eventos_conserva_el_orden_del_original(self):
+        vigencias = [c for c in self.chunks if "VIGENCIA DEL CONTRATO" in c["texto"] and "2.25" in c["texto"][:12]]
+        self.assertEqual(len({c["evento_id"] for c in vigencias}), 5)
+        for c in vigencias:
+            self.assertIn("día siguiente de la notificación de la Resolución", " ".join(c["texto"].split()), c["chunk_id"])
+            self.assertNotIn("|", c["texto"], c["chunk_id"])
+
+    def test_el_cronograma_sigue_con_sus_filas_unidas(self):
+        por_evento = {}
+        for c in self.chunks:
+            if c["tipo_chunk"] == "tabla" and re.search(r"^\| 2\.2\.\d+ \| .+ \|$", c["texto"], re.M):
+                por_evento.setdefault(c["evento_id"], []).append(c)
+        self.assertEqual(len(por_evento), 5)
+        for evento, tablas in por_evento.items():
+            filas = [l for c in tablas for l in c["texto"].splitlines() if l.startswith("| 2.2.")]
+            self.assertGreaterEqual(len(filas), 5, evento)
 
 
 class UnidadesDeTablaTests(unittest.TestCase):

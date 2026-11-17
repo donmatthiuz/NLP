@@ -19,6 +19,7 @@ except ImportError:  # sin la dependencia se conserva el texto de pdftotext
     pdfplumber = None
 
 EXTRACCION = {"metodo": "pdftotext-layout+tablas", "version": 2}
+SEPARACION_CELDAS = 6.0  # pt; por debajo, el borde de columna cae en medio de una frase
 CLAVE_FILA = re.compile(r"^(\d+(\.\d+)*[.)]?|[a-zñ](\.\d+)?\))$", re.I)
 
 
@@ -168,9 +169,49 @@ def _render_filas(filas: list[dict[int, str]]) -> str:
     return "\n".join(salida)
 
 
-def _region(path: Path, number: int, y: float, alto: float, ancho: float) -> str:
+def _region(path: Path, number: int, y: float, alto: float, ancho: float, x: float = 0) -> str:
     return _run(["pdftotext", "-layout", "-enc", "UTF-8", "-f", str(number), "-l", str(number),
-                 "-x", "0", "-y", str(int(y)), "-W", str(int(ancho)), "-H", str(int(math.ceil(alto))), str(path), "-"])
+                 "-x", str(int(x)), "-y", str(int(y)), "-W", str(int(ancho)), "-H", str(int(math.ceil(alto))), str(path), "-"])
+
+
+def _lista_palabras(texto: str) -> list[str]:
+    return [w for w in (re.sub(r"[\W_]+", "", x) for x in texto.split()) if w]
+
+
+def _en_orden(celda: str, referencia: str) -> bool:
+    """Las palabras de la celda aparecen en el mismo orden dentro de la referencia."""
+    resto = iter(_lista_palabras(referencia))
+    return all(any(w == r for r in resto) for w in _lista_palabras(celda))
+
+
+def _separacion_minima(tabla, palabras: list[dict]) -> float:
+    """Menor hueco entre dos palabras contiguas de una línea que caen en columnas distintas.
+
+    Un borde de columna que parte una frase deja un hueco de espacio normal (2 a 5 pt); entre celdas
+    reales hay relleno de varios puntos.
+    """
+    bordes, _ = _rejilla(tabla)
+    x0, y0, x1, y1 = tabla.bbox
+    lineas: dict[int, list[tuple[float, float, int]]] = {}
+    for w in palabras:
+        cx, cy = (w["x0"] + w["x1"]) / 2, (w["top"] + w["bottom"]) / 2
+        if x0 - 2 <= cx <= x1 + 2 and y0 - 2 <= cy <= y1 + 2:
+            lineas.setdefault(round(cy / 3), []).append((w["x0"], w["x1"], sum(cx > e for e in bordes[1:-1])))
+    huecos = [b[0] - a[1] for linea in lineas.values() for a, b in zip(sorted(linea), sorted(linea)[1:])
+              if a[2] != b[2]]
+    return min(huecos, default=math.inf)
+
+
+def _columnas_en_orden(path: Path, number: int, top: float, bot: float, filas: list[dict[int, str]],
+                       bordes: list[float]) -> bool:
+    """Las palabras de cada columna, de arriba abajo, siguen el orden del texto de su franja."""
+    for columna in {c for f in filas for c in f}:
+        celdas = " ".join(f[columna] for f in filas if columna in f)
+        franja = _region(path, number, top - 1, bot - top + 3, bordes[columna + 1] - bordes[columna] + 4,
+                         bordes[columna] - 2)
+        if not _en_orden(celdas, franja):
+            return False
+    return True
 
 
 def _sin_anidadas(usadas: list[tuple]) -> list[tuple]:
@@ -187,8 +228,10 @@ def _sin_anidadas(usadas: list[tuple]) -> list[tuple]:
 def _con_tablas(pagina, path: Path, number: int, actual: str) -> str | None:
     """Texto de la página con sus tablas de descripción reescritas, o None si no hay ninguna que cambiar.
 
-    Salvaguardas: cada tabla debe tener el mismo multiconjunto de palabras que el texto de su región,
-    y la página entera los mismos dígitos que el texto actual; si no, se conserva el actual.
+    Salvaguardas: cada tabla debe tener el mismo multiconjunto de palabras que el texto de su región y,
+    en cada columna, sus palabras en el orden del texto de esa franja; una tabla de una fila exige además
+    que sus columnas estén separadas por huecos reales. La página entera debe tener los mismos dígitos
+    que el texto actual; si no, se conserva el actual.
     """
     palabras, usadas = None, []
     for tabla in pagina.find_tables():
@@ -198,18 +241,19 @@ def _con_tablas(pagina, path: Path, number: int, actual: str) -> str | None:
         if not filas:
             continue
         efectivas = max(len([v for v in f.values() if v.strip()]) for f in filas)
-        if (len(filas) >= 2 and efectivas >= 2 or len(filas) == 1 and efectivas >= 3) and _es_descripcion(filas):
-            usadas.append((tabla.bbox, filas))
+        una_fila = len(filas) == 1 and efectivas >= 3 and _separacion_minima(tabla, palabras) >= SEPARACION_CELDAS
+        if (len(filas) >= 2 and efectivas >= 2 or una_fila) and _es_descripcion(filas):
+            usadas.append((tabla.bbox, filas, _rejilla(tabla)[0]))
     if not usadas:
         return None
     usadas = sorted(_sin_anidadas(usadas), key=lambda u: u[0][1])
     partes, y, reescritas = [], 0.0, 0
-    for (_, top, _, bot), filas in usadas:
+    for (_, top, _, bot), filas, bordes in usadas:
         if top - y > 1:
             partes.append(_region(path, number, y, top - y, pagina.width))
         texto = _render_filas(filas)
         referencia = _region(path, number, top - 1, bot - top + 3, pagina.width)
-        if _palabras(texto) == _palabras(referencia):
+        if _palabras(texto) == _palabras(referencia) and _columnas_en_orden(path, number, top, bot, filas, bordes):
             reescritas += 1
         else:
             texto = referencia
