@@ -47,3 +47,7 @@
 ## Lectura de fragmentos por `chunk_id` (17 de noviembre)
 
 - [ ] Para guardar la lista de verificación, el rol 3 vuelve a validar cada cita contra su fragmento antes de insertar ([F5](../consulta/delegacion/F5_lista_de_verificacion.md)). Pedimos una función de solo lectura `obtener_fragmentos(ctx, evento_id, chunk_ids)` que devuelva los fragmentos con los mismos campos que `buscar()` y aplique el mismo filtro por empresa y evento (seguridad por fila incluida). Un `chunk_id` de otro evento o de otra empresa no se devuelve. Por defecto: el rol 3 la define como interfaz (`LectorFragmentos`) con un doble en las pruebas, y el adaptador real se conecta cuando el rol 2 la entregue.
+
+## Advertencias del documento en la alerta de cobertura (17 de noviembre)
+
+- [ ] La alerta `cobertura_incompleta` (`busqueda.py:110-112`) lleva `doc_id`, `paginas_no_indexadas` y `status`, pero no las advertencias del inventario. Por eso el usuario nunca ve que a la modificación 1 del 222 le falta el "anexo de 11 hojas" (advertencia humana del paquete desde `edbe8ea`). Pedimos añadir `warnings` (la lista del inventario, que no trae texto del PDF) a esa alerta. Por defecto: el rol 3 muestra solo las páginas no indexadas y el estado `requiere_revision`.
