@@ -1,6 +1,6 @@
 # Entrega de ingesta para Recuperación y RAG
 
-[`empresa_demo.zip`](empresa_demo.zip) es el corpus de prueba listo para incluir en Git para el rol 2: seis PDF oficiales del IGSS correspondientes a cinco eventos, con 1006 fragmentos indexables. `empresa_demo` es una empresa ficticia. La carpeta `data/` contiene el registro de trabajo local y sigue excluida de Git; el ZIP es el entregable que se comparte en el repositorio.
+[`empresa_demo.zip`](empresa_demo.zip) es el corpus de prueba listo para incluir en Git para el rol 2: seis PDF oficiales del IGSS correspondientes a cinco eventos, con 890 fragmentos indexables (las tablas de descripción salen como filas `| numeral | título | texto |`; ver `Corpus_IGSS.md`). `empresa_demo` es una empresa ficticia. La carpeta `data/` contiene el registro de trabajo local y sigue excluida de Git; el ZIP es el entregable que se comparte en el repositorio.
 
 Dentro del ZIP, todas las rutas de archivos son **relativas a la raíz del ZIP**:
 

@@ -64,6 +64,7 @@ Todos requieren inyección en un PDF oficial del IGSS o son latentes: no aparece
 | El modelo copia el prompt del sistema | El prompt no contiene secretos |
 | Exceso de escalamiento por la palabra "vigencia" en seguros | Escala del lado seguro |
 | URL y correos en el texto | Se rechazan; el modelo debe citarlos como literal |
+| Una cita de 500 caracteres puede traer otra fecha del mismo fragmento (H3, riesgo de la octava pasada) | Con el paquete nuevo (tablas contiguas) 7 de 890 fragmentos tienen dos fechas distintas a 500 caracteres o menos (con el paquete anterior era 1 de 1006), medido con `encontrar_fechas`; 6 son tablas (cronograma o parámetros) y 1 es texto OCR de la modificación 1. Un dato literal sigue exigiendo que la fecha esté en la cita y la afirmación la cita completa; el sentido lo revisa una persona |
 
 ## Pendiente
 

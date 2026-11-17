@@ -28,23 +28,18 @@ DATOS_222 = [{'chunk_id': '03791a3471c04c0f9cc260814564756e:00001',
            '(hora\n'
            '     límite 11:30)',
   'score': 0.9},
- {'chunk_id': 'd41480e5b0ce4c16bf18f66225ada2dc:00009',
+ {'chunk_id': 'd41480e5b0ce4c16bf18f66225ada2dc:00003',
   'doc_id': 'd41480e5b0ce4c16bf18f66225ada2dc',
   'tipo_documento': 'modificacion',
   'version_ingesta': 1,
   'pagina_inicio': 1,
   'pagina_fin': 1,
-  'seccion': '2.2.5   Período para la preparación del               puede elaborarse en '
-             'GUATECOMPRAS desde el',
+  'seccion': '2.2      CRONOGRAMA DE ACTIVIDADES',
   'url_origen': 'https://www.igssgt.org/wp-content/uploads/2026/10/LICITACION-DA-No.-222-IGSS-2023-IGSS.pdf',
   'identificador_version_oficial': 'Modificación Número 1',
-  'texto': 'Lugar, dirección, fecha y hora para           En Salones Los Volcanes, ubicados en la '
-           '7ª. Avenida\n'
-           '              la recepción de OFERTAS.                      22-72 zona 1, segundo '
-           'nivel, Oficinas Centrales del\n'
-           '                                                            INSTITUTO, el día 06 de '
-           'octubre de 2023, a las\n'
-           '                                                            11:00 horas (hora límite '
+  'texto': '| 2.2.6 | Lugar, dirección, fecha y hora para la recepción de OFERTAS. | En Salones '
+           'Los Volcanes, ubicados en la 7ª. Avenida 22-72 zona 1, segundo nivel, Oficinas '
+           'Centrales del INSTITUTO, el día 06 de octubre de 2023, a las 11:00 horas (hora límite '
            '11:30)',
   'score': 0.9}]
 

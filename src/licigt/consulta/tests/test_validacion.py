@@ -12,7 +12,8 @@ from licigt.consulta.lectura import DocumentoComparado
 from licigt.consulta.tests.test_generacion import fragmentos_222, salida_222
 from licigt.consulta.validacion import _armar, normalizar_cita, validar
 
-# Pasajes literales del 222: bases 00001 (p. 1) y 00115 (p. 27), modificación 00009 (dos columnas).
+# Pasajes del 222: bases 00001 (p. 1) y p. 27; M009 conserva la maquetación a dos columnas de la extracción anterior
+# para probar que el validador tolera ese diseño en otros PDF.
 B001 = ("La recepción de ofertas se llevará a cabo el 31 de julio de 2023, a las 11:00 horas (hora\n"
         "     límite 11:30), en Salones Los Volcanes, ubicados en la 7ª. Avenida 22-72 Zona 1, segundo\n"
         "     nivel de Oficinas Centrales del Instituto y la apertura de plicas se realizará en el mismo\n"
@@ -229,11 +230,11 @@ class ValidacionTests(unittest.TestCase):
         self.assertEqual(self.codigos(self.armar("La recepción es a las 11 horas.", cita)),
                          ["dato_fuera_de_literal"])
 
-    def test_222_cita_continua_a_dos_columnas_con_dato_literal_y_revision(self):
+    def test_222_cita_continua_de_la_fila_con_dato_literal_y_revision(self):
         salida = salida_222()
         salida["afirmaciones"] = [{
             "texto": "La recepción de ofertas es el {1}.",
-            "citas": [{"fragmento": "F2", "cita": "la recepción de OFERTAS. 22-72 zona 1, segundo nivel, "
+            "citas": [{"fragmento": "F2", "cita": "En Salones Los Volcanes, ubicados en la 7ª. Avenida 22-72 zona 1, segundo nivel, "
                        "Oficinas Centrales del INSTITUTO, el día 06 de octubre de 2023, a las 11:00 horas"}],
             "datos": [{"cita": 1, "literal": "06 de octubre de 2023, a las 11:00 horas"}]}]
         r = self.verificar(salida)
@@ -252,7 +253,7 @@ class ValidacionTests(unittest.TestCase):
                                    "La modificación indica recepción el 06 de octubre de 2023. [2]")
 
     def test_h5_modificacion_o_aclaracion_como_unica_fuente_escala(self):
-        cita = ("la recepción de OFERTAS. 22-72 zona 1, segundo nivel, "
+        cita = ("En Salones Los Volcanes, ubicados en la 7ª. Avenida 22-72 zona 1, segundo nivel, "
                 "Oficinas Centrales del INSTITUTO, el día 06 de octubre de 2023, a las 11:00 horas")
         for texto in ("La fecha que rige es la de la modificación.", "La de las bases ya no aplica.",
                       "Esta es la fecha definitiva del evento."):

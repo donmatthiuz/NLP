@@ -43,14 +43,10 @@ FRAGMENTOS_222 = [{'chunk_id': '03791a3471c04c0f9cc260814564756e:00001',
   'version_ingesta': 1,
   'pagina_inicio': 8,
   'pagina_fin': 8,
-  'seccion': '2.2       CRONOGRAMA DE ACTIVIDADES',
+  'seccion': '2.2   CRONOGRAMA DE ACTIVIDADES',
   'url_origen': 'https://www.igssgt.org/wp-content/uploads/2026/10/222-IGSS-2023.pdf',
   'identificador_version_oficial': None,
-  'texto': '2.2       CRONOGRAMA DE ACTIVIDADES\n'
-           '                          DESCRIPCIÓN                                              '
-           'FECHA\n'
-           '              Período para adquirir los                     A partir de su publicación '
-           'en GUATECOMPRAS,',
+  'texto': '2.2   CRONOGRAMA DE ACTIVIDADES',
   'score': 0.91,
   'reranker': 0.91,
   'semantico': 0.62,
@@ -62,39 +58,19 @@ FRAGMENTOS_222 = [{'chunk_id': '03791a3471c04c0f9cc260814564756e:00001',
   'version_ingesta': 1,
   'pagina_inicio': 8,
   'pagina_fin': 8,
-  'seccion': '2.2.1                                                 hasta el día 31 de julio de '
-             '2023.',
+  'seccion': '2.2   CRONOGRAMA DE ACTIVIDADES',
   'url_origen': 'https://www.igssgt.org/wp-content/uploads/2026/10/222-IGSS-2023.pdf',
   'identificador_version_oficial': None,
-  'texto': '2.2.1                                                 hasta el día 31 de julio de '
-           '2023.\n'
-           '              DOCUMENTOS DE LICITACIÓN',
+  'texto': '| 2.2.6 | Lugar, dirección, fecha y hora para la recepción de OFERTAS. | En Salones '
+           'Los Volcanes, ubicados en la 7ª. Avenida 22-72 zona 1, segundo nivel, Oficinas '
+           'Centrales del INSTITUTO, el día 31 de julio de 2023, a las 11:00 horas (hora límite '
+           '11:30)',
   'score': 0.91,
   'reranker': 0.91,
   'semantico': 0.62,
   'lexico': 0.4,
   'rrf': 0.016},
- {'chunk_id': '03791a3471c04c0f9cc260814564756e:00047',
-  'doc_id': '03791a3471c04c0f9cc260814564756e',
-  'tipo_documento': 'bases',
-  'version_ingesta': 1,
-  'pagina_inicio': 8,
-  'pagina_fin': 8,
-  'seccion': '2.2.5                                                 La preparación del FORMULARIO '
-             'ELECTRÓNICO',
-  'url_origen': 'https://www.igssgt.org/wp-content/uploads/2026/10/222-IGSS-2023.pdf',
-  'identificador_version_oficial': None,
-  'texto': 'Lugar, dirección, fecha y hora para           Avenida 22-72 zona 1, segundo nivel, '
-           'Oficinas\n'
-           '              la recepción de OFERTAS.                      Centrales del INSTITUTO, '
-           'el día 31 de julio de\n'
-           '                                                            2023',
-  'score': 0.91,
-  'reranker': 0.91,
-  'semantico': 0.62,
-  'lexico': 0.4,
-  'rrf': 0.016},
- {'chunk_id': '03791a3471c04c0f9cc260814564756e:00063',
+ {'chunk_id': '03791a3471c04c0f9cc260814564756e:00055',
   'doc_id': '03791a3471c04c0f9cc260814564756e',
   'tipo_documento': 'bases',
   'version_ingesta': 1,
@@ -110,34 +86,31 @@ FRAGMENTOS_222 = [{'chunk_id': '03791a3471c04c0f9cc260814564756e:00001',
   'semantico': 0.62,
   'lexico': 0.4,
   'rrf': 0.016},
- {'chunk_id': 'd41480e5b0ce4c16bf18f66225ada2dc:00009',
+ {'chunk_id': 'd41480e5b0ce4c16bf18f66225ada2dc:00003',
   'doc_id': 'd41480e5b0ce4c16bf18f66225ada2dc',
   'tipo_documento': 'modificacion',
   'version_ingesta': 1,
   'pagina_inicio': 1,
   'pagina_fin': 1,
-  'seccion': '2.2.5   Período para la preparación del               puede elaborarse en '
-             'GUATECOMPRAS desde el',
+  'seccion': '2.2      CRONOGRAMA DE ACTIVIDADES',
   'url_origen': 'https://www.igssgt.org/wp-content/uploads/2026/10/LICITACION-DA-No.-222-IGSS-2023-IGSS.pdf',
   'identificador_version_oficial': 'Modificación Número 1',
-  'texto': 'Lugar, dirección, fecha y hora para           En Salones Los Volcanes, ubicados en la '
-           '7ª. Avenida\n'
-           '              la recepción de OFERTAS.                      22-72 zona 1, segundo '
-           'nivel, Oficinas Centrales del\n'
-           '                                                            INSTITUTO, el día 06 de '
-           'octubre de 2023',
+  'texto': '| 2.2.6 | Lugar, dirección, fecha y hora para la recepción de OFERTAS. | En Salones '
+           'Los Volcanes, ubicados en la 7ª. Avenida 22-72 zona 1, segundo nivel, Oficinas '
+           'Centrales del INSTITUTO, el día 06 de octubre de 2023, a las 11:00 horas (hora límite '
+           '11:30)',
   'score': 0.91,
   'reranker': 0.91,
   'semantico': 0.62,
   'lexico': 0.4,
   'rrf': 0.016},
- {'chunk_id': 'd41480e5b0ce4c16bf18f66225ada2dc:00013',
+ {'chunk_id': 'd41480e5b0ce4c16bf18f66225ada2dc:00005',
   'doc_id': 'd41480e5b0ce4c16bf18f66225ada2dc',
   'tipo_documento': 'modificacion',
   'version_ingesta': 1,
   'pagina_inicio': 2,
   'pagina_fin': 2,
-  'seccion': '2.2.8   Plazo para adjudicar.',
+  'seccion': '2.2      CRONOGRAMA DE ACTIVIDADES',
   'url_origen': 'https://www.igssgt.org/wp-content/uploads/2026/10/LICITACION-DA-No.-222-IGSS-2023-IGSS.pdf',
   'identificador_version_oficial': 'Modificación Número 1',
   'texto': 'Solvencia Patronal extendida por el INSTITUTO a nombre del OFERENTE, con el pago\n'
@@ -217,13 +190,15 @@ class FechasTests(unittest.TestCase):
             with self.subTest(texto=texto):
                 self.assertEqual(encontrar_fechas(texto), [])
 
-    def test_recortes_reales_incluyen_salto_de_linea(self):
+    def test_recortes_del_corpus_y_literal_con_salto_de_linea(self):
         self.assertEqual([len(encontrar_fechas(f["texto"])) for f in FRAGMENTOS_222],
-                         [1, 0, 1, 1, 1, 1, 1])
-        literal, fecha, posicion = encontrar_fechas(FRAGMENTOS_222[3]["texto"])[0]
+                         [1, 0, 1, 1, 1, 1])
+        # Con la tabla contigua ya no hay fechas partidas en el corpus; el salto de línea se cubre aparte.
+        texto = "el día 31 de julio de\n2023, a las 11:00"
+        literal, fecha, posicion = encontrar_fechas(texto)[0]
         self.assertIn("\n", literal)
         self.assertEqual(fecha, date(2023, 7, 31))
-        self.assertEqual(FRAGMENTOS_222[3]["texto"][posicion:posicion + len(literal)], literal)
+        self.assertEqual(texto[posicion:posicion + len(literal)], literal)
 
     def test_modelo_inmutable_sin_extras_y_probabilidades_validas(self):
         datos = dict(chunk_id="c", doc_id="d", tipo_documento="bases", pagina=1,
@@ -276,17 +251,17 @@ class ExtraerRequisitosTests(unittest.TestCase):
         resultado = self.extraer(recuperador)
         self.assertEqual([f.chunk_id for f in resultado.fragmentos],
                          [f["chunk_id"] for f in FRAGMENTOS_222])
-        self.assertEqual(len(resultado.fechas), 6)
+        self.assertEqual(len(resultado.fechas), 5)
         self.assertTrue(resultado.needs_human_review)
         self.assertEqual(resultado.coverage_status, "parcial")
         self.assertEqual(resultado.warnings, ["cobertura_incompleta: base páginas no indexadas 3",
                                              "evento_con_modificaciones: mod",
-                                             "alerta_desconocida: nueva", "fechas_no_verificadas: 6"])
+                                             "alerta_desconocida: nueva", "fechas_no_verificadas: 5"])
 
     def test_sin_jev_no_inventa_actividad_ni_revision(self):
         resultado = self.extraer()
         self.assertFalse(resultado.needs_human_review)
-        self.assertIn("fechas_no_verificadas: 6", resultado.warnings)
+        self.assertIn("fechas_no_verificadas: 5", resultado.warnings)
         for fecha in resultado.fechas:
             self.assertEqual(fecha.estado, "no_verificada")
             self.assertIsNone(fecha.actividad)
@@ -294,16 +269,16 @@ class ExtraerRequisitosTests(unittest.TestCase):
             self.assertIsNone(fecha.prob_respaldo)
 
     def test_caso_222_compara_recepcion_y_excluye_solvencias(self):
-        jev = JevFalso({"c1": "adquirir_documentos", "c3": "ninguna", "c5": "ninguna"})
+        jev = JevFalso({"c2": "ninguna", "c4": "ninguna"})
         resultado = self.extraer(jev=jev)
         self.assertTrue(resultado.needs_human_review)
         self.assertEqual(resultado.warnings, ["fechas_distintas: recepcion_ofertas"])
         self.assertEqual([f.estado for f in resultado.fechas],
-                         ["verificada", "verificada", "verificada", "fuera_del_cronograma",
-                          "verificada", "fuera_del_cronograma"])
+                         ["verificada", "verificada", "fuera_del_cronograma", "verificada",
+                          "fuera_del_cronograma"])
         self.assertEqual({f.fecha for f in resultado.fechas if f.actividad == "recepcion_ofertas"},
                          {date(2023, 7, 31), date(2023, 10, 6)})
-        self.assertEqual(len(resultado.fragmentos), 7)
+        self.assertEqual(len(resultado.fragmentos), 6)
 
     def test_confianza_baja_y_limites_inclusivos(self):
         for probabilidad, respaldo, estado in [(0.49, 0.9, "no_verificada"),
@@ -343,7 +318,7 @@ class ExtraerRequisitosTests(unittest.TestCase):
         self.assertEqual(len(jev.llamadas), 1)
         estado, preguntas = jev.llamadas[0]
         self.assertEqual(set(estado), {"candidatas"})
-        self.assertEqual(list(estado["candidatas"]), [f"c{i}" for i in range(6)])
+        self.assertEqual(list(estado["candidatas"]), [f"c{i}" for i in range(5)])
         for identificador, candidata in estado["candidatas"].items():
             self.assertEqual(set(candidata), {"seccion", "pasaje", "fecha"})
             self.assertTrue(all(isinstance(v, str) for v in candidata.values()))
@@ -354,7 +329,7 @@ class ExtraerRequisitosTests(unittest.TestCase):
                 self.assertIn(f"`candidatas.{identificador}.", pregunta["instructions"])
             self.assertEqual(preguntas[f"actividad_{identificador}"]["criteria"], ACTIVIDADES_CRONOGRAMA)
         self.assertEqual(estado["candidatas"]["c1"]["seccion"], FRAGMENTOS_222[2]["seccion"])
-        self.assertIn("recepción de OFERTAS", estado["candidatas"]["c4"]["pasaje"])
+        self.assertIn("recepción de OFERTAS", estado["candidatas"]["c3"]["pasaje"])
         serializado = json.dumps(jev.llamadas)
         for privado in ("ctx", "tenant_id", "empresa_privada", "usuario_privado"):
             self.assertNotIn(privado, serializado)
