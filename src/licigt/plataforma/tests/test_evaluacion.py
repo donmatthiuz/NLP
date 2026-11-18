@@ -9,8 +9,9 @@ from types import SimpleNamespace
 from licigt.consulta.banco import CasoBanco
 from licigt.plataforma import evaluacion
 from licigt.plataforma.evaluacion import (
-    casos_a_evaluar, correr_pruebas, escribir_reporte, estimar_por_100, medir_consultas, percentil,
-    render_markdown, resumen_latencia, resumen_tokens, suite_seguridad,
+    casos_a_evaluar, comprobar_aislamiento, correr_pruebas, escribir_reporte, estimar_por_100, leer_entero_entorno,
+    medir_concurrencia, medir_consultas, percentil, render_markdown, resumen_concurrencia, resumen_latencia,
+    resumen_tokens, suite_seguridad,
 )
 
 
@@ -207,6 +208,108 @@ class SalidaTests(unittest.TestCase):
         self.assertTrue(all("banco común" in a for a in avisos))
         md = render_markdown(reporte(avisos=avisos))
         self.assertIn("banco común", md)
+
+
+class ConcurrenciaTests(unittest.TestCase):
+    DOCS = {"empresa_demo": {"d1", "d2"}, "empresa_b": {"b1"}}
+    CTXS = [SimpleNamespace(tenant_id="empresa_demo"), SimpleNamespace(tenant_id="empresa_b")]
+
+    def correr(self, consultar, preguntas, usuarios=5, reloj=None, **kw):
+        propio = {"empresa_demo": "222", "empresa_b": "363"}
+        resolver = lambda ctx, evento: "i-" + evento if (ctx.tenant_id == "empresa_demo") == (evento != "363") else None
+        return medir_concurrencia(preguntas, contextos=self.CTXS, resolver=resolver, enrutador=None,
+                                  recuperador=None, generador=None, consultar=consultar, usuarios=usuarios,
+                                  evento_propio=propio, **({"reloj": reloj} if reloj else {}), **kw)
+
+    @staticmethod
+    def salida(*doc_ids, herramienta="buscar_documentos"):
+        return SimpleNamespace(tool_used=herramienta, sources=[SimpleNamespace(doc_id=d) for d in doc_ids])
+
+    def test_corre_en_rondas_de_cinco_hilos_realmente_en_paralelo(self):
+        import threading
+        barrera = threading.Barrier(5, timeout=5)
+        activos = set()
+
+        def consultar(ctx, evento, pregunta, **kw):
+            barrera.wait()  # solo pasa si los 5 hilos están dentro a la vez
+            activos.add(threading.get_ident())
+            return self.salida()
+        preguntas = [(f"p{i}", "222", "q") for i in range(10)]
+        muestras = self.correr(consultar, preguntas)
+        self.assertEqual(len(muestras), 10)
+        self.assertEqual(len(activos), 5)
+        self.assertEqual([m["id"] for m in muestras], [f"p{i}" for i in range(10)])
+        self.assertTrue(all("segundos" in m and m["usuarios"] == 5 for m in muestras))
+
+    def test_alterna_empresa_por_hilo_y_sustituye_el_evento_ajeno(self):
+        vistos = {}
+
+        def consultar(ctx, evento, pregunta, **kw):
+            vistos[pregunta] = (ctx.tenant_id, evento)
+            return self.salida()
+        preguntas = [(f"p{i}", "222", f"q{i}") for i in range(4)]
+        muestras = self.correr(consultar, preguntas, usuarios=4)
+        self.assertEqual([vistos[f"q{i}"][0] for i in range(4)], ["empresa_demo", "empresa_b"] * 2)
+        self.assertEqual(vistos["q1"][1], "i-363")  # empresa_b no tiene el 222: usa su evento
+        self.assertTrue(muestras[1]["evento_sustituido"])
+        self.assertFalse(muestras[0]["evento_sustituido"])
+
+    def test_error_de_una_consulta_no_rompe_a_las_demas(self):
+        def consultar(ctx, evento, pregunta, **kw):
+            if pregunta == "malo":
+                raise RuntimeError("x")
+            return self.salida("d1")
+        muestras = self.correr(consultar, [("a", "222", "malo"), ("b", "222", "bien")], usuarios=2)
+        self.assertEqual(muestras[0]["error"], "RuntimeError")
+        self.assertNotIn("error", muestras[1])
+
+    def test_aislamiento_detecta_fuente_de_la_otra_empresa(self):
+        def consultar(ctx, evento, pregunta, **kw):
+            return self.salida("b1") if ctx.tenant_id == "empresa_demo" else self.salida("b1")
+        muestras = self.correr(consultar, [("a", "222", "q"), ("b", "222", "q")], usuarios=2)
+        a = comprobar_aislamiento(muestras, self.DOCS)
+        self.assertEqual(a["fuentes_revisadas"], 2)
+        self.assertEqual([(v["id"], v["tenant"], v["doc_id"]) for v in a["violaciones"]], [("a", "empresa_demo", "b1")])
+
+    def test_aislamiento_limpio(self):
+        def consultar(ctx, evento, pregunta, **kw):
+            return self.salida("d1") if ctx.tenant_id == "empresa_demo" else self.salida("b1")
+        muestras = self.correr(consultar, [("a", "222", "q"), ("b", "222", "q")], usuarios=2)
+        self.assertEqual(comprobar_aislamiento(muestras, self.DOCS), {"fuentes_revisadas": 2, "violaciones": []})
+
+    def test_resumen_con_p50_p95_por_herramienta_y_fallidas(self):
+        muestras = [{"id": f"p{i}", "tenant": "empresa_demo", "herramienta": "buscar_documentos",
+                     "segundos": float(i), "doc_ids": ["d1"]} for i in range(1, 11)]
+        muestras += [{"id": "x", "tenant": "empresa_b", "herramienta": None, "segundos": 1.0, "doc_ids": []},
+                     {"id": "f", "tenant": "empresa_b", "error": "RuntimeError", "segundos": 0.1}]
+        r = resumen_concurrencia(muestras, self.DOCS, usuarios=5, slots=1)
+        self.assertEqual(r["usuarios"], 5)
+        self.assertEqual(r["slots_llama_server"], 1)
+        self.assertEqual(r["latencia"]["total"]["n"], 11)
+        self.assertEqual(r["latencia"]["total"]["p95_s"], 10.0)
+        self.assertEqual(r["latencia"]["por_herramienta"]["buscar_documentos"]["p50_s"], 5.0)
+        self.assertEqual(r["fallidas"], ["f"])
+        self.assertEqual(r["aislamiento"]["violaciones"], [])
+
+    def test_render_incluye_el_bloque_de_concurrencia(self):
+        muestras = [{"id": "a", "tenant": "empresa_demo", "herramienta": "buscar_documentos", "segundos": 2.0,
+                     "doc_ids": ["d1"]}]
+        r = reporte(concurrencia=resumen_concurrencia(muestras, self.DOCS, usuarios=5, slots=1))
+        md = render_markdown(r)
+        self.assertIn("## Latencia con 5 usuarios simultáneos", md)
+        self.assertIn("1 slot", md)
+        self.assertIn("Violaciones de aislamiento: 0", md)
+
+    def test_render_sin_concurrencia_no_lo_menciona(self):
+        self.assertNotIn("simultáneos", render_markdown(reporte()))
+
+    def test_variable_de_entorno_entera(self):
+        self.assertEqual(leer_entero_entorno({}, "X", 5), 5)
+        self.assertEqual(leer_entero_entorno({"X": "0"}, "X", 5), 0)
+        self.assertEqual(leer_entero_entorno({"X": "12"}, "X", 5), 12)
+        self.assertEqual(leer_entero_entorno({"X": ""}, "X", 5), 5)
+        with self.assertRaises(ValueError):
+            leer_entero_entorno({"X": "abc"}, "X", 5)
 
 
 if __name__ == "__main__":

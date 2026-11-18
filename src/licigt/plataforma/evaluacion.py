@@ -2,6 +2,10 @@
 
 make reporte [BANCO_COMUN=ruta]
 
+Variables de entorno: LICIGT_REPORTE_CONCURRENCIA (usuarios simultáneos, por defecto 5; 0 salta el bloque) y
+LICIGT_REPORTE_MAX_PREGUNTAS (si es mayor que 0, corrida corta: solo latencia con 1 usuario y con concurrencia
+sobre las primeras N preguntas; no hay recuperación, extremo a extremo ni seguridad).
+
 Reutiliza `banco.correr` (rol 3) y `recuperacion.evaluar` (rol 2). Los registros del reporte no llevan texto de
 respuestas ni de fragmentos: solo ids, banderas, páginas y tiempos.
 """
@@ -11,8 +15,10 @@ import json
 import math
 import os
 import statistics
+import subprocess
 import time
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
@@ -150,6 +156,85 @@ def medir_consultas(preguntas, *, ctx, resolver, enrutador, recuperador, generad
     return muestras
 
 
+def leer_entero_entorno(entorno, nombre, defecto):
+    valor = (entorno.get(nombre) or "").strip()
+    if not valor:
+        return defecto
+    try:
+        return int(valor)
+    except ValueError:
+        raise ValueError(f"{nombre} debe ser un entero, no {valor!r}") from None
+
+
+def medir_concurrencia(preguntas, *, contextos, resolver, enrutador, recuperador, generador, consultar,
+                       usuarios=5, cliente_jev=None, reloj=time.perf_counter, evento_propio=None):
+    """Una muestra por pregunta, en rondas de `usuarios` hilos con `consultar()` real. El hilo i usa
+    `contextos[i % len(contextos)]` (empresas alternadas); `resolver(ctx, evento)` da el id interno.
+    Si la empresa no tiene el evento de la pregunta, usa `evento_propio[tenant]` y lo marca `evento_sustituido`.
+    No mide tokens: el `uso` del generador es compartido y no se puede atribuir por hilo."""
+    evento_propio = evento_propio or {}
+
+    def una(indice, id_, evento, texto):
+        ctx = contextos[indice % len(contextos)]
+        base = {"id": id_, "tenant": ctx.tenant_id, "usuarios": usuarios, "evento_sustituido": False}
+        interno = resolver(ctx, evento)
+        if interno is None and evento_propio.get(ctx.tenant_id):
+            interno = resolver(ctx, evento_propio[ctx.tenant_id])
+            base["evento_sustituido"] = True
+        if interno is None:
+            return {**base, "error": "evento_no_encontrado"}
+        inicio = reloj()
+        try:
+            salida = consultar(ctx, interno, texto, enrutador=enrutador, recuperador=recuperador,
+                               generador=generador, cliente_jev=cliente_jev)
+        except Exception as exc:
+            return {**base, "error": type(exc).__name__, "segundos": reloj() - inicio}
+        return {**base, "herramienta": salida.tool_used, "segundos": reloj() - inicio,
+                "doc_ids": [f.doc_id for f in (getattr(salida, "sources", None) or [])]}
+
+    muestras = []
+    with ThreadPoolExecutor(max_workers=usuarios) as pool:
+        for ronda in range(0, len(preguntas), usuarios):
+            lote = preguntas[ronda:ronda + usuarios]
+            futuros = [pool.submit(una, i, *p) for i, p in enumerate(lote)]
+            muestras += [f.result() for f in futuros]
+    return muestras
+
+
+def comprobar_aislamiento(muestras, docs_por_tenant):
+    """Ninguna fuente citada debe ser un documento de otra empresa. `docs_por_tenant`: {tenant: {doc_id}}."""
+    revisadas, violaciones = 0, []
+    for m in muestras:
+        for doc_id in m.get("doc_ids") or []:
+            revisadas += 1
+            ajeno = any(doc_id in docs for t, docs in docs_por_tenant.items() if t != m["tenant"])
+            if ajeno and doc_id not in docs_por_tenant.get(m["tenant"], set()):
+                violaciones.append({"id": m["id"], "tenant": m["tenant"], "doc_id": doc_id})
+    return {"fuentes_revisadas": revisadas, "violaciones": violaciones}
+
+
+def resumen_concurrencia(muestras, docs_por_tenant, usuarios, slots):
+    return {"usuarios": usuarios, "slots_llama_server": slots, "preguntas": len(muestras),
+            "latencia": resumen_latencia(muestras),
+            "fallidas": [m["id"] for m in muestras if m.get("error")],
+            "eventos_sustituidos": sum(bool(m.get("evento_sustituido")) for m in muestras),
+            "aislamiento": comprobar_aislamiento(_validas(muestras), docs_por_tenant)}
+
+
+def slots_llama(contenedor, ejecutar=subprocess.run):
+    """`-np` de llama-server según `docker inspect` (solo argumentos, sin entorno); None si no se puede leer."""
+    try:
+        r = ejecutar(["docker", "inspect", contenedor, "--format", "{{json .Args}}"],
+                     capture_output=True, text=True, timeout=15)
+        args = json.loads(r.stdout)
+        for flag in ("-np", "--parallel"):
+            if flag in args:
+                return int(args[args.index(flag) + 1])
+    except Exception:
+        return None
+    return None
+
+
 def correr_pruebas(suites):
     """`{nombre: suite}` a `{nombre: ok | falla | omitida}`."""
     resultados = {}
@@ -272,6 +357,26 @@ def render_markdown(reporte):
     filas += [[h, *[_n(x[k], 3) if k != "n" else x[k] for k in ("n", "p50_s", "p95_s", "max_s")]]
               for h, x in lat["por_herramienta"].items()]
     m += _tabla(["Herramienta", "Consultas", "P50 (s)", "P95 (s)", "Máximo (s)"], filas)
+    c = r.get("concurrencia")
+    if c:
+        n = c["usuarios"]
+        slots = c["slots_llama_server"]
+        atiende = ("sin dato de la configuración de `llama-server`" if slots is None else
+                   f"`llama-server` atiende con {slots} slot{'s' if slots != 1 else ''}"
+                   + (": las consultas se encolan en el modelo" if slots == 1 and n > 1 else ""))
+        m += [f"## Latencia con {n} usuarios simultáneos", "",
+              f"{n} hilos con `consultar()` real, empresas `empresa_demo` y `empresa_b` alternadas, en rondas de {n} "
+              f"sobre {c['preguntas']} preguntas. {atiende[0].upper() + atiende[1:]}. "
+              f"Meta del anteproyecto: P95 de 15 s o menos.", ""]
+        t5 = c["latencia"]
+        filas = [["total", *[_n(t5["total"][k], 3) if k != "n" else t5["total"][k] for k in ("n", "p50_s", "p95_s", "max_s")]]]
+        filas += [[h, *[_n(x[k], 3) if k != "n" else x[k] for k in ("n", "p50_s", "p95_s", "max_s")]]
+                  for h, x in t5["por_herramienta"].items()]
+        m += _tabla(["Herramienta", "Consultas", "P50 (s)", "P95 (s)", "Máximo (s)"], filas)
+        a = c["aislamiento"]
+        m += [f"- Consultas fallidas: {', '.join(c['fallidas']) or 'ninguna'}",
+              f"- Preguntas con evento sustituido por el de la empresa (empresa_b no tiene todos): {c['eventos_sustituidos']}",
+              f"- Aislamiento: {a['fuentes_revisadas']} fuentes revisadas. Violaciones de aislamiento: {len(a['violaciones'])}", ""]
     t, e = r["tokens"], r["estimacion_100"]
     m += ["## Costo", "", f"- Consultas medidas: {t['consultas']}",
           f"- Llamadas al LLM por consulta: {_n(t['por_consulta'].get('llamadas_llm'))}",
@@ -314,10 +419,18 @@ def _preguntas(ruta, ciego=False):
             if c.evento and not c.pendiente and not c.simulacion]
 
 
+def _leer_como(conn, ctx, sql, params=()):
+    """Lectura con RLS activa (rol `licigt_app` y empresa del contexto): la conexión de la aplicación no ve filas sin sesión."""
+    from licigt.recuperacion import busqueda
+    with conn.transaction():
+        busqueda._sesion(conn, ctx)
+        return conn.execute(sql, params).fetchall()
+
+
 def _recuperacion(casos, ctx, conn):
     from licigt.recuperacion import evaluar
-    eventos = {r[0] for r in conn.execute("SELECT DISTINCT numero_evento FROM documentos WHERE tenant_id = %s",
-                                          (ctx.tenant_id,)).fetchall()}
+    eventos = {r[0] for r in _leer_como(conn, ctx, "SELECT DISTINCT numero_evento FROM documentos "
+                                                   "WHERE tenant_id = %s", (ctx.tenant_id,))}
     casos = [c for c in casos if c["evento"] in eventos]
     resumen, detalle = evaluar.evaluar(casos, ctx, conn)
     detalle = [{k: d[k] for k in ("id", "variante", "suficiente", "respondible", "hit", "latencia_s", "score_top")}
@@ -350,36 +463,73 @@ def main():
         avisos.append("la lista no se lee de Postgres: la prueba de acción no autorizada queda sin medir")
 
     conn = conectar()
-    uno = conn.execute("SELECT evento_id FROM documentos LIMIT 1").fetchone()[0]
+    uno = _leer_como(conn, ctx, "SELECT evento_id FROM documentos LIMIT 1")[0][0]
     for variante in ("base", "mejorada"):  # carga modelos antes de medir latencia
         busqueda.buscar(ctx, uno, "calentamiento", variante, conn=conn)
 
-    recuperacion = {"desarrollo": _recuperacion(
-        json.loads(evaluar.CASOS.read_text(encoding="utf-8"))["casos"], ctx, conn)}
-    recuperacion["banco_rol3"] = _recuperacion(casos_a_evaluar(cargar_banco(RUTA_CASOS)), ctx, conn)
-    if comun:
-        recuperacion["banco_comun"] = _recuperacion(casos_a_evaluar(cargar_banco(comun)), ctx, conn)
+    max_preguntas = leer_entero_entorno(os.environ, "LICIGT_REPORTE_MAX_PREGUNTAS", 0)
+    usuarios = leer_entero_entorno(os.environ, "LICIGT_REPORTE_CONCURRENCIA", 5)
+    corta = max_preguntas > 0
+    recuperacion, e2e, registros = {}, {}, []
+    if corta:
+        avisos.append(f"corrida corta: solo latencia sobre {max_preguntas} preguntas; sin recuperación, "
+                      "extremo a extremo ni seguridad")
+    else:
+        recuperacion = {"desarrollo": _recuperacion(
+            json.loads(evaluar.CASOS.read_text(encoding="utf-8"))["casos"], ctx, conn)}
+        recuperacion["banco_rol3"] = _recuperacion(casos_a_evaluar(cargar_banco(RUTA_CASOS)), ctx, conn)
+        if comun:
+            recuperacion["banco_comun"] = _recuperacion(casos_a_evaluar(cargar_banco(comun)), ctx, conn)
+    docs_por_tenant, evento_propio = {}, {}
+    contextos = [Contexto(tenant_id="empresa_demo", usuario="demo"),
+                 Contexto(tenant_id="empresa_b", usuario="analista_b")]
+    if usuarios > 0:
+        for c in contextos:
+            for d, n in _leer_como(conn, c, "SELECT doc_id, numero_evento FROM documentos "
+                                            "WHERE tenant_id = %s ORDER BY doc_id", (c.tenant_id,)):
+                docs_por_tenant.setdefault(c.tenant_id, set()).add(d)
+                evento_propio.setdefault(c.tenant_id, n)
     conn.close()
 
-    servicios = dict(ctx=ctx, recuperador=recuperador, generador=generador, enrutador=enrutador,
-                     resolver=resolver, leer_lista=leer_lista)
-    e2e = {"banco_rol3": _extremo_a_extremo(RUTA_CASOS, detalle_dir, **servicios)}
-    if comun:
-        e2e["banco_comun"] = _extremo_a_extremo(str(comun), detalle_dir, **servicios)
+    if not corta:
+        servicios = dict(ctx=ctx, recuperador=recuperador, generador=generador, enrutador=enrutador,
+                         resolver=resolver, leer_lista=leer_lista)
+        e2e = {"banco_rol3": _extremo_a_extremo(RUTA_CASOS, detalle_dir, **servicios)}
+        if comun:
+            e2e["banco_comun"] = _extremo_a_extremo(str(comun), detalle_dir, **servicios)
 
     preguntas = _preguntas(RUTA_CASOS) + (_preguntas(comun) if comun else [])
     if Path(RUTA_CIEGO).is_file():
         preguntas += _preguntas(RUTA_CIEGO, ciego=True)
     else:
         avisos.append(f"sin {RUTA_CIEGO}: la latencia no incluye las 47 preguntas de desarrollo del enrutador")
+    if corta:
+        preguntas = preguntas[:max_preguntas]
     muestras = medir_consultas(preguntas, ctx=ctx, resolver=resolver, enrutador=enrutador,
                                recuperador=recuperador, generador=generador, consultar=consultar)
     errores = [m["id"] for m in muestras if m.get("error")]
     if errores:
         avisos.append(f"{len(errores)} consultas con error quedaron fuera de la latencia: {', '.join(errores)}")
 
-    registros = [c for b in e2e.values() for c in b["casos"]]
-    seguridad = suite_seguridad(registros, correr_pruebas(suites_de_plataforma()))
+    concurrencia, muestras_conc = None, []
+    if usuarios > 0:
+        if not all(t in docs_por_tenant for t in ("empresa_demo", "empresa_b")):
+            avisos.append("concurrencia: falta empresa_b en la base (make empresa-b); el aislamiento no se puede comprobar")
+        muestras_conc = medir_concurrencia(
+            preguntas, contextos=contextos, resolver=lambda c, e: busqueda.resolver_evento(c, e),
+            enrutador=enrutador, recuperador=recuperador, generador=generador, consultar=consultar,
+            usuarios=usuarios, evento_propio=evento_propio)
+        slots = slots_llama(os.environ.get("LICIGT_LLM_CONTENEDOR", "licigt-llm"))
+        concurrencia = resumen_concurrencia(muestras_conc, docs_por_tenant, usuarios, slots)
+        if slots is None:
+            avisos.append("concurrencia: no se pudo leer el número de slots de llama-server")
+        if concurrencia["fallidas"]:
+            avisos.append(f"concurrencia: {len(concurrencia['fallidas'])} consultas fallaron: "
+                          f"{', '.join(concurrencia['fallidas'])}")
+
+    if not corta:
+        registros = [c for b in e2e.values() for c in b["casos"]]
+    seguridad = [] if corta else suite_seguridad(registros, correr_pruebas(suites_de_plataforma()))
 
     reporte = {
         "fecha": ahora.isoformat(), "commit": banco._commit(), "commit_sucio": banco._commit_sucio(),
@@ -390,7 +540,8 @@ def main():
         "avisos": avisos, "recuperacion": recuperacion, "extremo_a_extremo": e2e,
         "preguntas_medidas": len(preguntas), "latencia": resumen_latencia(muestras),
         "tokens": resumen_tokens(muestras), "estimacion_100": estimar_por_100(muestras),
-        "muestras": [{k: v for k, v in m.items()} for m in muestras], "seguridad": seguridad}
+        "muestras": [{k: v for k, v in m.items()} for m in muestras], "seguridad": seguridad,
+        "concurrencia": concurrencia, "muestras_concurrencia": muestras_conc}
     ruta_json, ruta_md = escribir_reporte(reporte, DIRECTORIO_REPORTE, sello)
     print(f"Reporte en {ruta_json} y {ruta_md}")
     return ruta_json

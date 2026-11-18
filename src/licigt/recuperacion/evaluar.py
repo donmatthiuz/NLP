@@ -14,7 +14,7 @@ import statistics
 import time
 from pathlib import Path
 
-from .busqueda import K, UMBRAL, Contexto, buscar
+from .busqueda import K, UMBRAL, Contexto, _sesion, buscar
 from .indice import REVISION, conectar, dispositivo, dtype_modelo
 
 CASOS = Path(__file__).with_name("casos_desarrollo.json")
@@ -34,9 +34,16 @@ def barrido(puntos):
     return [(u, sum((p >= u) == resp for p, resp in puntos)) for u in umbrales]
 
 
+def leer_como(conn, ctx, sql, params=()):
+    """Lectura con la sesión de la empresa (RLS): la conexión de la aplicación no ve filas sin ella."""
+    with conn.transaction():
+        _sesion(conn, ctx)
+        return conn.execute(sql, params).fetchall()
+
+
 def evaluar(casos, ctx, conn):
-    eventos = dict(conn.execute("SELECT DISTINCT numero_evento, evento_id FROM documentos WHERE tenant_id = %s",
-                                (ctx.tenant_id,)).fetchall())
+    eventos = dict(leer_como(conn, ctx, "SELECT DISTINCT numero_evento, evento_id FROM documentos "
+                                        "WHERE tenant_id = %s", (ctx.tenant_id,)))
     resumen, detalle = {}, []
     for variante in ("base", "mejorada"):
         hits, rr, lat, abst_ok, abst_mal = [], [], [], 0, 0
@@ -75,7 +82,7 @@ if __name__ == "__main__":
     a = p.parse_args()
     casos = json.loads(Path(a.casos).read_text(encoding="utf-8"))["casos"]
     conn = conectar()
-    uno = conn.execute("SELECT evento_id FROM documentos LIMIT 1").fetchone()[0]
+    uno = leer_como(conn, Contexto(a.tenant_id), "SELECT evento_id FROM documentos LIMIT 1")[0][0]
     for v in ("base", "mejorada"):  # carga modelos antes de medir latencia
         buscar(Contexto(a.tenant_id), uno, "calentamiento", v, conn=conn)
     resumen, detalle = evaluar(casos, Contexto(a.tenant_id), conn)
