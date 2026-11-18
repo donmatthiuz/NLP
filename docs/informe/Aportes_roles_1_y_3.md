@@ -8,7 +8,7 @@ Borrador de las secciones de ingesta (rol 1) y consulta (rol 3) para que el equi
 
 - Cinco licitaciones de medicamentos y seis PDF oficiales del portal de proveedores del IGSS: las bases de los eventos 399, 363, 222, 327 y 368, y la Modificación Número 1 del 222 ([`Corpus_IGSS.md`](../ingesta/Corpus_IGSS.md)).
 - Cada PDF se descargó, se verificó por SHA-256 y se conserva en el paquete de entrega con su procedencia (URL, fecha de la ficha y fecha de descarga).
-- El paquete actual tiene **893 fragmentos indexables y 4 excluidos** por ruido de OCR, todos de la modificación del 222 (`inventario.json` del paquete; [`Avisos_del_rol_1.md`](../recuperacion/Avisos_del_rol_1.md), actualización R5).
+- El paquete actual (R6) tiene **625 fragmentos indexables y 28 excluidos** por ruido de OCR, todos de la modificación del 222 ([`Corpus_IGSS.md`](../ingesta/Corpus_IGSS.md); [`Avisos_del_rol_1.md`](../recuperacion/Avisos_del_rol_1.md), actualización R6).
 
 ### Problemas de extracción
 
@@ -30,6 +30,23 @@ Los documentos del IGSS no son texto corrido. Se encontraron cuatro problemas, c
 | R3 | Tablas de descripción con la geometría de `pdfplumber`, una fila por línea (`numeral`, título, texto), con una salvaguarda que compara palabras y dígitos con el texto anterior: 0 dígitos perdidos y 0 añadidos en los seis PDF | [R3](../ingesta/delegacion/R3_tablas_dos_columnas.md), [`Corpus_IGSS.md`](../ingesta/Corpus_IGSS.md) |
 | R4 | La salvaguarda comprueba también el orden de las palabras dentro de cada celda; las tablas de una fila solo se reescriben si su primera celda es un numeral | [R4](../ingesta/delegacion/R4_orden_en_tablas.md) |
 | R5 | "Punto N:" de una modificación abre una unidad con la sección del numeral que modifica; los encabezados repetidos en 2 páginas se quitan en documentos de 2 a 5 páginas; las celdas partidas por un hueco mínimo se funden | [R5](../ingesta/delegacion/R5_modificaciones_y_margenes.md) |
+| R6 | Los pies con número de página ("9 Extensión: 99175") se reconocen como margen enmascarando el número; las entradas del índice se juntan; solo son título los numerales de varios niveles, los números simples con texto en mayúsculas y los títulos con palabra clave que no son citas; las páginas OCR no se funden | [R6](../ingesta/delegacion/R6_pies_e_indice.md) |
+
+### Calidad medida de la extracción
+
+Un revisor independiente comparó, con un criterio fijo, una muestra estratificada de 30 fragmentos con la página del PDF original. La muestra tiene 10 de tablas, 7 con fechas, 6 con códigos o cifras, 3 de la modificación con OCR y 4 al azar. Se hizo antes y después de R6, con muestras distintas y la misma semilla de estratos (`data/consulta/agentes/muestra_ingesta*.json`).
+
+| | R5 | R6 |
+|---|---|---|
+| Página correcta | 30 de 30 | 30 de 30 |
+| Texto exacto | 16 | 24 |
+| Diferencia menor (un pie o un número de página pegado) | 11 | 4 |
+| Error grave | 3 | 2 |
+| Sección correcta | 23 de 30 | 30 de 30 |
+
+- **Antes de R6, en todo el corpus:** 177 de 893 fragmentos tenían como sección un pie de página y 98 eran solo un pie. Lo encontró el muestreo; las pruebas comprobaban la consistencia del paquete, no su exactitud.
+- **Errores graves que quedan:** dos tablas del 222 con encabezados de varias líneas (4.1 y 4.2), que salen con las columnas entrelazadas, y el OCR de la página 3 de la modificación, que lee "222-1GSS-2023". Están declarados en `Corpus_IGSS.md`.
+- **Truncado:** ningún fragmento se trunca en los modelos. El más largo tiene 699 tokens de bge-m3, y bge-m3 y el reranker aceptan 8192.
 
 ### Cobertura declarada
 
@@ -171,31 +188,37 @@ Son 23 casos (15 mínimos y 8 recomendados) de la tabla de [I4](../consulta/inve
 - **Verificación:** el `revisor-casos` en Claude, en modo evidencia contra el corpus extraído. No contradijo ninguna página. Confirmó que no existen el requisito fabricado (ISO 9001 en el 399), el precio adjudicado (363) ni la página 40 (el 399 tiene 36).
 - **Adjudicación del usuario:** 5 casos con una perturbación (k fuera de rango, `tenant_id` inyectado, recuperación caída, cita falsa y pregunta de más de 500 caracteres) llevan `answerable=false`. Se leen como "no respondibles tal como llega la solicitud".
 
-**Corrida** (18 de noviembre de 2026, `make banco`, commit `3fad704` sin cambios pendientes):
-- servicios reales: Postgres con el paquete R5, recuperación en GPU, `llama-server` con `qwen3.5-9b`, prompt `f4-v10`, semilla 42;
+**Corrida** (18 de noviembre de 2026, `make banco`, commit `7c117d9` sin cambios pendientes):
+- servicios reales: Postgres con el paquete R6, recuperación en GPU, `llama-server` con `qwen3.5-9b`, prompt `f4-v10`, semilla 42;
 - lista leída de Postgres;
-- registro en `data/consulta/banco/20261118T042413Z.json`, sin texto de respuestas ni de fragmentos.
+- registro en `data/consulta/banco/20261118T054435Z.json`, sin texto de respuestas ni de fragmentos.
 
-Cumplen 21 de 23 casos.
+Cumplen 20 de 23 casos. La otra corrida limpia con R6 dio el mismo resultado; la última con R5 (commit `3fad704`) daba 21.
 
 | Métrica (I4, sección 3) | Resultado |
 |---|---|
 | Exactitud de acción y herramienta | 14 de 15 |
 | Abstención correcta | 13 de 14 |
-| Abstención indebida | 1 de 9 |
+| Abstención indebida | 2 de 9 |
 | Aclaración correcta / indebida | 1 de 2 / 0 de 4 |
 | `needs_human_review`: precisión / recall | 3 de 3 / 3 de 3 |
-| Citas publicadas válidas | 28 de 28 |
-| Fuente esperada | 8 de 9 |
+| Citas publicadas válidas | 21 de 21 |
+| Fuente esperada | 7 de 9 |
 | JSON válido | 23 de 23 |
-| Regeneraciones exitosas | 1 de 14 validaciones |
+| Regeneraciones exitosas | 2 de 14 validaciones |
 | Límite de llamadas respetado | 23 de 23 |
 | Ataques bloqueados | 6 de 6 |
 | Degradación controlada | 3 de 3 |
 | Acciones críticas controladas (lista sin cambios) | 2 de 2 |
 
-**Los dos casos que no cumplen:**
+**Los tres casos que no cumplen:**
 - `r3-nom-buscar` ("¿código IGSS del producto de la 399?"): se abstiene porque las citas no pasan la validación en los dos intentos, igual en las tres corridas. La misma pregunta con otra redacción (`r3-ind-jev`) sí responde. Es una limitación del modelo de 9B: el sistema se abstiene en vez de publicar una cita inválida.
+- `r3-ver-222-recepcion` ("¿Qué cambió en la fecha de recepción de ofertas…?"): con R5 cumplía; con R6 se abstiene en las dos corridas.
+  - El modelo da la respuesta correcta, pero en una sola afirmación que junta los datos de las bases y de la modificación ("cambió del 31 de julio al 06 de octubre").
+  - El validador la rechaza (`datos_de_varias_citas`): una afirmación que cruza documentos es una inferencia de vigencia. En su única regeneración, el modelo no sigue la pista de dividirla.
+  - Con temperatura 0, el cambio de R6 en la evidencia cambió la salida.
+  - La comparación del guion de la demo ("Compara la fecha de recepción…") sí responde con R6, en dos afirmaciones con su cita cada una.
+  - Es sensibilidad del modelo de 9B a la redacción. No se agrega código: partir la afirmación desde el código sería generar texto.
 - `r3-amb-monto` ("¿Y por cuánto es?"): el enrutador de reglas la manda a buscar en vez de pedir aclaración, y el resultado es una abstención. En el experimento de JEV, las preguntas sin referente son justo donde JEV acierta y las reglas fallan ([`Experimento_JEV.md`](../consulta/Experimento_JEV.md)).
 
 **Lo que encontró el banco y cómo se corrigió:**
@@ -206,13 +229,13 @@ Cumplen 21 de 23 casos.
     - la ingesta no indexa la página marcada;
     - la consulta saca el fragmento de la evidencia y de la lista, avisa `fragmento_sospechoso:<chunk_id>` y pide revisión humana;
     - si el fragmento sospechoso era el mejor resultado, la búsqueda se trata como insuficiente.
-  - **Precisión:** 0 de 893 fragmentos reales marcados. 11 frases de lenguaje legal y de aclaraciones quedan como pruebas de que no se marcan.
+  - **Precisión:** 0 fragmentos reales marcados (893 con R5 y 625 con R6). 11 frases de lenguaje legal y de aclaraciones quedan como pruebas de que no se marcan.
   - **Límite declarado:** no detecta un ataque sin destinatario IA, con más de 200 caracteres entre las señales ni con caracteres de otro alfabeto. Se prioriza no descartar texto oficial; las otras capas siguen (cita literal validada, revisión humana y ninguna herramienta de escritura).
 - **Casos corregidos después de la primera corrida, y declarados:**
   - a `r3-par-otro-evento` le faltaba `tool_used` y pasaba un solo id, cuando el esquema exige los dos;
   - `r3-ind-jev` esperaba `degradado`, que no aplica porque el enrutador adoptado es el de reglas.
 - **Variabilidad:** `r3-nom-extraer` cumplió en la primera y la tercera corrida. En la segunda se abstuvo porque la llamada al LLM pasó el tiempo de espera (`generador_no_disponible`, 33 s), lo que confirma la limitación de latencia.
-- **Latencia de esta corrida:** mediana 3,9 s y máximo 19,6 s, en 23 casos. El P95 del flujo es el medido con 107 preguntas: 29,3 s.
+- **Latencia de esta corrida:** mediana 4,7 s y máximo 23,1 s, en 23 casos. Una corrida anterior con R6, hecha justo después de reimportar, tuvo esperas de hasta 120 s y dos tiempos de espera del LLM. En el registro de `llama-server` ninguna generación pasó de 8,4 s, y la recuperación tardó 0,6 s; se descartó como algo pasajero del entorno. El P95 del flujo es el medido con 107 preguntas: 29,3 s.
 
 **Pendientes del banco:** las dos métricas humanas (fidelidad por afirmación y precisión y recall de citas al estilo ALCE) requieren la revisión de dos personas sobre una muestra.
 
