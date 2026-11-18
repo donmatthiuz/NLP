@@ -118,7 +118,6 @@ class SeccionTrasElIndiceTests(unittest.TestCase):
 class OcrNoSeFundeTests(unittest.TestCase):
     def test_las_paginas_ocr_de_la_modificacion_conservan_el_ruido_fuera_del_indice(self):
         from licigt.ingesta.pipeline import SourceMetadata, paginas_sin_indexables
-        from licigt.ingesta.reextraer import MIN_PALABRAS_OCR, PALABRA
         with zipfile.ZipFile(ZIP_ACTUAL) as z:
             inventario = json.loads(z.read("inventario.json"))
             entrada = next(d for d in inventario["documents"] if d["doc_id"].startswith("d41480"))
@@ -127,8 +126,6 @@ class OcrNoSeFundeTests(unittest.TestCase):
         ocr = [p for p in paginas if p.method == "ocr"]
         self.assertEqual([p.number for p in ocr], [3, 4])
         nuevos = make_chunks(ocr, manifiesto["doc_id"], SourceMetadata(**manifiesto["metadata"]), manifiesto["version_ingesta"])
-        for c in nuevos:
-            c["indexable"] = len(PALABRA.findall(c["texto"])) >= MIN_PALABRAS_OCR
         previos = [c for c in manifiesto["chunks"] if c["pagina_inicio"] <= 2]
         self.assertEqual(paginas_sin_indexables([p.number for p in paginas], previos + nuevos), [4])
         self.assertEqual([c["chunk_id"] for c in nuevos if c["indexable"] and "( AO $" in c["texto"]], [])

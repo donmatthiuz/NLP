@@ -423,6 +423,12 @@ def _security_scan(pages: list[Page], hidden_text: dict[int, list[str]]) -> dict
             "suspicious_pages": suspicious_pages}
 
 
+# Medición del 17 de noviembre (R1_ingesta, Parte D) sobre las páginas 3 y 4 de la modificación del 222:
+# los fragmentos buenos tenían 25, 101 y 40 palabras de 4 o más letras; el ruido de sellos y firmas, 9, 3 y 9.
+MIN_PALABRAS_OCR = 20
+PALABRA = re.compile(r"[^\W\d_]{4,}")
+
+
 def make_chunks(pages: list[Page], doc_id: str, metadata: SourceMetadata, version: int,
                 max_words: int = 600, overlap_words: int = 90) -> list[dict[str, Any]]:
     """~800 tokens / 120 de solapamiento estimados por palabras; una página por chunk."""
@@ -437,7 +443,7 @@ def make_chunks(pages: list[Page], doc_id: str, metadata: SourceMetadata, versio
         units, section = _units(page, section, max_words, metadata.tipo_documento in TIPOS_CON_PUNTOS)
         merged = []
         for unit in units:
-            # Las páginas OCR no se funden: el umbral de ruido_ocr de reextraer necesita ver las unidades pequeñas.
+            # Las páginas OCR no se funden: el umbral de ruido_ocr necesita ver las unidades pequeñas.
             if (merged and page.method == "text" and unit["tipo_chunk"] == "texto" and merged[-1]["tipo_chunk"] == "texto"
                     and unit["seccion"] == merged[-1]["seccion"]
                     and len((merged[-1]["texto"] + unit["texto"]).split()) <= max_words):
@@ -468,6 +474,8 @@ def make_chunks(pages: list[Page], doc_id: str, metadata: SourceMetadata, versio
                 index = len(chunks) + 1
                 # La sección también cuenta: un encabezado inyectado en una página se hereda a los fragmentos de la siguiente.
                 flagged = bool(SUSPICIOUS.search(unit["seccion"] + "\n" + text))
+                # Una sola regla para ingest, reprocess y reextraer: el OCR de sellos y firmas no se indexa.
+                ruido = page.method != "text" and len(PALABRA.findall(text)) < MIN_PALABRAS_OCR
                 chunks.append({
                     "chunk_id": f"{doc_id}:{index:05d}", "doc_id": doc_id,
                     "tenant_id": metadata.tenant_id, "evento_id": metadata.evento_id,
@@ -485,12 +493,12 @@ def make_chunks(pages: list[Page], doc_id: str, metadata: SourceMetadata, versio
                     "fecha_ficha": metadata.fecha_ficha,
                     "fecha_descarga": metadata.fecha_descarga, "url_origen": metadata.url_origen,
                     "pagina_inicio": page.number, "pagina_fin": page.number,
-                    "pagina_impresa": printed_by_page[page.number], "estado_calidad": page.quality,
+                    "pagina_impresa": printed_by_page[page.number], "estado_calidad": "ruido_ocr" if ruido and not flagged else page.quality,
                     "seccion": unit["seccion"], "tipo_chunk": unit["tipo_chunk"],
                     "tabla_markdown": unit["tabla_markdown"] if len(words) <= max_words else None,
                     "encabezado_tabla": table_header if unit["tipo_chunk"] == "tabla" else None,
                     "texto": text, "metodo_extraccion": page.method,
-                    "injection_suspected": flagged, "indexable": not flagged,
+                    "injection_suspected": flagged, "indexable": not flagged and not ruido,
                 })
                 if start + window >= len(body_words):
                     break

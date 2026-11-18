@@ -21,10 +21,6 @@ from .pipeline import SUSPICIOUS, SourceMetadata, make_chunks, paginas_sin_index
 AVISO_PAGINAS = "Hay páginas incompletas o ilegibles"
 AVISO_INSTRUCCIONES = "Posibles instrucciones incrustadas en páginas: "
 
-# Medición del 17 de noviembre (R1_ingesta, Parte D) sobre las páginas 3 y 4 de la modificación del 222:
-# los fragmentos buenos tenían 25, 101 y 40 palabras de 4 o más letras; el ruido de sellos y firmas, 9, 3 y 9.
-MIN_PALABRAS_OCR = 20
-PALABRA = re.compile(r"[^\W\d_]{4,}")
 
 
 def _json(datos: Any) -> bytes:
@@ -84,10 +80,6 @@ def reextraer(zip_path: Path, doc_id: str, salida: Path, advertencias: list[str]
         if chunk["pagina_inicio"] in sospechosas:
             chunk["injection_suspected"] = True
             chunk["indexable"] = False
-        if len(PALABRA.findall(chunk["texto"])) < MIN_PALABRAS_OCR:
-            chunk["indexable"] = False
-            if not chunk.get("injection_suspected"):
-                chunk["estado_calidad"] = "ruido_ocr"
         if cobertura["solo_convocatoria"] or not cobertura["evento_confirmado_en_pdf"] or not escaneo["scan_complete"]:
             chunk["indexable"] = False
 
