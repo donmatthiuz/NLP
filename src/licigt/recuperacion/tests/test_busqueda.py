@@ -6,6 +6,7 @@ from pathlib import Path
 
 from licigt.recuperacion.busqueda import Contexto, _bajo_numeral, _redundante, buscar, comparar_versiones, rrf
 from licigt.recuperacion.indice import MODELO_BASE, conectar, leer_paquete, modelo, ventanas_base
+from licigt.recuperacion.evaluar import leer_como
 
 PACKAGE = Path(__file__).resolve().parents[4] / "entregables" / "recuperacion" / "empresa_demo.zip"
 
@@ -45,12 +46,14 @@ class IntegracionTests(unittest.TestCase):
     def setUpClass(cls):
         try:
             cls.conn = conectar()
-            eventos = dict(cls.conn.execute("SELECT DISTINCT numero_evento, evento_id FROM documentos").fetchall())
         except Exception as exc:  # sin base de datos: solo corren las pruebas unitarias
-            raise unittest.SkipTest(f"Postgres no disponible o vacío: {exc}")
+            raise unittest.SkipTest(f"Postgres no disponible: {exc}")
+        # La conexión de la aplicación no ve filas sin sesión: se lee como empresa_demo. Con base y sin filas, falla.
+        eventos = dict(leer_como(cls.conn, Contexto("empresa_demo"),
+                                 "SELECT DISTINCT numero_evento, evento_id FROM documentos"))
         if "222-IGSS-2023" not in eventos:
             cls.conn.close()
-            raise unittest.SkipTest("Paquete no importado")
+            raise AssertionError("La base responde pero empresa_demo no tiene el evento 222: corre make importar")
         cls.e222, cls.e399 = eventos["222-IGSS-2023"], eventos["399-IGSS-2026"]
         cls.ctx = Contexto("empresa_demo")
 
@@ -68,8 +71,8 @@ class IntegracionTests(unittest.TestCase):
 
     def test_resultados_solo_del_evento(self):
         r = buscar(self.ctx, self.e399, "cronograma de actividades", conn=self.conn)
-        docs = {d for (d,) in self.conn.execute("SELECT doc_id FROM documentos WHERE evento_id = %s",
-                                                (self.e399,)).fetchall()}
+        docs = {d for (d,) in leer_como(self.conn, self.ctx, "SELECT doc_id FROM documentos WHERE evento_id = %s",
+                                        (self.e399,))}
         self.assertTrue(r["fragmentos"])
         self.assertTrue({f["doc_id"] for f in r["fragmentos"]} <= docs)
 

@@ -343,7 +343,9 @@ class SesionTests(unittest.TestCase):
                           r.json()["answer"]):
             self.assertNotIn(prohibido, texto)
         consulta = next(l for l in self.lineas_de_auditoria() if l["accion"] == "consulta")
-        self.assertEqual((consulta["usuario"], consulta["tenant_id"]), ("analista_demo", "empresa_demo"))
+        self.assertRegex(consulta["usuario"], r"^hmac:[0-9a-f]{16}$")
+        self.assertEqual(consulta["tenant_id"], "empresa_demo")
+        self.assertNotIn("analista_demo", texto)
         fallido = self.lineas_de_auditoria()[0]
         self.assertTrue(fallido["usuario"].startswith("hmac:"))
 

@@ -25,6 +25,12 @@ try:
 except ImportError:
     TestClient = None
 
+def conectar_admin():
+    """Lecturas de verificación como dueño de la base (sin seguridad por fila): LICIGT_DB_ADMIN_URL, que pone make."""
+    import psycopg
+    return psycopg.connect(os.environ["LICIGT_DB_ADMIN_URL"], autocommit=True)
+
+
 EVENTO_222, EVENTO_363 = "222-IGSS-2023", "363-IGSS-2026"
 PREGUNTA = "¿Dónde se reciben las ofertas?"
 
@@ -63,24 +69,33 @@ class Recuperador:
 
 
 def _hay_base():
-    if TestClient is None or not os.environ.get("LICIGT_DB_URL"):
+    """Sin LICIGT_DB_ADMIN_URL (no corre bajo make) se omite. Con ella, la base debe estar lista: si no, falla."""
+    exigida = bool(os.environ.get("LICIGT_DB_ADMIN_URL"))
+    if TestClient is None or not os.environ.get("LICIGT_DB_URL") or not exigida:
         return False
     try:
         conn = conectar()
         try:
-            return conn.execute("SELECT count(DISTINCT tenant_id) FROM documentos "
-                                "WHERE tenant_id IN ('empresa_demo', 'empresa_b')").fetchone()[0] == 2
+            # La conexión de la aplicación no ve filas sin empresa en la sesión: se cuenta por empresa, como la API.
+            for tenant in ("empresa_demo", "empresa_b"):
+                with conn.transaction():
+                    conn.execute("SET LOCAL ROLE licigt_app")
+                    conn.execute("SELECT set_config('app.tenant_id', %s, true)", (tenant,))
+                    if conn.execute("SELECT count(*) FROM documentos").fetchone()[0] == 0:
+                        raise RuntimeError(f"sin documentos de {tenant}: corre make importar y make empresa-b")
         finally:
             conn.close()
-    except Exception:
-        return False
+    except Exception as e:
+        raise RuntimeError(f"La integración de plataforma no puede correr: {e}. "
+                           "Requisitos: make db-up, db-rol-app, lista-schema, importar y empresa-b") from e
+    return True
 
 
 @unittest.skipUnless(_hay_base(), "requiere make db-up, make importar y make empresa-b (LICIGT_DB_URL)")
 class IntegracionPermisosTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        conn = conectar()
+        conn = conectar_admin()
         try:
             cls.docs = {t: {e: [r[0] for r in conn.execute(
                 "SELECT doc_id FROM documentos WHERE tenant_id = %s AND numero_evento = %s", (t, e)).fetchall()]
@@ -113,7 +128,7 @@ class IntegracionPermisosTests(unittest.TestCase):
     @staticmethod
     def tenant_de(chunk_ids):
         """Empresas dueñas de los fragmentos, leídas con el dueño de la base (sin seguridad por fila)."""
-        conn = conectar()
+        conn = conectar_admin()
         try:
             return {r[0] for r in conn.execute("SELECT DISTINCT tenant_id FROM fragmentos WHERE chunk_id = ANY(%s)",
                                                (list(chunk_ids),)).fetchall()}

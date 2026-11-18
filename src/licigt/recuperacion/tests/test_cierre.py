@@ -6,6 +6,7 @@ from unittest import mock
 
 from licigt.recuperacion import busqueda, indice
 from licigt.recuperacion.busqueda import Contexto, buscar, obtener_fragmentos, resolver_evento
+from licigt.recuperacion.evaluar import leer_como
 
 
 CARGAR_REAL = indice.cargar
@@ -354,12 +355,14 @@ class InterfacesIntegracionTests(unittest.TestCase):
     def setUpClass(cls):
         try:
             cls.conn = indice.conectar()
-            eventos = dict(cls.conn.execute("SELECT DISTINCT numero_evento, evento_id FROM documentos").fetchall())
-        except Exception as exc:
-            raise unittest.SkipTest(f"Postgres no disponible o vacío: {exc}")
+        except Exception as exc:  # sin base de datos: solo corren las pruebas unitarias
+            raise unittest.SkipTest(f"Postgres no disponible: {exc}")
+        # La conexión de la aplicación no ve filas sin sesión: se lee como empresa_demo. Con base y sin filas, falla.
+        eventos = dict(leer_como(cls.conn, Contexto("empresa_demo"),
+                                 "SELECT DISTINCT numero_evento, evento_id FROM documentos"))
         if "222-IGSS-2023" not in eventos:
             cls.conn.close()
-            raise unittest.SkipTest("Paquete no importado")
+            raise AssertionError("La base responde pero empresa_demo no tiene el evento 222: corre make importar")
         cls.e222, cls.e399 = eventos["222-IGSS-2023"], eventos["399-IGSS-2026"]
         cls.ctx = Contexto("empresa_demo")
 
@@ -381,26 +384,27 @@ class InterfacesIntegracionTests(unittest.TestCase):
         self.assertEqual(obtener_fragmentos(Contexto("otra_empresa"), self.e222, ids, conn=self.conn), [])
 
     def test_pagina_impresa_de_punta_a_punta_en_el_222(self):
-        fila = self.conn.execute("SELECT chunk_id FROM fragmentos WHERE tenant_id = 'empresa_demo' AND evento_id = %s "
-                                 "AND variante = 'mejorada' AND chunk_id LIKE '03791a%%:00032'", (self.e222,)).fetchone()
-        self.assertIsNotNone(fila)
+        filas = leer_como(self.conn, self.ctx, "SELECT chunk_id FROM fragmentos WHERE tenant_id = 'empresa_demo' "
+                          "AND evento_id = %s AND variante = 'mejorada' AND chunk_id LIKE '03791a%%:00032'", (self.e222,))
+        self.assertTrue(filas)
+        fila = filas[0]
         f = obtener_fragmentos(self.ctx, self.e222, [fila[0]], conn=self.conn)[0]
         self.assertEqual((f["pagina_inicio"], f["pagina_impresa"]), (8, 7))
         from licigt.consulta.lectura import FragmentoRecuperado, fuente_desde_fragmento
         fuente = fuente_desde_fragmento(FragmentoRecuperado(**f), "cita")
         self.assertEqual((fuente.page, fuente.printed_page), (8, 7))
-        base = self.conn.execute("SELECT count(*) FROM fragmentos WHERE variante = 'base' AND pagina_impresa IS NOT NULL "
-                                 "AND tenant_id = 'empresa_demo'").fetchone()[0]
+        base = leer_como(self.conn, self.ctx, "SELECT count(*) FROM fragmentos WHERE variante = 'base' "
+                         "AND pagina_impresa IS NOT NULL AND tenant_id = 'empresa_demo'")[0][0]
         self.assertGreater(base, 0)
 
     def test_aislamiento_contra_empresa_b(self):
-        eventos = dict(self.conn.execute(
-            "SELECT DISTINCT numero_evento, evento_id FROM documentos WHERE tenant_id = 'empresa_b'").fetchall())
+        eventos = dict(leer_como(self.conn, Contexto("empresa_b"),
+            "SELECT DISTINCT numero_evento, evento_id FROM documentos WHERE tenant_id = 'empresa_b'"))
         if "363-IGSS-2026" not in eventos:
             self.skipTest("empresa_b no está importada")
         e363 = eventos["363-IGSS-2026"]
-        ajeno = self.conn.execute("SELECT chunk_id FROM fragmentos WHERE tenant_id = 'empresa_b' AND evento_id = %s LIMIT 1",
-                                  (e363,)).fetchone()[0]
+        ajeno = leer_como(self.conn, Contexto("empresa_b"), "SELECT chunk_id FROM fragmentos "
+                          "WHERE tenant_id = 'empresa_b' AND evento_id = %s LIMIT 1", (e363,))[0][0]
         self.assertEqual(obtener_fragmentos(self.ctx, e363, [ajeno], conn=self.conn), [])
         self.assertIsNone(resolver_evento(Contexto("empresa_b"), "222-IGSS-2023", conn=self.conn))
 

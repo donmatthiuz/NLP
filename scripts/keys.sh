@@ -4,7 +4,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-EXPECTED=(keys/mcp/context7.token keys/jev/api.key keys/llm/openai.key keys/database/dev.password)
+EXPECTED=(keys/mcp/context7.token keys/jev/api.key keys/llm/openai.key keys/database/dev.password keys/database/app.password)
 # Sesión del rol 4: no entran en init; los crea `make usuarios-demo`.
 PLATAFORMA=(keys/plataforma/sesion.key keys/plataforma/usuarios.json keys/plataforma/contrasenas_demo.txt)
 # Secretos propios del proyecto: se generan al azar en la máquina que los usa.

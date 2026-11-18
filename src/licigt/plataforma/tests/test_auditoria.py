@@ -81,6 +81,38 @@ class AuditoriaTests(unittest.TestCase):
         with patch.dict(os.environ, {"LICIGT_AUDITORIA_DIR": "/proc/no-se-puede/auditoria"}):
             auditoria.registrar("login", "ok", usuario="ana", tenant_id="t")
 
+    def test_una_falla_al_escribir_deja_un_aviso_sin_datos_sensibles(self):
+        with patch.dict(os.environ, {"LICIGT_AUDITORIA_DIR": "/proc/no-se-puede/auditoria"}):
+            with self.assertLogs("licigt.plataforma.auditoria", level="WARNING") as cap:
+                auditoria.registrar("login", "ok", usuario="ana.perez", tenant_id="empresa_secreta")
+        texto = "\n".join(cap.output)
+        self.assertIn("auditoría", texto)
+        for prohibido in ("ana.perez", "empresa_secreta"):
+            self.assertNotIn(prohibido, texto)
+
+    def test_ninguna_linea_lleva_el_usuario_en_claro(self):
+        auditoria.registrar("login", "ok", usuario="ana.perez", tenant_id="empresa_demo")
+        auditoria.registrar_consulta({"usuario": "ana.perez", "tenant_id": "empresa_demo"})
+        auditoria.registrar_lista({"usuario": "ana.perez", "tenant_id": "empresa_demo", "accion": "lista_alta"})
+        auditoria.registrar_login_fallido("ana.perez")
+        lineas = self.lineas()
+        self.assertEqual(len(lineas), 4)
+        for linea in lineas:
+            self.assertNotIn("ana.perez", json.dumps(linea))
+            self.assertRegex(linea["usuario"], r"^hmac:[0-9a-f]{16}$")
+        self.assertEqual(len({l["usuario"] for l in lineas}), 1)  # el mismo usuario, la misma huella
+        self.assertEqual(lineas[0]["tenant_id"], "empresa_demo")  # el tenant_id se mantiene
+
+    def test_sin_clave_de_sesion_el_usuario_es_una_constante(self):
+        with patch.dict(os.environ, {"LICIGT_SESION_CLAVE_ARCHIVO": str(self.dir.parent / "no-existe.key")}):
+            auditoria.registrar("login", "ok", usuario="ana.perez")
+            auditoria.registrar("login", "ok", usuario="luis")
+        self.assertEqual({l["usuario"] for l in self.lineas()}, {"hmac:sin-clave"})
+
+    def test_sin_usuario_queda_nulo(self):
+        auditoria.registrar("login", "credenciales_invalidas")
+        self.assertIsNone(self.lineas()[0]["usuario"])
+
 
 if __name__ == "__main__":
     unittest.main()

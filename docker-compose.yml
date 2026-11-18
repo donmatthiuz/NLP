@@ -1,5 +1,6 @@
 # La contraseña la genera `make keys-init` en keys/database/dev.password.
-# Levantar con `make db-up`, que también la crea si falta.
+# Levantar con `make db-up`, que también la crea si falta. Esta cuenta (licigt) es el administrador;
+# la aplicación usa licigt_api (`make db-rol-app`, contraseña en keys/database/app.password).
 services:
   postgres:
     image: pgvector/pgvector:pg17

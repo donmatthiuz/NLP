@@ -3,6 +3,7 @@
 import hashlib
 import hmac
 import json
+import logging
 import threading
 from datetime import datetime, timezone
 
@@ -15,11 +16,23 @@ CAMPOS_CONSULTA = ("momento", "usuario", "tenant_id", "evento_id", "herramienta"
                    "modelo_generador", "version_prompt")
 CLAVES_INTENCION = ("accion", "motivo", "variante")
 _cerrojo = threading.Lock()
+log = logging.getLogger(__name__)
+
+
+def _huella(usuario: str) -> str:
+    """HMAC-SHA256 del nombre con la clave de sesión, truncado: sin la clave no se adivina. Sin clave, una constante."""
+    try:
+        clave = leer_clave()
+    except SesionNoConfigurada:
+        return "hmac:sin-clave"
+    return "hmac:" + hmac.new(clave, usuario.encode(), hashlib.sha256).hexdigest()[:16]
 
 
 def _escribir(linea: dict) -> None:
-    """Una falla de escritura no cambia la respuesta a quien llama."""
+    """Una falla de escritura no cambia la respuesta a quien llama; queda un aviso sin datos de la línea."""
     try:
+        if linea.get("usuario") is not None:
+            linea = {**linea, "usuario": _huella(str(linea["usuario"]))}
         ahora = datetime.now(timezone.utc)
         linea = {"momento": ahora.isoformat(), **linea}
         carpeta = ruta("LICIGT_AUDITORIA_DIR", "data/auditoria")
@@ -27,8 +40,8 @@ def _escribir(linea: dict) -> None:
             carpeta.mkdir(parents=True, exist_ok=True)
             with open(carpeta / f"{ahora:%Y-%m-%d}.jsonl", "a", encoding="utf-8") as f:
                 f.write(json.dumps(linea, ensure_ascii=False, default=str) + "\n")
-    except Exception:
-        pass
+    except Exception as e:
+        log.warning("No se pudo escribir la auditoría (%s); la solicitud continúa sin registro", type(e).__name__)
 
 
 def registrar(accion: str, resultado: str, *, usuario=None, tenant_id=None, **extra) -> None:
@@ -50,10 +63,5 @@ def registrar_lista(evento: dict) -> None:
 
 
 def registrar_login_fallido(usuario: str) -> None:
-    """El nombre intentado se guarda solo como HMAC-SHA256 con la clave de sesión: sin la clave no se adivina."""
-    try:
-        clave = leer_clave()
-    except SesionNoConfigurada:
-        clave = b"sin-clave"
-    huella = hmac.new(clave, usuario.encode(), hashlib.sha256).hexdigest()[:16]
-    registrar("login", "credenciales_invalidas", usuario=f"hmac:{huella}")
+    """El nombre intentado también se guarda como huella: `_escribir` la calcula."""
+    registrar("login", "credenciales_invalidas", usuario=usuario)
