@@ -14,6 +14,7 @@ from licigt.consulta.lista_escritura import RepositorioMemoria
 from licigt.consulta.tests import test_lista as tl
 from licigt.consulta.tests.test_lista_escritura import LectorFalso, propuesta as items_propuestos
 from licigt.consulta.tests.test_orquestador import GeneradorFalso, RecuperadorFalso
+from licigt.plataforma.tests import soporte
 
 try:
     from fastapi.testclient import TestClient
@@ -29,7 +30,8 @@ LISTA = "/api/eventos/222/lista"
 @unittest.skipIf(TestClient is None, "fastapi no está instalado: ejecuta make deps-consulta")
 class ApiTests(unittest.TestCase):
     def setUp(self):
-        self.entorno = patch.dict(os.environ, {}, clear=True)
+        # Sesión de prueba: clave, usuarios y auditoría en un directorio temporal, no en keys/ ni data/.
+        self.entorno = patch.dict(os.environ, soporte.preparar(soporte.carpeta_temporal(self)), clear=True)
         self.entorno.start()
         obtener_configuracion_llm.cache_clear()
         self.recuperador = RecuperadorFalso()
@@ -60,6 +62,7 @@ class ApiTests(unittest.TestCase):
         api.app.dependency_overrides[api.obtener_repositorio] = lambda: self.repositorio
         api.app.dependency_overrides[api.obtener_lector] = lambda: self.lector
         self.cliente = TestClient(api.app)
+        soporte.iniciar_sesion(self.cliente)
 
     def cuerpo_items(self, **extra):
         return {"items": [i.model_dump(mode="json") for i in items_propuestos()], "confirmado": True, **extra}
@@ -103,19 +106,19 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(r.status_code, 422)
         self.assertEqual(self.recuperador.llamadas, [])
 
-    def test_tenant_id_sale_del_contexto_de_demo(self):
+    def test_tenant_id_sale_de_la_sesion(self):
         self.cliente.post(URL, json={"pregunta": "¿Dónde se reciben ofertas?"})
         ctx = self.recuperador.llamadas[0][0]
-        self.assertEqual((ctx.tenant_id, ctx.usuario), ("empresa_demo", "demo"))
+        self.assertEqual((ctx.tenant_id, ctx.usuario), ("empresa_demo", "analista_demo"))
 
     def test_pregunta_de_501_caracteres_da_422(self):
         self.assertEqual(self.cliente.post(URL, json={"pregunta": "a" * 501}).status_code, 422)
         self.assertEqual(self.cliente.post(URL, json={"pregunta": ""}).status_code, 422)
 
-    def test_cabecera_de_demo_presente(self):
+    def test_sin_cabecera_de_demo(self):
         for cuerpo in ({"pregunta": "¿Dónde se reciben ofertas?"}, {"pregunta": ""}):
             r = self.cliente.post(URL, json=cuerpo)
-            self.assertEqual(r.headers["X-LiciGT-Autenticacion"], "ninguna-demo")
+            self.assertNotIn("x-licigt-autenticacion", r.headers)
 
     def test_sin_cors(self):
         r = self.cliente.options(URL, headers={"Origin": "http://x", "Access-Control-Request-Method": "POST"})
@@ -163,11 +166,11 @@ class ApiTests(unittest.TestCase):
                 self.assertEqual(getattr(self.cliente, metodo)(url, json=cuerpo).status_code, 422)
         self.assertEqual(self.repositorio.obtener("empresa_demo", item["item_id"]).estado, "pendiente")
 
-    def test_guardar_y_listar_con_el_tenant_del_contexto(self):
+    def test_guardar_y_listar_con_el_tenant_de_la_sesion(self):
         guardados = self.guardar()
         self.assertEqual(len(guardados), 3)
         self.assertEqual({g["estado"] for g in guardados}, {"pendiente"})
-        self.assertEqual({g["creado_por"] for g in guardados}, {"demo"})
+        self.assertEqual({g["creado_por"] for g in guardados}, {"analista_demo"})
         self.assertEqual(len(self.repositorio.items("empresa_demo", "222")), 3)
         r = self.cliente.get(LISTA)
         self.assertEqual(r.status_code, 200)
@@ -295,7 +298,7 @@ class ResolverEventoTests(unittest.TestCase):
     ]
 
     def setUp(self):
-        self.entorno = patch.dict(os.environ, {}, clear=True)
+        self.entorno = patch.dict(os.environ, soporte.preparar(soporte.carpeta_temporal(self)), clear=True)
         self.entorno.start()
         obtener_configuracion_llm.cache_clear()
         self.conn = ConexionFalsa([("empresa_demo", self.INTERNO, "222-IGSS-2023"),
@@ -303,8 +306,6 @@ class ResolverEventoTests(unittest.TestCase):
         self.sesiones = []
         self.recuperador = RecuperadorFalso()
         self.visto = []
-        ctx = SimpleNamespace(tenant_id="empresa_demo", usuario="demo")
-        api.app.dependency_overrides[api.contexto_demo] = lambda: ctx
         api.app.dependency_overrides[api.obtener_enrutador] = EnrutadorReglas
         api.app.dependency_overrides[api.obtener_recuperador] = lambda: self.recuperador
         api.app.dependency_overrides[api.obtener_generador] = GeneradorFalso
@@ -313,6 +314,7 @@ class ResolverEventoTests(unittest.TestCase):
                                    lambda: (self.conn, lambda c, x: self.sesiones.append((c, x.tenant_id))))
         self.parche.start()
         self.cliente = TestClient(api.app)
+        soporte.iniciar_sesion(self.cliente)
 
     def tearDown(self):
         self.parche.stop()
@@ -438,6 +440,7 @@ class ResolverEventoTests(unittest.TestCase):
             self.addCleanup(setattr, api, nombre, getattr(api, nombre))
             setattr(api, nombre, capturar(nombre))
         cliente = TestClient(api.app, raise_server_exceptions=False)
+        soporte.iniciar_sesion(cliente)
         base = "/api/eventos/222-IGSS-2023"
         cliente.post(f"{base}/lista/propuesta")
         cliente.get(f"{base}/lista")

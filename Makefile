@@ -31,8 +31,9 @@ WITH_DB = LICIGT_DB_URL="postgresql://$(LICIGT_DB_USER):$$(tr -d '\r\n' < $(LICI
 EVENTO ?= 222-IGSS-2023
 
 .PHONY: help setup env-init keys-init keys-status key-set db-up db-down db-password-sync \
-        importar buscar models-status claude opencode codex test-consulta test-ingesta test-recuperacion corpus \
-        diagramas llm-descargar llm-servidor llm-estado llm-detener deps-consulta sondeo-jev api banco experimento-jev web web-build lista-schema test-consulta-sql
+        importar evaluar buscar models-status claude opencode codex test-consulta test-ingesta test-recuperacion corpus \
+        diagramas llm-descargar llm-servidor llm-estado llm-detener deps-consulta sondeo-jev api banco experimento-jev web web-build lista-schema test-consulta-sql \
+        usuarios-demo empresa-b test-plataforma
 
 help: ## Muestra esta ayuda
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(firstword $(MAKEFILE_LIST)) \
@@ -74,6 +75,9 @@ db-password-sync: ## Aplica la contraseña de keys/ a un volumen creado antes co
 
 importar: ## Importa el paquete de ingesta a Postgres (modelos en models/)
 	@$(WITH_DB) PYTHONPATH=src $(PYTHON) -m licigt.recuperacion importar
+
+evaluar: ## Hit@5, MRR@5, suficiencia y latencia de las dos variantes con los casos de desarrollo del rol 2
+	@$(WITH_DB) PYTHONPATH=src $(PYTHON) -m licigt.recuperacion.evaluar
 
 buscar: ## Búsqueda de prueba. Uso: make buscar Q="fecha de recepción de ofertas" [EVENTO=222-IGSS-2023]
 	@$(WITH_DB) PYTHONPATH=src $(PYTHON) -m licigt.recuperacion buscar --evento "$(EVENTO)" "$(Q)"
@@ -117,7 +121,7 @@ lista-schema: ## Crea las tablas de la lista de verificación (idempotente; requ
 test-consulta-sql: ## Pruebas de la lista en Postgres (requieren make db-up)
 	@$(WITH_DB) PYTHONPATH=src $(PYTHON) -m unittest licigt.consulta.tests.test_lista_sql -v
 
-api: ## Arranca el adaptador de consulta (demo, sin autenticación) en 127.0.0.1:$(LICIGT_API_PUERTO) (8000 por defecto)
+api: ## Arranca la API de consulta con sesión por cookie (requiere make usuarios-demo) en 127.0.0.1:$(LICIGT_API_PUERTO) (8000 por defecto)
 	@$(WITH_DB) PYTHONPATH=src $(PYTHON) -m uvicorn licigt.consulta.api:app --host 127.0.0.1 --port $(LICIGT_API_PUERTO)
 
 banco: ## Corre el banco de casos del rol 3 con los servicios reales (requiere db-up, importar y el LLM); guarda en data/consulta/banco
@@ -144,6 +148,16 @@ codex: ## Abre Codex sin servidor compartido y con la llave de Context7. ARGS=".
 
 test-consulta: ## Pruebas del rol 3, sin red ni base de datos
 	@PYTHONPATH=src $(PYTHON) -m unittest discover -s src/licigt/consulta/tests -v
+
+test-plataforma: ## Pruebas del rol 4 (las de integración requieren make db-up, importar y empresa-b)
+	@$(WITH_DB) PYTHONPATH=src $(PYTHON) -m unittest discover -s src/licigt/plataforma/tests -v
+
+usuarios-demo: ## Crea, si faltan, la clave y los usuarios de la demo en keys/plataforma (no imprime contraseñas). FORZAR=1 los regenera
+	@PYTHONPATH=src $(PYTHON) -m licigt.plataforma.usuarios_demo $(if $(filter 1,$(FORZAR)),--forzar)
+
+empresa-b: ## Arma data/plataforma/empresa_b.zip (evento 363 de la empresa ficticia empresa_b) y lo importa
+	@PYTHONPATH=src $(PYTHON) -m licigt.plataforma.empresa_b
+	@$(WITH_DB) PYTHONPATH=src $(PYTHON) -m licigt.recuperacion importar data/plataforma/empresa_b.zip
 
 test-ingesta: ## Pruebas del rol 1
 	@PYTHONPATH=src $(PYTHON) -m unittest discover -s src/licigt/ingesta/tests -v

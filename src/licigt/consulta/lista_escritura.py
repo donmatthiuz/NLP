@@ -193,8 +193,10 @@ def guardar_items(ctx, evento_id, items, confirmacion, *, repositorio, lector, a
 
 
 def cambiar_estado(ctx, item_id, estado_anterior, estado_nuevo, confirmacion, *, repositorio,
-                   auditar=lambda evento: None, reloj=_ahora) -> ItemLista:
-    """Cambia el estado solo si el ítem sigue en estado_anterior, para no pisar el cambio de otra persona."""
+                   auditar=lambda evento: None, reloj=_ahora, evento_id=None) -> ItemLista:
+    """Cambia el estado solo si el ítem sigue en estado_anterior, para no pisar el cambio de otra persona.
+
+    Con evento_id, un ítem de otro evento (aunque sea de la misma empresa) cuenta como no encontrado."""
     if not isinstance(confirmacion, Confirmacion):
         raise TypeError("Se requiere la confirmación explícita del usuario")
     momento = reloj()
@@ -203,10 +205,11 @@ def cambiar_estado(ctx, item_id, estado_anterior, estado_nuevo, confirmacion, *,
     except FallaLista:
         _registrar(auditar, momento, None, None, None, "lista_estado", [item_id], "sin_contexto")
         raise
-    evento_id = None
+    pedido, evento_id = evento_id, None
     try:
         actual = repositorio.obtener(tenant_id, item_id)
-        if actual is None:
+        if actual is None or (pedido is not None and actual.evento_id != pedido):
+            evento_id = pedido
             raise FallaLista("item_no_encontrado")
         evento_id = actual.evento_id
         if actual.estado != estado_anterior:

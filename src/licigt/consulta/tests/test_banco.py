@@ -420,7 +420,7 @@ class CorrerTests(unittest.TestCase):
         for entorno, esperado in (({}, False), ({"LICIGT_LISTA": "postgres"}, True)):
             espia = Mock()
             with patch.dict(os.environ, entorno, clear=True), patch.object(banco, "correr", espia), \
-                    patch.object(api, "contexto_demo"), patch.object(api, "obtener_recuperador"), \
+                    patch.object(api, "obtener_recuperador"), \
                     patch.object(api, "obtener_generador"), patch.object(api, "obtener_enrutador"), \
                     patch.object(api, "obtener_repositorio"):
                 banco.main(["correr", "x.json"])

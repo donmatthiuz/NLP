@@ -5,6 +5,8 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 EXPECTED=(keys/mcp/context7.token keys/jev/api.key keys/llm/openai.key keys/database/dev.password)
+# Sesión del rol 4: no entran en init; los crea `make usuarios-demo`.
+PLATAFORMA=(keys/plataforma/sesion.key keys/plataforma/usuarios.json keys/plataforma/contrasenas_demo.txt)
 # Secretos propios del proyecto: se generan al azar en la máquina que los usa.
 # Los demás vienen de un proveedor y se pegan con make key-set.
 GENERATED='^keys/database/[a-z-]+\.password$'
@@ -44,6 +46,13 @@ status() {
             printf 'vacia\t%s\n' "$f"
         else
             printf 'falta\t%s\tmake keys-init la crea\n' "$f"
+        fi
+    done
+    for f in "${PLATAFORMA[@]}"; do
+        if [ -s "$f" ]; then
+            [ "$(stat -c %a "$f")" = 600 ] && printf 'ok\t%s\n' "$f" || printf 'aviso\t%s\tpermisos deberían ser 600\n' "$f"
+        else
+            printf 'falta\t%s\tmake usuarios-demo la crea\n' "$f"
         fi
     done
 }

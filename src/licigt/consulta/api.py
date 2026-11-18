@@ -1,11 +1,14 @@
-"""Adaptador de desarrollo, reemplazable por la API del rol 4; sin autenticación."""
+"""API de consulta: sesión por cookie firmada, rol y auditoría de la plataforma (rol 4)."""
 
 import logging
+import math
 import os
 from functools import lru_cache
 from typing import Annotated, Literal
+from urllib.parse import urlsplit
 
-from fastapi import Depends, FastAPI, HTTPException, Path, Request
+from fastapi import Depends, FastAPI, HTTPException, Path, Request, Response
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from .enrutador import crear_enrutador
@@ -17,8 +20,10 @@ from .lista_escritura import (
 from .jev import ClienteJevSdk, FallaJev
 from .llm import ClienteGeneradorOpenAI
 from .orquestador import consultar
+from licigt.plataforma import auditoria, originales, usuarios
+from licigt.plataforma.acceso import exigir_analista, sesion_actual, verificar_sesion
+from licigt.plataforma.sesion import NOMBRE_COOKIE, Sesion, SesionNoConfigurada, emitir, leer_clave
 
-CABECERA_DEMO = "X-LiciGT-Autenticacion"
 registro = logging.getLogger("licigt.consulta.api")
 
 
@@ -126,9 +131,10 @@ def obtener_cliente_jev():
         return None
 
 
-def contexto_demo():
+def contexto_acceso(sesion: Annotated[Sesion, Depends(sesion_actual)]):
+    """El contexto del rol 2 sale solo de la cookie verificada; el rol se comprueba en la API."""
     from licigt.recuperacion.busqueda import Contexto
-    return Contexto(tenant_id="empresa_demo", usuario="demo")
+    return Contexto(tenant_id=sesion.tenant_id, usuario=sesion.usuario)
 
 
 def _abrir_conexion_rol2():
@@ -138,7 +144,7 @@ def _abrir_conexion_rol2():
     return conectar(), busqueda._sesion
 
 
-def resolver_evento(evento_id: Annotated[str, Path()], ctx: Annotated[object, Depends(contexto_demo)]) -> str:
+def resolver_evento(evento_id: Annotated[str, Path()], ctx: Annotated[object, Depends(contexto_acceso)]) -> str:
     """Traduce el valor de la ruta (evento_id o numero_evento) al evento_id interno, solo de la empresa de la sesión."""
     conn, sesion = _abrir_conexion_rol2()
     try:
@@ -158,24 +164,130 @@ EventoInterno = Annotated[str, Depends(resolver_evento)]
 
 def _auditar(evento):
     # Solo metadatos: sin texto de PDF, de la pregunta ni de la respuesta.
+    auditoria.registrar_consulta(evento)
     registro.info("consulta evento=%s herramienta=%s abstained=%s validacion=%s error=%s",
                   evento["evento_id"], evento["herramienta"], evento["abstained"],
                   evento["validacion"], evento["error"])
 
 
+def _auditar_propuesta(evento):
+    # La propuesta emite el evento completo del orquestador; la auditoría conserva solo los campos del contrato.
+    auditoria.registrar_consulta(evento)
+    registro.info("lista %s", {"accion": "proponer_lista", "evento_id": evento.get("evento_id"), "error": evento.get("error")})
+
+
 def _auditar_lista(evento):
     # Metadatos de la operación: sin citas ni texto de fragmentos.
+    auditoria.registrar_lista(evento)
     registro.info("lista %s", {k: v for k, v in evento.items() if k in ("accion", "evento_id", "item_ids", "error")})
 
 
-app = FastAPI(title="LiciGT consulta (demo)")
+def obtener_lector_originales():
+    # Se resuelve _abrir_conexion_rol2 al llamar, para que las pruebas puedan sustituirla.
+    return lambda ctx, evento_id, doc_id: originales.leer_original(ctx, evento_id, doc_id, abrir=_abrir_conexion_rol2)
+
+
+app = FastAPI(title="LiciGT API")
+
+DURACION_HORAS = 8
+
+
+class CredencialesEntrada(BaseModel):
+    """Cuerpo del inicio de sesión: nunca acepta tenant_id ni otros campos."""
+    model_config = ConfigDict(extra="forbid")
+
+    usuario: str = Field(min_length=1, max_length=64)
+    contrasena: str = Field(min_length=1, max_length=256)
+
+
+class SesionSalida(BaseModel):
+    usuario: str
+    tenant_id: str
+    rol: str
+
+
+def _horas_de_sesion() -> float:
+    """Horas de vida de la cookie, en (0, 24]; un valor fuera de rango, nan o inf vuelve al valor por defecto."""
+    valor = os.environ.get("LICIGT_SESION_HORAS")
+    if valor is None:
+        return DURACION_HORAS
+    try:
+        horas = float(valor)
+    except ValueError:
+        horas = math.nan
+    if not (math.isfinite(horas) and 0 < horas <= 24):
+        registro.warning("LICIGT_SESION_HORAS fuera de (0, 24]: se usan %s horas", DURACION_HORAS)
+        return DURACION_HORAS
+    return horas
+
+
+def _origenes_permitidos() -> set[str]:
+    """Orígenes que pueden escribir: por defecto la API y Vite en local; LICIGT_ORIGENES_PERMITIDOS los reemplaza."""
+    configurado = os.environ.get("LICIGT_ORIGENES_PERMITIDOS")
+    if configurado:
+        return {o.strip().rstrip("/") for o in configurado.split(",") if o.strip()}
+    puertos = (os.environ.get("LICIGT_API_PUERTO") or "8000", "5173")
+    return {f"http://{host}:{puerto}" for host in ("127.0.0.1", "localhost") for puerto in puertos}
+
+
+def _origen_ajeno(request: Request) -> bool:
+    """Defensa en profundidad además de SameSite=Strict: Origin o Referer presentes y no permitidos."""
+    permitidos = _origenes_permitidos()
+    origen = request.headers.get("origin")
+    if origen is not None:
+        return origen.rstrip("/") not in permitidos
+    referer = request.headers.get("referer")
+    if referer is not None:
+        partes = urlsplit(referer)
+        return f"{partes.scheme}://{partes.netloc}" not in permitidos
+    return False
 
 
 @app.middleware("http")
-async def cabecera_demo(request, call_next):
-    respuesta = await call_next(request)
-    respuesta.headers[CABECERA_DEMO] = "ninguna-demo"
+async def proteger_api(request: Request, call_next):
+    """Antes de leer el cuerpo: origen permitido (403) y sesión válida (401); solo /api/sesion queda abierta."""
+    ruta = request.url.path
+    if ruta.startswith("/api"):
+        if request.method in ("POST", "PATCH", "PUT", "DELETE") and _origen_ajeno(request):
+            return JSONResponse({"detail": {"codigo": "origen_no_permitido"}}, status_code=403)
+        if ruta.rstrip("/") != "/api/sesion":
+            try:
+                verificar_sesion(request)
+            except HTTPException as falla:
+                return JSONResponse({"detail": falla.detail}, status_code=falla.status_code)
+    return await call_next(request)
+
+
+@app.post("/api/sesion", status_code=204)
+def iniciar_sesion(entrada: CredencialesEntrada):
+    try:
+        clave = leer_clave()
+    except SesionNoConfigurada:
+        raise HTTPException(503, detail={"codigo": "sesion_no_configurada"}) from None
+    usuario = usuarios.autenticar(entrada.usuario, entrada.contrasena)
+    if usuario is None:
+        auditoria.registrar_login_fallido(entrada.usuario)
+        # Mensaje genérico: no distingue usuario inexistente de contraseña mala.
+        raise HTTPException(401, detail={"codigo": "credenciales_invalidas"})
+    horas = _horas_de_sesion()
+    respuesta = Response(status_code=204)
+    # HttpOnly: el JavaScript no la lee. Strict: no viaja en peticiones iniciadas desde otro sitio.
+    respuesta.set_cookie(NOMBRE_COOKIE, emitir(clave, usuario.usuario, usuario.tenant_id, usuario.rol, horas),
+                         max_age=int(horas * 3600), httponly=True, samesite="strict", path="/")
+    auditoria.registrar("login", "ok", usuario=usuario.usuario, tenant_id=usuario.tenant_id)
     return respuesta
+
+
+@app.delete("/api/sesion", status_code=204)
+def cerrar_sesion():
+    respuesta = Response(status_code=204)
+    respuesta.delete_cookie(NOMBRE_COOKIE, httponly=True, samesite="strict", path="/")
+    return respuesta
+
+
+@app.get("/api/sesion", response_model=SesionSalida)
+def ver_sesion(sesion: Annotated[Sesion, Depends(sesion_actual)]):
+    return SesionSalida(usuario=sesion.usuario, tenant_id=sesion.tenant_id, rol=sesion.rol)
 
 
 @app.post("/api/eventos/{evento_id}/consultas", response_model=RespuestaEstructurada)
@@ -183,7 +295,7 @@ def consultar_evento(
     evento_id: EventoInterno,
     entrada: ConsultaEntrada,
     request: Request,
-    ctx: Annotated[object, Depends(contexto_demo)],
+    ctx: Annotated[object, Depends(contexto_acceso)],
     enrutador: Annotated[object, Depends(obtener_enrutador)],
     recuperador: Annotated[object, Depends(obtener_recuperador)],
     generador: Annotated[object, Depends(obtener_generador)],
@@ -198,7 +310,7 @@ def consultar_evento(
 def documentos_del_evento(
     evento_id: EventoInterno,
     request: Request,
-    ctx: Annotated[object, Depends(contexto_demo)],
+    ctx: Annotated[object, Depends(contexto_acceso)],
 ):
     """Documentos incorporados al evento y qué información falta; solo lectura de la tabla documentos, por empresa."""
     conn, sesion = _abrir_conexion_rol2()
@@ -229,17 +341,18 @@ def _falla_http(falla: FallaLista) -> HTTPException:
     return HTTPException(ESTADO_HTTP.get(falla.codigo, 422), detail={"codigo": falla.codigo})
 
 
-@app.post("/api/eventos/{evento_id}/lista/propuesta", response_model=PropuestaLista)
+@app.post("/api/eventos/{evento_id}/lista/propuesta", response_model=PropuestaLista,
+          dependencies=[Depends(exigir_analista)])
 def proponer(
     evento_id: EventoInterno,
     request: Request,
-    ctx: Annotated[object, Depends(contexto_demo)],
+    ctx: Annotated[object, Depends(contexto_acceso)],
     recuperador: Annotated[object, Depends(obtener_recuperador)],
     cliente_jev: Annotated[object, Depends(obtener_cliente_jev)],
     entrada: PropuestaEntrada | None = None,
 ):
     propuesta = proponer_lista(ctx, evento_id, entrada.categoria if entrada else None,
-                               recuperador=recuperador, cliente_jev=cliente_jev, auditar=_auditar_lista)
+                               recuperador=recuperador, cliente_jev=cliente_jev, auditar=_auditar_propuesta)
     pedido = request.path_params["evento_id"]
     return propuesta.model_copy(update={"evento_id": pedido, "respuesta": _con_evento(propuesta.respuesta, pedido)})
 
@@ -248,19 +361,19 @@ def proponer(
 def ver_lista(
     evento_id: EventoInterno,
     request: Request,
-    ctx: Annotated[object, Depends(contexto_demo)],
+    ctx: Annotated[object, Depends(contexto_acceso)],
     repositorio: Annotated[object, Depends(obtener_repositorio)],
 ):
     pedido = request.path_params["evento_id"]
     return [_con_evento(i, pedido) for i in listar(ctx, evento_id, repositorio=repositorio)]
 
 
-@app.post("/api/eventos/{evento_id}/lista", response_model=list[ItemLista])
+@app.post("/api/eventos/{evento_id}/lista", response_model=list[ItemLista], dependencies=[Depends(exigir_analista)])
 def guardar(
     evento_id: EventoInterno,
     entrada: GuardarEntrada,
     request: Request,
-    ctx: Annotated[object, Depends(contexto_demo)],
+    ctx: Annotated[object, Depends(contexto_acceso)],
     repositorio: Annotated[object, Depends(obtener_repositorio)],
     lector: Annotated[object, Depends(obtener_lector)],
 ):
@@ -272,18 +385,39 @@ def guardar(
         raise _falla_http(falla)
 
 
-@app.patch("/api/eventos/{evento_id}/lista/{item_id}", response_model=ItemLista)
+@app.patch("/api/eventos/{evento_id}/lista/{item_id}", response_model=ItemLista,
+           dependencies=[Depends(exigir_analista)])
 def cambiar(
     evento_id: EventoInterno,
     item_id: str,
     entrada: CambioEstadoEntrada,
     request: Request,
-    ctx: Annotated[object, Depends(contexto_demo)],
+    ctx: Annotated[object, Depends(contexto_acceso)],
     repositorio: Annotated[object, Depends(obtener_repositorio)],
 ):
     try:
         item = cambiar_estado(ctx, item_id, entrada.estado_anterior, entrada.estado_nuevo,
-                              Confirmacion(confirmado=True), repositorio=repositorio, auditar=_auditar_lista)
+                              Confirmacion(confirmado=True), repositorio=repositorio, auditar=_auditar_lista,
+                              evento_id=evento_id)
         return _con_evento(item, request.path_params["evento_id"])
     except FallaLista as falla:
         raise _falla_http(falla)
+
+
+@app.get("/api/eventos/{evento_id}/documentos/{doc_id}/original")
+def original_del_documento(
+    evento_id: EventoInterno,
+    doc_id: str,
+    ctx: Annotated[object, Depends(contexto_acceso)],
+    lector: Annotated[object, Depends(obtener_lector_originales)],
+):
+    """PDF original de un documento del evento, solo de la empresa de la sesión; si no, 404 sin distinguir la causa."""
+    # Segunda barrera: el lector también valida, pero un doc_id que no es un id de documento no llega a él.
+    contenido = lector(ctx, evento_id, doc_id) if originales.DOC_ID.fullmatch(doc_id) else None
+    auditoria.registrar("original", "ok" if contenido else "no_encontrado", usuario=ctx.usuario,
+                        tenant_id=ctx.tenant_id, evento_id=evento_id)
+    if contenido is None:
+        raise HTTPException(404, detail={"codigo": "documento_no_encontrado"})
+    return Response(contenido, media_type="application/pdf", headers={
+        "Content-Disposition": f'inline; filename="{doc_id}.pdf"', "X-Content-Type-Options": "nosniff",
+        "Cache-Control": "private, no-store"})

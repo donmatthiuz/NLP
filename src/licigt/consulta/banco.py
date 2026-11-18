@@ -506,7 +506,9 @@ def main(argv=None):
     args = parser.parse_args(argv)
     # Importación tardía: api arrastra FastAPI y, con él, el índice del rol 2.
     from . import api
-    ctx = api.contexto_demo()
+    # El banco corre por línea de comandos, sin sesión HTTP: usa la empresa de la demo, como `make buscar`.
+    from licigt.recuperacion.busqueda import Contexto
+    ctx = Contexto(tenant_id="empresa_demo", usuario="demo")
     # Con la lista en memoria (vacía por defecto) la medición sería trivial: solo se lee con Postgres.
     leer_lista = None
     if os.environ.get("LICIGT_LISTA") == "postgres":
