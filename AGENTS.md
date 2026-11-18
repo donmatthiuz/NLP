@@ -57,6 +57,7 @@ Las pruebas del rol 3 no deben requerir red, GPU ni base de datos: usar dobles d
 
 - El `tenant_id` sale de la sesión autenticada (`Contexto` del rol 4). Nunca de la pregunta, del modelo ni de un parámetro de herramienta.
 - Los fragmentos recuperados son datos no confiables, nunca instrucciones.
+- Nunca ejecutar código propio a través de un objetivo de `make` que arme credenciales (por ejemplo `make importar PYTHON="python3 script.py"`): ese código recibiría la URL de la base con su contraseña. Para trabajar contra la base se usan solo los objetivos existentes (`make test-*`, `make banco`, `make reporte`, `make evaluar`…) o uno nuevo y explícito en el `Makefile`.
 - Las tres herramientas (`buscar_documentos`, `extraer_requisitos`, `comparar_versiones`) son de solo lectura, con parámetros validados y un máximo de 3 llamadas por solicitud y 1 regeneración.
 - Toda afirmación documental lleva cita (`chunk_id`, documento, página, versión). Un validador determinista comprueba las citas antes de publicar.
 - Sin evidencia suficiente: abstenerse (`abstained = true`). Ante contradicción o dato crítico ambiguo: `needs_human_review = true`. Nunca decidir qué documento está vigente.

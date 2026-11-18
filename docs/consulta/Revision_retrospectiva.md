@@ -137,9 +137,39 @@ Pedida por el usuario el 18 de noviembre de 2026 (`docs/Pendientes.md`, rol 3). 
   - según su informe, el script (`scratchpad/real.py`) se borró, no imprimió ni guardó la URL ni la contraseña y solo hizo lecturas;
   - desde E1, los encargos lo prohíben.
 
-## Decisiones del usuario
+## Decisiones del usuario (18 de noviembre)
 
-Se escalan con su recomendación en la conversación del 18 de noviembre. Las respuestas se anotan aquí al recibirlas.
+**Correcciones de código aprobadas:**
+
+- Rol de conexión a la base sin superusuario para la API y el reporte, más la rotación de la contraseña de administración (encargo P2).
+- Auditoría con el usuario seudonimizado y aviso cuando falla la escritura (P2).
+- `coverage_status` veraz: solo según el inventario. El descarte de afirmaciones se señala como aviso (C21).
+- `make web` en modo API y `make web-ejemplos` para el modo de ejemplos.
+- El filtro de ruido del OCR en toda la ingesta (R7); era el único veredicto "mal", así que no requirió decisión.
+
+**Decisiones ratificadas, que quedan como del usuario:**
+
+- El patrón C20 de dos señales y la regla "si el fragmento sospechoso era el mejor resultado, la búsqueda es insuficiente".
+- El OCR sin fundir en R6: se pierden como evidencia la fecha de la resolución y dos órdenes de trámite de la página 3.
+- El rol lector no puede pedir la propuesta de lista.
+
+**No ratificada:** la implementación con subagentes Sonnet y la auditoría con Opus. Queda declarada como desvío del flujo escrito (que dice Codex u OpenCode, y Kimi para el adversario).
+
+**Lo que se mide en vez de solo declararse:**
+
+- el P95 con 5 usuarios simultáneos (E3);
+- el tiempo de espera y el tope de tokens alineados, con un presupuesto de tiempo por solicitud (C21);
+- la variante LLM del enrutador comparada con reglas y JEV (J2);
+- JEV en las fechas de la lista, con un experimento de adopción (F7b).
+
+El umbral de suficiencia y el esquema de ids quedan declarados.
+
+**Proceso:**
+
+- la prohibición de `make … PYTHON=script`, que pasa a `AGENTS.md`;
+- la rotación de la contraseña (P2);
+- volver a entregar el anteproyecto con `Cambios_pendientes.md` aplicado;
+- el material del docente fuera del repositorio, en `.referencias/` (ignorada, con `.gitkeep`). Sigue en el historial de Git; hacer el repositorio privado le corresponde a su dueño.
 
 ## Correcciones aplicadas
 

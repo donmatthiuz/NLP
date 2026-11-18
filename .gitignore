@@ -223,3 +223,8 @@ __marimo__/
 models/
 tools/
 .claude/settings.local.json
+
+# Material del docente (instrucciones y diapositivas): se conserva en local, fuera del repositorio público
+.referencias/*
+!.referencias/.gitkeep
+!.referencias/README.md

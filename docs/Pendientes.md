@@ -55,7 +55,7 @@ Los cambios concretos por sección están en [Cambios_pendientes](anteproyecto/C
 
 ### Presentación final (15 minutos)
 
-- [ ] Las diapositivas de `CC3103 - Procesamiento de Lenguaje Natural.pptx` son del docente, no del equipo. Falta armar la propia.
+- [ ] Las diapositivas de `CC3103 - Procesamiento de Lenguaje Natural.pptx` son del docente, no del equipo (desde el 18 de noviembre están en `.referencias/`, fuera del repositorio). Falta armar la propia.
 - [ ] Estructura: problema 2 min, arquitectura 3, demo 4, métricas 3, seguridad 2, cierre 1.
 - [ ] Manifiesto del anteproyecto (diapositiva 20): usuario, problema, evidencia, demostración, riesgo y mitigación.
 - [ ] Demo en vivo: consulta nominal, trazabilidad de citas, abstención, herramientas, prueba de seguridad y diagnóstico de una falla real.
