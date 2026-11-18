@@ -74,10 +74,13 @@ class EntregaRecuperacionTests(unittest.TestCase):
             self.assertEqual(manifest["metadata"]["evento_id"], doc["evento_id"])
             self.assertEqual(provenance["sha256"], doc["sha256"])
             self.assertEqual(doc["cobertura"]["paginas_total"], len(manifest["pages"]))
-            self.assertEqual(
-                sorted(doc["paginas_no_indexadas"]),
-                sorted(page["number"] for page in manifest["pages"] if page["quality"] != "ok"),
-            )
+            # Desde R1, paginas_no_indexadas son las páginas sin ningún fragmento indexable (Corpus_IGSS.md),
+            # lo que incluye las ilegibles y las de OCR que solo dieron ruido.
+            ilegibles = {page["number"] for page in manifest["pages"] if page["quality"] != "ok"}
+            con_indexables = {c["pagina_inicio"] for c in manifest["chunks"] if c["indexable"]}
+            paginas = {page["number"] for page in manifest["pages"]}
+            self.assertEqual(sorted(doc["paginas_no_indexadas"]), sorted(paginas - con_indexables))
+            self.assertLessEqual(ilegibles, set(doc["paginas_no_indexadas"]))
             self.assertEqual(len(manifest["chunks"]), doc["chunks_indexables"] + doc["chunks_excluidos"])
 
     def test_fragmentos_sirven_para_busqueda_y_citas(self):
@@ -131,7 +134,8 @@ class EntregaRecuperacionTests(unittest.TestCase):
         matches = search("empresa_demo", modification["evento_id"], "CRONOGRAMA DE ACTIVIDADES")
         self.assertTrue(any(chunk["doc_id"] == modification["doc_id"] for chunk in matches))
         self.assertEqual(search("otra_empresa", modification["evento_id"], "CRONOGRAMA DE ACTIVIDADES"), [])
-        self.assertEqual(modification["paginas_no_indexadas"], [3, 4])
+        # La página 3 aporta fragmentos por OCR desde R1; la 4 solo da ruido.
+        self.assertEqual(modification["paginas_no_indexadas"], [4])
         self.assertEqual(modification["status"], "requiere_revision")
 
 

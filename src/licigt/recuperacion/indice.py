@@ -1,8 +1,11 @@
 """Importa el paquete de ingesta a PostgreSQL y calcula embeddings de ambas variantes."""
 
 import hashlib
+import gc
 import json
+import logging
 import os
+import threading
 import zipfile
 from functools import lru_cache
 from pathlib import Path
@@ -22,6 +25,7 @@ REVISION = {
 }
 VENTANA, SOLAPE = 120, 20  # tokens de contenido de la línea base (anteproyecto §10)
 SCHEMA = Path(__file__).with_name("schema.sql")
+log = logging.getLogger(__name__)
 
 
 def conectar():
@@ -35,10 +39,94 @@ def conectar():
     return conn
 
 
+def _cuda_disponible():
+    import torch
+    return torch.cuda.is_available()
+
+
+def dispositivo():
+    """LICIGT_RECUPERACION_DISPOSITIVO: cuda, cpu o auto (por defecto). Sin CUDA se usa CPU con un aviso."""
+    pedido = os.environ.get("LICIGT_RECUPERACION_DISPOSITIVO", "auto").strip().lower()
+    if pedido not in ("auto", "cuda", "cpu"):
+        raise ValueError(f"LICIGT_RECUPERACION_DISPOSITIVO inválido: {pedido!r} (cuda, cpu o auto)")
+    if pedido == "cpu":
+        return "cpu"
+    if _cuda_disponible():
+        return "cuda"
+    if pedido == "cuda":
+        log.warning("CUDA no disponible: los modelos de recuperación se cargan en CPU")
+    return "cpu"
+
+
+def dtype_modelo(disp):
+    """LICIGT_RECUPERACION_DTYPE: float16 o float32; por defecto float16 solo en CUDA."""
+    pedido = os.environ.get("LICIGT_RECUPERACION_DTYPE", "").strip().lower()
+    if pedido and pedido not in ("float16", "float32"):
+        raise ValueError(f"LICIGT_RECUPERACION_DTYPE inválido: {pedido!r} (float16 o float32)")
+    return pedido or ("float16" if disp == "cuda" else "float32")
+
+
+def _dtype_kw():
+    # transformers 5 renombró torch_dtype a dtype (documentación de Transformers, vía Context7).
+    import transformers
+    return "dtype" if int(transformers.__version__.split(".")[0]) >= 5 else "torch_dtype"
+
+
+_CANDADO = threading.Lock()  # una sola recarga a CPU aunque dos hilos se queden sin memoria
+_EN_CPU = set()  # modelos que se quedaron sin memoria en CUDA y siguen en CPU
+
+
+def _sin_memoria(exc):
+    return isinstance(exc, RuntimeError) and ("out of memory" in str(exc).lower() or type(exc).__name__ == "OutOfMemoryError")
+
+
+def _liberar_cuda():
+    gc.collect()
+    import torch
+    torch.cuda.empty_cache()
+
+
+def cargar(clase, nombre, **kw):
+    """Crea un SentenceTransformer o CrossEncoder en el dispositivo y dtype configurados.
+
+    Si CUDA no tiene memoria para cargarlo se cae a CPU en float32, con un aviso, sin abortar.
+    """
+    disp = "cpu" if nombre in _EN_CPU else dispositivo()
+    try:
+        return clase(nombre, device=disp, model_kwargs={_dtype_kw(): dtype_modelo(disp)}, **kw)
+    except (RuntimeError, AssertionError) as exc:
+        if disp != "cuda":
+            raise
+        motivo = str(exc).splitlines()[0][:120]
+    # Fuera del except: mientras se maneja, el traceback retiene los tensores y no se liberan.
+    log.warning("%s no cabe en CUDA (%s): se carga en CPU", nombre, motivo)
+    _liberar_cuda()
+    return clase(nombre, device="cpu", model_kwargs={_dtype_kw(): "float32"}, **kw)
+
+
+def ejecutar(nombre, cargador, operacion, *args):
+    """operacion(cargador(*args)); si CUDA se queda sin memoria, recarga ese modelo en CPU, repite una vez
+    y sigue en CPU. `cargador` es la función con lru_cache que crea el modelo. Si el modelo ya estaba marcado
+    en CPU pero el de la caché seguía en CUDA (otro hilo), también se recarga y se reintenta una vez."""
+    try:
+        return operacion(cargador(*args))
+    except RuntimeError as exc:
+        if not _sin_memoria(exc):
+            raise
+        motivo = str(exc).splitlines()[0][:120]
+    with _CANDADO:
+        if nombre not in _EN_CPU:
+            log.warning("%s se quedó sin memoria en CUDA (%s): se recarga en CPU", nombre, motivo)
+            _EN_CPU.add(nombre)
+        cargador.cache_clear()
+    _liberar_cuda()
+    return operacion(cargador(*args))
+
+
 @lru_cache(maxsize=None)
 def modelo(nombre):
     from sentence_transformers import SentenceTransformer
-    return SentenceTransformer(nombre, revision=REVISION[nombre])
+    return cargar(SentenceTransformer, nombre, revision=REVISION[nombre])
 
 
 def leer_paquete(zip_path):
@@ -93,8 +181,9 @@ def importar(zip_path, conn=None, batch=32):
             ("base", base, MODELO_BASE, "emb_base"),
             ("mejorada", chunks, MODELO_MEJORADA, "emb_mejorada"),
         ):
-            embs = modelo(nombre).encode([c["texto"] for c in filas], batch_size=batch,
-                                         normalize_embeddings=True, show_progress_bar=True)
+            embs = ejecutar(nombre, modelo, lambda m: m.encode(
+                [c["texto"] for c in filas], batch_size=batch, normalize_embeddings=True, show_progress_bar=True),
+                nombre)
             with conn.cursor() as cur:
                 cur.executemany(
                     f"""INSERT INTO fragmentos (chunk_id, variante, doc_id, tenant_id, evento_id, numero_evento,

@@ -1,0 +1,43 @@
+{
+ "nota": "Preguntas extra del 222 para elegir UMBRAL['mejorada'] (R2C). No son banco de evaluación. Las páginas de NOG e inducción son aproximadas; solo importa si la pregunta es respondible. Uso: LICIGT_EVALUAR_CASOS=src/licigt/recuperacion/casos_calibracion.json LICIGT_EVALUAR_PUNTAJES=1 make evaluar",
+ "casos": [
+  {
+   "id": "222-nog",
+   "evento": "222-IGSS-2023",
+   "pregunta": "¿Cuál es el NOG del evento?",
+   "relevantes": [
+    {
+     "tipo_documento": "bases",
+     "paginas": [
+      10
+     ]
+    }
+   ]
+  },
+  {
+   "id": "222-induccion",
+   "evento": "222-IGSS-2023",
+   "pregunta": "¿Cuándo es la inducción para los oferentes?",
+   "relevantes": [
+    {
+     "tipo_documento": "bases",
+     "paginas": [
+      1
+     ]
+    }
+   ]
+  },
+  {
+   "id": "222-precio-vial",
+   "evento": "222-IGSS-2023",
+   "pregunta": "¿Cuál es el precio unitario por vial?",
+   "relevantes": []
+  },
+  {
+   "id": "222-seguro-vida",
+   "evento": "222-IGSS-2023",
+   "pregunta": "¿Qué dice el numeral 2.7 sobre el seguro de vida?",
+   "relevantes": []
+  }
+ ]
+}

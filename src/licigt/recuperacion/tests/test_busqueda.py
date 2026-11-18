@@ -38,6 +38,10 @@ class UnidadTests(unittest.TestCase):
 
 class IntegracionTests(unittest.TestCase):
     @classmethod
+    def tearDownClass(cls):
+        cls.conn.close()
+
+    @classmethod
     def setUpClass(cls):
         try:
             cls.conn = conectar()
@@ -45,6 +49,7 @@ class IntegracionTests(unittest.TestCase):
         except Exception as exc:  # sin base de datos: solo corren las pruebas unitarias
             raise unittest.SkipTest(f"Postgres no disponible o vacío: {exc}")
         if "222-IGSS-2023" not in eventos:
+            cls.conn.close()
             raise unittest.SkipTest("Paquete no importado")
         cls.e222, cls.e399 = eventos["222-IGSS-2023"], eventos["399-IGSS-2026"]
         cls.ctx = Contexto("empresa_demo")

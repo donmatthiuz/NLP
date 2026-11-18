@@ -2,15 +2,18 @@
 
 import re
 from dataclasses import dataclass
+from contextlib import nullcontext
 from functools import lru_cache
 
-from .indice import MODELO_BASE, MODELO_MEJORADA, MODELO_RERANKER, REVISION, conectar, modelo
+from .indice import MODELO_BASE, MODELO_MEJORADA, MODELO_RERANKER, REVISION, cargar, conectar, ejecutar, modelo
 
 K, CANDIDATOS, RRF_K = 5, 20, 60
 PESO_SEMANTICO, PESO_LEXICO = 0.6, 0.4
-# shortcut: umbrales iniciales sin calibrar; ajustarlos con el subconjunto de desarrollo (F6).
-# Observado: base da ~0.38 a preguntas fuera de tema y >=0.6 a relevantes; el reranker da ~0.0 fuera de tema.
-UMBRAL = {"base": 0.45, "mejorada": 0.10}
+# Calibración de desarrollo (casos_desarrollo.json y 4 preguntas extra del 222, corpus R6; ver Recuperacion.md).
+# base: coseno, sin recalibrar (separa los 27 casos: máximo sin respuesta 0.38, mínimo respondible 0.51).
+# mejorada: puntaje del reranker, que no es una probabilidad; 0.005 queda sobre el ruido de las preguntas
+# sin respuesta (<= 0.0022) y bajo los datos puntuales respondibles (NOG 0.021). No es evaluación final.
+UMBRAL = {"base": 0.45, "mejorada": 0.005}
 NUMERAL = re.compile(r"\b\d+(?:\.\d+)+\b")
 CODIGO = re.compile(r"\b\d{2,6}\b")
 NUMERAL_MODIFICADO = re.compile(r"(?:sub)?numeral\s+(\d+(?:\.\d+)*)", re.I)
@@ -31,7 +34,12 @@ class Contexto:
 @lru_cache(maxsize=None)
 def reranker():
     from sentence_transformers import CrossEncoder
-    return CrossEncoder(MODELO_RERANKER, revision=REVISION[MODELO_RERANKER])
+    return cargar(CrossEncoder, MODELO_RERANKER, revision=REVISION[MODELO_RERANKER])
+
+
+def _conexion(conn):
+    """La conexión recibida (la cierra quien la abrió) o una nueva que se cierra al salir."""
+    return nullcontext(conn) if conn is not None else conectar()
 
 
 def _sesion(conn, ctx):
@@ -47,7 +55,7 @@ def _filas(cur):
 
 def _semantica(conn, ctx, evento_id, pregunta, variante, limite, doc_id=None):
     nombre, columna = (MODELO_BASE, "emb_base") if variante == "base" else (MODELO_MEJORADA, "emb_mejorada")
-    vec = modelo(nombre).encode(pregunta, normalize_embeddings=True)
+    vec = ejecutar(nombre, modelo, lambda m: m.encode(pregunta, normalize_embeddings=True), nombre)
     cur = conn.execute(
         f"""SELECT {COLUMNAS}, 1 - ({columna} <=> %(v)s) FROM fragmentos
             WHERE tenant_id = %(t)s AND evento_id = %(e)s AND variante = %(var)s
@@ -103,13 +111,14 @@ def _bajo_numeral(seccion, numeral):
 def _alertas(conn, ctx, evento_id, pregunta, resultados):
     """Cobertura incompleta y posibles conflictos con modificaciones o aclaraciones del evento."""
     docs = conn.execute(
-        """SELECT doc_id, tipo_documento, status, paginas_no_indexadas, identificador_version_oficial
+        """SELECT doc_id, tipo_documento, status, paginas_no_indexadas, identificador_version_oficial,
+                  inventario->'warnings'
            FROM documentos WHERE tenant_id = %s AND evento_id = %s""", (ctx.tenant_id, evento_id)).fetchall()
     alertas, extra = [], []
-    for doc_id, tipo, status, no_idx, oficial in docs:
+    for doc_id, tipo, status, no_idx, oficial, avisos in docs:
         if status != "completo" or no_idx:
             alertas.append({"tipo": "cobertura_incompleta", "doc_id": doc_id, "paginas_no_indexadas": no_idx,
-                            "status": status})
+                            "status": status, "warnings": avisos or []})
         if tipo not in ("modificacion", "aclaracion"):
             continue
         textos = conn.execute("SELECT texto FROM fragmentos WHERE doc_id = %s AND variante = 'mejorada'",
@@ -128,12 +137,42 @@ def _alertas(conn, ctx, evento_id, pregunta, resultados):
     return alertas, extra
 
 
+def suficiente(variante, resultados):
+    """Suficiente si el puntaje del primer resultado alcanza el umbral de la variante."""
+    return bool(resultados) and resultados[0]["score"] >= UMBRAL[variante]
+
+
+def resolver_evento(ctx, evento, conn=None):
+    """evento_id interno a partir de evento_id o numero_evento, solo de la empresa de la sesión; o None."""
+    with _conexion(conn) as conn, conn.transaction():
+        _sesion(conn, ctx)
+        fila = conn.execute("""SELECT evento_id FROM documentos
+                               WHERE tenant_id = %s AND %s IN (evento_id, numero_evento) LIMIT 1""",
+                            (ctx.tenant_id, evento)).fetchone()
+    return fila[0] if fila else None
+
+
+def obtener_fragmentos(ctx, evento_id, chunk_ids, conn=None):
+    """Fragmentos por chunk_id, con los campos de buscar(), solo del evento y la empresa de la sesión.
+    Es lectura por id, sin puntaje: `score` es 0.0 para que FragmentoRecuperado lo acepte.
+    Un id ajeno o inexistente no se devuelve; el orden es el de chunk_ids."""
+    if not chunk_ids:
+        return []
+    with _conexion(conn) as conn, conn.transaction():
+        _sesion(conn, ctx)
+        cur = conn.execute(
+            f"""SELECT {COLUMNAS}, 0 FROM fragmentos
+                WHERE tenant_id = %(t)s AND evento_id = %(e)s AND chunk_id = ANY(%(c)s)""",
+            {"t": ctx.tenant_id, "e": evento_id, "c": list(chunk_ids)})
+        filas = {f["chunk_id"]: dict({k: v for k, v in f.items() if k != "_score"}, score=0.0) for f in _filas(cur)}
+    return [filas[c] for c in chunk_ids if c in filas]
+
+
 def buscar(ctx, evento_id, pregunta, variante="mejorada", k=K, conn=None):
     """Devuelve evidencia autorizada del evento con puntajes, alertas y suficiencia."""
     if variante not in UMBRAL:
         raise ValueError(f"variante desconocida: {variante}")
-    conn = conn or conectar()
-    with conn.transaction():
+    with _conexion(conn) as conn, conn.transaction():
         _sesion(conn, ctx)
         if variante == "base":
             resultados = _semantica(conn, ctx, evento_id, pregunta, "base", k)
@@ -146,7 +185,8 @@ def buscar(ctx, evento_id, pregunta, variante="mejorada", k=K, conn=None):
             lex_s = {r["chunk_id"]: r["_score"] for r in lex}
             candidatos = rrf([(PESO_SEMANTICO, sem), (PESO_LEXICO, lex)])[:CANDIDATOS]
             if candidatos:
-                scores = reranker().predict([(pregunta, c["texto"]) for c in candidatos])
+                pares = [(pregunta, c["texto"]) for c in candidatos]
+                scores = ejecutar(MODELO_RERANKER, reranker, lambda m: m.predict(pares))
                 for c, s in zip(candidatos, scores):
                     c.update(score=float(s), reranker=float(s), semantico=sem_s.get(c["chunk_id"]),
                              lexico=lex_s.get(c["chunk_id"]))
@@ -160,15 +200,14 @@ def buscar(ctx, evento_id, pregunta, variante="mejorada", k=K, conn=None):
             e["score"] = e["semantico"] = e.pop("_score")
             e["incluido_por"] = "posible_conflicto"
         resultados += extra
-    suficiente = bool(resultados) and resultados[0]["score"] >= UMBRAL[variante]
-    return {"evento_id": evento_id, "variante": variante, "suficiente": suficiente,
+    return {"evento_id": evento_id, "variante": variante,
+            "suficiente": suficiente(variante, resultados),
             "fragmentos": resultados, "alertas": alertas}
 
 
 def comparar_versiones(ctx, evento_id, pregunta, k=2, conn=None):
     """Mejores fragmentos de cada documento del evento, para contrastar bases y modificaciones."""
-    conn = conn or conectar()
-    with conn.transaction():
+    with _conexion(conn) as conn, conn.transaction():
         _sesion(conn, ctx)
         docs = conn.execute("""SELECT doc_id, tipo_documento, identificador_version_oficial FROM documentos
                                WHERE tenant_id = %s AND evento_id = %s ORDER BY tipo_documento""",
