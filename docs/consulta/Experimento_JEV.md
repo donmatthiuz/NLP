@@ -40,4 +40,29 @@ Congelado en `src/licigt/consulta/casos_enrutador.json`: 60 casos, 12 por clase 
 
 ## Corridas con JEV
 
-Pendientes. Las ejecuta el usuario: `make experimento-jev CONJUNTO=desarrollo`, luego con `CONFIRMAR=1`, la rejilla y una sola corrida de prueba.
+Las ejecuta el usuario con su llave; los registros quedan en `data/consulta/experimentos/`, fuera del repositorio.
+
+### Desarrollo (18 de noviembre de 2026, 02:30 UTC)
+
+Registro `desarrollo_20261118T023012Z.json`: 47 preguntas, corrida limpia, sin errores ni degradaciones, modelo `jev-1.14.0`.
+
+- **Rejilla:** la mejor combinación (`choice_min` 0,6) tiene 6 errores y la de defecto 7. La regla de elección exige 3 casos de mejora o menos críticos, así que los umbrales se quedan en los valores por defecto (`noul_si` 0,7, `noul_no` 0,3, `choice_min` 0,5). No hay cambio en el código.
+- **Exactitud con esos umbrales:**
+
+| Variante | Aciertos | Exactitud | Wilson 95 % | Críticos |
+|---|---|---|---|---|
+| Reglas | 45 de 47 | 0,957 | 0,858 a 0,988 | 0 |
+| JEV | 40 de 47 | 0,851 | 0,723 a 0,926 | 0 |
+
+- **McNemar:** JEV acierta 2 que las reglas fallan y falla 7 que las reglas aciertan (p = 0,18).
+  - **JEV corrige:** las dos preguntas fuera de tema ("precio del petróleo", "mundial de 2022"), que las reglas mandan a `buscar_documentos`.
+  - **JEV falla:**
+    - las 5 del seguro de caución, que manda a `extraer_requisitos`. Es la etiqueta que el revisor marcó con confianza baja y el usuario fijó en `buscar_documentos`;
+    - "Dime la fecha y la hora", que trata como fuera de tema en vez de aclarar;
+    - "¿Qué fecha está vigente para la recepción?", que manda a `extraer_requisitos` en vez de comparar.
+- **Latencia de JEV por pregunta:** mediana 193 ms, P95 246 ms, máximo 278 ms.
+- **Veredicto en desarrollo:** no adoptar (no es significativo y JEV acierta menos). Es orientativo: el veredicto que cuenta es el de la corrida de prueba.
+
+### Prueba
+
+Pendiente: `make experimento-jev CONJUNTO=prueba CONFIRMAR=1`, una sola vez.
