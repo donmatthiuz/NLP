@@ -34,7 +34,7 @@ Proyecto final CC3103 (UVG): sistema RAG que analiza licitaciones de medicamento
 
 ## Ramas y commits
 
-- Cada rol trabaja en `rol/<nombre>` (el rol 3 en `rol/consulta`). No trabajar directo en `main` ni en `proyecto`.
+- Desde el 18 de noviembre de 2026 se trabaja directo en `proyecto`, que integra los cuatro roles (antes cada rol trabajaba en `rol/<nombre>`). No trabajar directo en `main`.
 - Commits en español con prefijo convencional (`feat:`, `fix:`, `docs:`, `chore:`, `test:`).
 - Commitear, hacer push o abrir PR solo cuando el usuario lo pida.
 
