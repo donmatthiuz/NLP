@@ -114,3 +114,56 @@ Después de R2C, el reranker y bge-m3 corren en la GPU en fp16, y la búsqueda m
 - **Dónde está el tiempo:** en la generación del LLM local. Cada consulta manda en promedio 5 940 tokens de entrada y recibe 435 de salida, a unos 85 tokens por segundo; la regeneración, cuando la hay, duplica la llamada.
 
 **El veredicto no cambia:** no adoptar con el flujo actual, porque el P95 total (28,2 s más 0,24 s de JEV) sigue sobre la meta de 15 s. El cuello de botella dejó de ser la recuperación y pasó a ser la generación. Para bajar de 15 s habría que acortar la evidencia, limitar la salida o evitar la regeneración. Queda como trabajo futuro.
+
+## Variante LLM (18 de noviembre de 2026)
+
+Encargo [J2](delegacion/J2_variante_llm_del_enrutador.md): `Anteproyecto.md:342` y `DESIGN.md:24` comprometen comparar reglas, LLM con salida estructurada y JEV, y solo se habían medido reglas y JEV.
+
+### Qué se midió
+
+- **Modelo:** `qwen3.5-9b` en `llama-server` local (`127.0.0.1:8080`), sin salida de la máquina ni costo; no se llamó a JEV.
+- **Cliente:** `ClienteEnrutadorLlm` (`enrutador.py`) usa `ClienteGeneradorOpenAI` con esquema JSON estricto (`accion`, `motivo`, `herramienta`), temperatura 0, semilla 42 y un prompt corto con las definiciones de la guía de etiquetado. `max_tokens` es 128.
+- **Degradación:** un JSON inválido, un esquema incoherente (`usar_herramienta` sin herramienta) o una espera agotada degradan a reglas (`degradado`), como JEV. Ninguna de las 107 corridas degradó.
+- **Combinación:** como en JEV, las señales de las reglas (inyección, fuera de alcance, no específica) se suman a las del modelo; el modelo decide la herramienta.
+- **Corrida:** `make experimento-llm CONJUNTO=desarrollo|prueba` y, para comparar, `make experimento-llm CONJUNTO=... COMPARAR=1 P95_RESTO_MS=29280`. Los registros son `llm_desarrollo_20261118T225008Z.json` y `llm_prueba_20261118T225319Z.json` en `data/consulta/experimentos/`.
+- **Protocolo:** primero desarrollo; luego una sola corrida de prueba (limpia). La regla de adopción es la de JEV, sin cambios: críticos que no aumentan, McNemar significativo a favor y P95 total dentro de 15 s con el P95 del resto del flujo de 29 280 ms.
+
+### Desarrollo (47 preguntas)
+
+| Variante | Aciertos | Exactitud | Wilson 95 % | Críticos |
+|---|---|---|---|---|
+| Reglas | 45 | 0,957 | 0,858 a 0,988 | 0 |
+| JEV | 40 | 0,851 | 0,723 a 0,926 | 0 |
+| LLM | 36 | 0,766 | 0,628 a 0,864 | 0 |
+
+- **McNemar LLM contra reglas:** b = 2, c = 11, p = 0,022 (a favor de las reglas, que aciertan por construcción en desarrollo).
+- **Fallas del LLM:** la fecha y hora de recepción la manda a `aclarar` (5 eventos), la plica a `buscar_documentos` (5) y "qué fecha está vigente" a `aclarar`.
+- **Latencia del enrutador LLM:** mediana 486 ms, P95 554 ms, máximo 2,4 s.
+
+### Prueba (60 casos, una sola corrida)
+
+| Conjunto | n | Reglas | JEV | LLM | Críticos (reglas / JEV / LLM) |
+|---|---|---|---|---|---|
+| Completo | 60 | 37 (0,617; Wilson 0,490 a 0,729) | 53 (0,883; 0,778 a 0,942) | 51 (0,850; 0,739 a 0,919) | 6 / 0 / 0 |
+| Sin los 12 `duplica_desarrollo` | 48 | 30 (0,484 a 0,748) | 42 (0,753 a 0,941) | 40 (0,704 a 0,913) | 3 / 0 / 0 |
+
+- **McNemar frente a reglas:**
+  - LLM, completo: b = 18, c = 4, p = 0,0043. Sin los marcados: b = 13, c = 3, p = 0,021.
+  - JEV, completo: b = 16, c = 0, p = 3,1·10⁻⁵.
+  - LLM contra JEV: b = 4, c = 6, p = 0,75; no hay diferencia demostrable entre los dos.
+- **Dónde acierta el LLM:** las 12 abstenciones (inyecciones, fuera de alcance y fuera de tema), sin un solo crítico, y las 12 de `buscar_documentos`; 11 de 12 en `comparar_versiones`.
+- **Dónde falla (9 casos):**
+  - 6 de las 12 de `extraer_requisitos`: 3 de listar documentos las manda a `buscar_documentos` y 2 las trata como ambiguas ("Cítame todas las fechas del cronograma", la hora de la inducción);
+  - `aclarar`: manda "Lo de 363-IGSS-2026, ¿dónde lo dice?" a buscar y "no entiendo esa parte" a abstener;
+  - una de comparar a buscar.
+- **Latencia del enrutador LLM:** mediana 543 ms, P95 15,1 s, máximo 21,6 s. Cinco llamadas pasaron de 10 s porque otros procesos usaban el mismo servidor y la GPU durante la corrida (en desarrollo, a solas, el P95 fue de 554 ms). El P95 queda registrado tal como se midió; no se repitió la corrida de prueba.
+
+### Veredicto
+
+**No adoptar con el flujo actual**, con la regla de JEV sin tocarla (`comparar prueba --variante llm --p95-resto-ms 29280`):
+
+- los críticos no aumentan: cumple (0 contra 6);
+- la diferencia es significativa a favor: cumple (p = 0,0043; 0,021 sin los marcados);
+- el P95 total dentro de 15 s: no cumple. Con el P95 medido (15,1 s) más el del resto (29,3 s) son 44 s; aun con la latencia de desarrollo (0,55 s) el total sería de 29,8 s, porque el flujo base ya excede.
+
+**Lectura comparada.** Los dos enrutadores con modelo superan a las reglas en la prueba y no se distinguen entre sí (p = 0,75). El LLM local es gratuito y mantiene en cero los críticos; JEV acierta 2 casos más y tarda unos 240 ms contra unos 500 ms. En desarrollo ninguno supera a las reglas. Ninguno cambia la decisión de adopción, que depende del P95 de 29 s del resto del flujo.

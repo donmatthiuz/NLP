@@ -15,7 +15,7 @@ from pathlib import Path
 
 from .config import obtener_configuracion
 from .decision import decidir
-from .enrutador import EnrutadorJev, EnrutadorReglas
+from .enrutador import ClienteEnrutadorLlm, EnrutadorJev, EnrutadorLlm, EnrutadorReglas
 from .jev import ClienteJevSdk, FallaJev, RespuestaJev
 from .preguntas_jev import PREGUNTAS_ENTRADA, Umbrales
 from .sondeo_jev import cargar_casos
@@ -197,6 +197,53 @@ def correr(casos: list, *, cliente_jev, confirmar: bool = False, umbrales: Umbra
     return {"umbrales": umbrales.model_dump(), "limpia": True, "resultados": resultados}
 
 
+class _MedidorLlm:
+    """Envuelve al cliente del LLM local: conserva el JSON crudo, el error y la latencia de cada llamada."""
+    def __init__(self, cliente):
+        self.cliente = cliente
+        self.reiniciar()
+
+    def reiniciar(self):
+        self.respuesta = self.error = self.latencia_ms = None
+        self.tokens_entrada = self.tokens_salida = None
+
+    def clasificar(self, pregunta):
+        uso = getattr(getattr(self.cliente, "generador", None), "uso", None)
+        antes = dict(uso) if uso else None
+        inicio = time.monotonic()
+        try:
+            self.respuesta = self.cliente.clasificar(pregunta)
+            return self.respuesta
+        except Exception as falla:
+            self.error = getattr(falla, "codigo", type(falla).__name__)
+            raise
+        finally:
+            self.latencia_ms = (time.monotonic() - inicio) * 1000
+            if antes is not None:
+                self.tokens_entrada = uso["tokens_entrada"] - antes["tokens_entrada"]
+                self.tokens_salida = uso["tokens_salida"] - antes["tokens_salida"]
+
+
+def correr_llm(casos: list, *, cliente_llm) -> dict:
+    """Corre el enrutador LLM caso por caso. No sale de la máquina, así que no pide confirmación."""
+    medidor = _MedidorLlm(cliente_llm)
+    enrutador = EnrutadorLlm(medidor)
+    resultados = []
+    for caso in casos:
+        pregunta = _pregunta(caso)
+        reglas = decidir(*EnrutadorReglas().clasificar(pregunta))
+        medidor.reiniciar()
+        juicios, clasificacion = enrutador.clasificar(pregunta)
+        resultados.append({
+            "id": caso["id"], "pregunta": pregunta, "reglas": reglas.model_dump(),
+            "llm": decidir(juicios, clasificacion).model_dump(),
+            "clasificacion": clasificacion.model_dump(),
+            "respuesta": medidor.respuesta, "error": medidor.error, "latencia_ms": medidor.latencia_ms,
+            "degradado": clasificacion.degradado,
+            "tokens_entrada": medidor.tokens_entrada, "tokens_salida": medidor.tokens_salida})
+    return {"limpia": True, "resultados": resultados}
+
+
 class _Grabado:
     """Doble que devuelve la respuesta grabada de la pregunta; no llama a JEV."""
     def __init__(self, resultado: dict):
@@ -263,6 +310,39 @@ def comparar(casos: list, corrida: dict, umbrales: Umbrales) -> dict:
         del resumen["correctos"]
     return {"n": len(casos), "umbrales": umbrales.model_dump(), "reglas": reglas, "jev": con_jev,
             "mcnemar": {"b": b, "c": c, "p": mcnemar_p(b, c)}}
+
+
+def comparar_llm(casos: list, corrida_llm: dict, corrida_jev: dict | None, umbrales: Umbrales) -> dict:
+    """Reglas, LLM y (si hay corrida) JEV sobre los mismos casos; McNemar de cada uno frente a reglas."""
+    por_id = {r["id"]: r for r in corrida_llm["resultados"]}
+    if corrida_jev is not None:
+        por_id_jev = {r["id"]: r for r in corrida_jev["resultados"]}
+        casos = [c for c in casos if c["id"] in por_id_jev]
+    casos = [c for c in casos if c["id"] in por_id]
+    reglas = _resumir(casos, [por_id[c["id"]]["reglas"] for c in casos])
+    con_llm = _resumir(casos, [por_id[c["id"]]["llm"] for c in casos])
+    latencias = [por_id[c["id"]]["latencia_ms"] for c in casos if por_id[c["id"]]["latencia_ms"] is not None]
+    con_llm["latencia_p50_ms"] = percentil(latencias, 50)
+    con_llm["latencia_p95_ms"] = percentil(latencias, 95)
+    con_llm["degradaciones"] = sum(por_id[c["id"]]["degradado"] for c in casos)
+    resumen = {"n": len(casos), "reglas": reglas, "llm": con_llm,
+               "mcnemar": _mcnemar(reglas["correctos"], con_llm["correctos"])}
+    if corrida_jev is not None:
+        decisiones = reproducir(corrida_jev, umbrales)
+        con_jev = _resumir(casos, [decisiones[c["id"]] for c in casos])
+        resumen["jev"] = con_jev
+        resumen["mcnemar_jev"] = _mcnemar(reglas["correctos"], con_jev["correctos"])
+        resumen["mcnemar_llm_jev"] = _mcnemar(con_jev["correctos"], con_llm["correctos"])
+        del con_jev["correctos"]
+    for r in (reglas, con_llm):
+        del r["correctos"]
+    return resumen
+
+
+def _mcnemar(base: list, otra: list) -> dict:
+    b = sum(o and not r for r, o in zip(base, otra))
+    c = sum(r and not o for r, o in zip(base, otra))
+    return {"b": b, "c": c, "p": mcnemar_p(b, c)}
 
 
 def rejilla(corrida: dict, casos: list) -> list:
@@ -459,8 +539,8 @@ def _casos_conjunto(conjunto: str) -> list:
     return [{**c, "esperado": esperados[c["id"]]} if c["id"] in esperados else c for c in cargar_casos()]
 
 
-def _ultima_corrida(conjunto: str) -> dict:
-    archivos = sorted(EXPERIMENTOS.glob(f"{conjunto}_*.json"))
+def _ultima_corrida(conjunto: str, prefijo: str = "") -> dict:
+    archivos = sorted(EXPERIMENTOS.glob(f"{prefijo}{conjunto}_*.json"))
     if not archivos:
         raise SystemExit(f"No hay corridas de {conjunto} en {EXPERIMENTOS}")
     return _leer(archivos[-1])
@@ -504,7 +584,31 @@ def _cmd_variantes(opciones) -> int:
     return 0
 
 
+def _cmd_correr_llm(opciones) -> int:
+    casos = _casos_conjunto(opciones.conjunto)
+    previas = list(EXPERIMENTOS.glob(f"llm_{opciones.conjunto}_*.json")) if opciones.conjunto == "prueba" else []
+    if previas:
+        print("Aviso: ya existe una corrida de prueba del LLM; esta se marca como no limpia.")
+    try:
+        cliente = ClienteEnrutadorLlm()
+    except Exception as falla:
+        print(f"Experimento no iniciado: {getattr(falla, 'codigo', type(falla).__name__)}")
+        return 1
+    try:
+        corrida = correr_llm(casos, cliente_llm=cliente)
+    finally:
+        cliente.generador.cerrar()
+    corrida.update(conjunto=opciones.conjunto, variante="llm", limpia=not previas,
+                   modelo=cliente.generador.modelo_generador, semilla=cliente.generador.config.semilla)
+    ruta = EXPERIMENTOS / f"llm_{opciones.conjunto}_{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}.json"
+    _escribir(ruta, corrida)
+    print(f"Registro: {ruta}")
+    return 0
+
+
 def _cmd_correr(opciones) -> int:
+    if opciones.variante == "llm":
+        return _cmd_correr_llm(opciones)
     if opciones.variantes:
         return _cmd_variantes(opciones)
     casos = _casos_conjunto(opciones.conjunto)
@@ -578,6 +682,8 @@ def main(argumentos=None) -> int:
     ejecutar = sub.add_parser("correr")
     ejecutar.add_argument("conjunto", choices=("desarrollo", "prueba"))
     ejecutar.add_argument("--confirmar-envio", action="store_true")
+    ejecutar.add_argument("--variante", choices=("jev", "llm"), default="jev",
+                          help="llm corre el enrutador con el LLM local: no usa JEV ni pide confirmación")
     ejecutar.add_argument("--variantes", action="store_true",
                           help="orden de opciones, redacciones y repetición en la misma solicitud")
     ejecutar.set_defaults(ejecutar=_cmd_correr)
@@ -587,6 +693,7 @@ def main(argumentos=None) -> int:
     comp.add_argument("conjunto", choices=("desarrollo", "prueba"))
     comp.add_argument("--umbrales", help="noul_si,noul_no,choice_min")
     comp.add_argument("--p95-resto-ms", type=float)
+    comp.add_argument("--variante", choices=("jev", "llm"), default="jev")
 
     def _rejilla(o):
         filas = rejilla(_ultima_corrida(o.conjunto), _con_etiqueta(_casos_conjunto(o.conjunto)))
@@ -596,6 +703,14 @@ def main(argumentos=None) -> int:
         return 0
 
     def _comparar(o):
+        if o.variante == "llm":
+            archivos = sorted(EXPERIMENTOS.glob(f"{o.conjunto}_*.json"))
+            resumen = comparar_llm(_con_etiqueta(_casos_conjunto(o.conjunto)), _ultima_corrida(o.conjunto, "llm_"),
+                                   _leer(archivos[-1]) if archivos else None, _umbrales(o.umbrales))
+            base = {"reglas": resumen["reglas"], "jev": resumen["llm"], "mcnemar": resumen["mcnemar"]}
+            print(json.dumps({"resumen": resumen, "veredicto": veredicto(base, o.p95_resto_ms)},
+                             ensure_ascii=False, indent=2))
+            return 0
         resumen = comparar(_con_etiqueta(_casos_conjunto(o.conjunto)), _ultima_corrida(o.conjunto),
                            _umbrales(o.umbrales))
         print(json.dumps({"resumen": resumen, "veredicto": veredicto(resumen, o.p95_resto_ms)},

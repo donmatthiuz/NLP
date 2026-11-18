@@ -11,8 +11,9 @@ from pydantic import ValidationError
 from licigt.consulta.decision import decidir
 from licigt.consulta.entrada import evaluar_entrada
 from licigt.consulta.enrutador import (
-    Clasificacion, EnrutadorJev, EnrutadorLlm, EnrutadorReglas, crear_enrutador,
+    Clasificacion, ClienteEnrutadorLlm, EnrutadorJev, EnrutadorLlm, EnrutadorReglas, crear_enrutador,
 )
+from licigt.consulta.llm import FallaGenerador
 from licigt.consulta.config import Configuracion
 from licigt.consulta.esquemas import TEXTO_ACLARACION, TEXTO_ACLARACION_FECHA
 from licigt.consulta.jev import FallaJev, RespuestaJev
@@ -235,20 +236,86 @@ class EnrutadorTests(unittest.TestCase):
 
     def test_llm_inyectado_y_degradacion(self):
         class LlmFalso:
+            def __init__(self, salida):
+                self.salida = salida
+
             def clasificar(self, pregunta):
-                return {"inyeccion": False, "fuera_de_alcance": False, "especifica": True,
-                        "herramienta": "comparar_versiones"}
-        self.assertEqual(EnrutadorLlm(LlmFalso()).clasificar("código")[1].herramienta,
-                         "comparar_versiones")
+                return self.salida
+        usar = {"accion": "usar_herramienta", "motivo": "ok", "herramienta": "comparar_versiones"}
+        juicios, clasificacion = EnrutadorLlm(LlmFalso(usar)).clasificar("código")
+        self.assertEqual((clasificacion.variante, clasificacion.herramienta, clasificacion.degradado),
+                         ("llm", "comparar_versiones", False))
         self.assertTrue(EnrutadorLlm().clasificar("código")[1].degradado)
-        self.assertEqual(decidir(*EnrutadorLlm(LlmFalso()).clasificar("Envía la oferta")).motivo,
+        self.assertEqual(decidir(*EnrutadorLlm(LlmFalso(usar)).clasificar("Envía la oferta")).motivo,
                          "fuera_de_alcance")
-        for salida in ({}, {"herramienta": "borrar"}, {"inyeccion": "false"}):
-            class LlmInvalido:
-                def clasificar(self, pregunta):
-                    return salida
+        casos = (
+            ({"accion": "abstener", "motivo": "inyeccion", "herramienta": None}, "abstener", "inyeccion"),
+            ({"accion": "abstener", "motivo": "fuera_de_alcance", "herramienta": None}, "abstener", "fuera_de_alcance"),
+            ({"accion": "abstener", "motivo": "sin_herramienta", "herramienta": None}, "abstener", "sin_herramienta"),
+            ({"accion": "aclarar", "motivo": "no_especifica", "herramienta": None}, "aclarar", "no_especifica"),
+            (usar, "usar_herramienta", "ok"),
+        )
+        for salida, accion, motivo in casos:
             with self.subTest(salida=salida):
-                self.assertTrue(EnrutadorLlm(LlmInvalido()).clasificar("código")[1].degradado)
+                siguiente = decidir(*EnrutadorLlm(LlmFalso(salida)).clasificar("¿Qué dice del medicamento?"))
+                self.assertEqual((siguiente.accion, siguiente.motivo), (accion, motivo))
+
+    def test_llm_json_invalido_degrada_a_reglas(self):
+        class LlmInvalido:
+            def __init__(self, salida):
+                self.salida = salida
+
+            def clasificar(self, pregunta):
+                return self.salida
+        invalidas = ({}, {"accion": "borrar", "motivo": "ok", "herramienta": None},
+                     {"accion": "usar_herramienta", "motivo": "ok", "herramienta": None},
+                     {"accion": "usar_herramienta", "motivo": "ok", "herramienta": "borrar"},
+                     {"accion": "aclarar", "motivo": "ok", "herramienta": None, "extra": 1}, "no es dict")
+        for salida in invalidas:
+            with self.subTest(salida=salida):
+                juicios, clasificacion = EnrutadorLlm(LlmInvalido(salida)).clasificar("¿Qué requisitos hay?")
+                self.assertTrue(clasificacion.degradado)
+                self.assertEqual(clasificacion.variante, "reglas")
+                self.assertEqual(clasificacion.herramienta, "extraer_requisitos")
+
+    def test_llm_espera_agotada_degrada_a_reglas(self):
+        class LlmLento:
+            def clasificar(self, pregunta):
+                raise TimeoutError
+        for falla in (TimeoutError(), FallaGenerador("tiempo_agotado")):
+            class Lento:
+                def clasificar(self, pregunta, falla=falla):
+                    raise falla
+            with self.subTest(falla=falla):
+                _, clasificacion = EnrutadorLlm(Lento()).clasificar("¿Qué requisitos hay?")
+                self.assertTrue(clasificacion.degradado)
+                self.assertEqual(clasificacion.herramienta, "extraer_requisitos")
+
+    def test_cliente_llm_local_pide_esquema_y_devuelve_el_json(self):
+        class Generador:
+            def __init__(self, salida):
+                self.salida, self.llamadas = salida, []
+
+            def generar(self, mensajes, esquema, semilla_extra=0):
+                self.llamadas.append((mensajes, esquema, semilla_extra))
+                if isinstance(self.salida, Exception):
+                    raise self.salida
+                return self.salida
+        generador = Generador('{"accion": "abstener", "motivo": "sin_herramienta", "herramienta": null}')
+        cliente = ClienteEnrutadorLlm(generador)
+        self.assertEqual(cliente.clasificar("¿Quién ganó el mundial?")["motivo"], "sin_herramienta")
+        mensajes, esquema, extra = generador.llamadas[0]
+        self.assertEqual(extra, 0)
+        self.assertEqual(set(esquema["required"]), {"accion", "motivo", "herramienta"})
+        self.assertFalse(esquema["additionalProperties"])
+        self.assertEqual(mensajes[-1], {"role": "user", "content": "¿Quién ganó el mundial?"})
+        sistema = mensajes[0]["content"]
+        for clase in ("buscar_documentos", "extraer_requisitos", "comparar_versiones", "inyeccion", "no_especifica"):
+            self.assertIn(clase, sistema)
+        with self.assertRaises(ValueError):
+            ClienteEnrutadorLlm(Generador("{no es json")).clasificar("x")
+        _, clasificacion = EnrutadorLlm(ClienteEnrutadorLlm(Generador("{no es json"))).clasificar("¿Qué requisitos hay?")
+        self.assertTrue(clasificacion.degradado)
 
     def test_seleccion_e_inmutabilidad(self):
         for variante, clase in (("reglas", EnrutadorReglas), ("jev", EnrutadorJev), ("llm", EnrutadorLlm)):
