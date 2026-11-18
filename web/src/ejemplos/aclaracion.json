@@ -1,0 +1,12 @@
+{
+  "answer": "¿A qué fecha o plazo se refiere? Por ejemplo: recepción de ofertas, apertura de plicas o adjudicación.",
+  "sources": [],
+  "abstained": false,
+  "tool_used": null,
+  "needs_human_review": false,
+  "evento_id": "222-IGSS-2023",
+  "coverage_status": "sin_faltantes_detectados",
+  "warnings": [],
+  "needs_clarification": true,
+  "clarification_question": "¿A qué fecha o plazo se refiere? Por ejemplo: recepción de ofertas, apertura de plicas o adjudicación."
+}

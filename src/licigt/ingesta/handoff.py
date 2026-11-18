@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
-from .pipeline import _sha256
+from .pipeline import _sha256, paginas_sin_indexables
 
 
 def _local_original(uri: str, data_dir: Path) -> Path:
@@ -118,8 +118,10 @@ def export(data_dir: Path, tenant_id: str, output: Path) -> dict:
                     "fecha_publicacion": meta["fecha_publicacion"],
                     "fecha_ficha": meta.get("fecha_ficha"), "fecha_descarga": meta["fecha_descarga"],
                     "status": status, "warnings": manifest["warnings"], "cobertura": manifest["cobertura"],
-                    "paginas_no_indexadas": [page["number"] for page in manifest["pages"] if page["quality"] != "ok"],
+                    "paginas_no_indexadas": paginas_sin_indexables(
+                        [page["number"] for page in manifest["pages"]], manifest["chunks"]),
                     "security_scan": manifest["security_scan"],
+                    **({"extraccion": manifest["extraccion"]} if manifest.get("extraccion") else {}),
                     "chunks_indexables": len(indexable), "chunks_excluidos": excluded,
                 })
                 inventory["chunks_indexables"] += len(indexable)

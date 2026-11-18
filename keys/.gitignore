@@ -1,0 +1,9 @@
+# Nada se versiona por defecto: lista de permitidos, no de prohibidos.
+# Una llave con un nombre o extensión inesperados igual queda fuera.
+*
+
+# La estructura sí se versiona, para que quien clone sepa dónde van las llaves.
+!*/
+!.gitignore
+!README.md
+!*/.gitkeep

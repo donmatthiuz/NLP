@@ -1,4 +1,4 @@
-"""Ingiere las seis copias verificadas del corpus de evaluación del IGSS."""
+"""Ingiere las copias verificadas del corpus de evaluación del IGSS que describe corpus_igss.json."""
 
 from __future__ import annotations
 
@@ -9,22 +9,30 @@ from pathlib import Path
 from .automatic import PortalEvent, event_id_for
 from .pipeline import IngestionService, SourceMetadata, _sha256
 
-
-# Orden documental: las bases de 222 deben existir antes de su modificación.
-SELECTION = (
-    ("399-IGSS-2026", "1f9aa9fdf38e8ce7780a00f37b49a9edda4ec9ef9426a979b2962127ff740444", "bases_integradas", "bases", None, None),
-    ("363-IGSS-2026", "953eab12d975d203d1d4f27aed8e14c39581095d67ac91efbcda7a8934cb9426", "bases_integradas", "bases", None, None),
-    ("222-IGSS-2023", "93fc4e4fa0ef1376c2d2163f092f08236986ac72f5caf828dd7869de36a3ed2f", "bases_integradas", "bases", None, None),
-    ("222-IGSS-2023", "4101799486c95dc6d109a10043c3907704a3fc8ff1af249f7c1dc6faa61e8434", "modificacion_1", "modificacion", "Modificación Número 1", "bases_integradas"),
-    ("327-IGSS-2023", "759ac61bfc2282b8012358001d66ad364447f7dc2b4435fa66d511435db57ae3", "bases_integradas", "bases", None, None),
-    ("368-IGSS-2026", "1161c9f8b49aac197857a6de891d2b9e5db2d91df71a1221bf8d6a96ffb2e8a0", "bases_integradas", "bases", None, None),
-)
+CORPUS = Path(__file__).with_name("corpus_igss.json")
 
 
-def prepare(data_dir: Path, tenant_id: str) -> list[dict]:
+def cargar_especificacion(ruta: Path = CORPUS) -> dict:
+    return json.loads(Path(ruta).read_text(encoding="utf-8"))
+
+
+def prepare(data_dir: Path, tenant_id: str | None = None, *, spec: dict | None = None) -> list[dict]:
+    """Ingiere en el orden de la especificación, con sus doc_id e ingested_at fijados.
+
+    Sin OCR en la ingesta: así los chunk_id no dependen de si el entorno tiene Tesseract. Las páginas
+    ilegibles se recuperan después con reextraer, que agrega fragmentos sin mover los previos.
+    """
+    spec = spec or cargar_especificacion()
+    if tenant_id is not None and tenant_id != spec["tenant_id"]:
+        raise ValueError(f"El tenant {tenant_id} no es el de la especificación ({spec['tenant_id']}): "
+                         "los doc_id fijos pertenecen a un solo espacio")
+    tenant_id = spec["tenant_id"]
     service = IngestionService(data_dir)
     results = []
-    for number, digest, document_key, kind, official_version, relation in SELECTION:
+    for documento in spec["documentos"]:
+        number, digest = documento["numero_evento"], documento["sha256"]
+        document_key, kind = documento["document_key"], documento["tipo_documento"]
+        official_version, relation = documento["version_oficial"], documento["relacion_documental"]
         stage = data_dir / "descargas_igss" / number / digest
         sidecar = json.loads(stage.with_suffix(".json").read_text(encoding="utf-8"))
         pdf = stage.with_suffix(".pdf")
@@ -47,7 +55,10 @@ def prepare(data_dir: Path, tenant_id: str) -> list[dict]:
             identificador_version_oficial=official_version,
             relacion_documental=relation,
         )
-        manifest = service.ingest(pdf, metadata)
+        if event_id_for(tenant_id, event) != documento["evento_id"]:
+            raise ValueError(f"evento_id distinto al de la especificación: {number}")
+        manifest = service.ingest(pdf, metadata, doc_id=documento["doc_id"],
+                                  ingested_at=documento["ingested_at"], use_ocr=False)
         results.append({
             "numero_evento": number, "tipo_documento": kind,
             "doc_id": manifest["doc_id"], "evento_id": metadata.evento_id,
@@ -61,7 +72,7 @@ def prepare(data_dir: Path, tenant_id: str) -> list[dict]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--tenant-id", required=True)
+    parser.add_argument("--tenant-id", help="opcional; debe ser el de la especificación")
     parser.add_argument("--data-dir", type=Path, default=Path("data/ingesta"))
     args = parser.parse_args()
     print(json.dumps(prepare(args.data_dir, args.tenant_id), ensure_ascii=False, indent=2))

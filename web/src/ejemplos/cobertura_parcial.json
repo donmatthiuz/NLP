@@ -1,0 +1,45 @@
+{
+  "answer": "La JUNTA puede solicitar, por única vez, prórroga para adjudicar la cual podrá ser por el mismo plazo o menor. [1][2]\nLa modificación fue solicitada por el Departamento de Abastecimientos mediante el Oficio Número 8939. [3]",
+  "sources": [
+    {
+      "doc_id": "d41480e5b0ce4c16bf18f66225ada2dc",
+      "source": "https://www.igssgt.org/wp-content/uploads/2026/10/LICITACION-DA-No.-222-IGSS-2023-IGSS.pdf",
+      "page": 1,
+      "page_end": null,
+      "chunk_id": "d41480e5b0ce4c16bf18f66225ada2dc:00004",
+      "version_ingesta": 1,
+      "version_oficial": "Modificación Número 1",
+      "cita": "La JUNTA puede solicitar a la AUTORIDAD ADMINISTRATIVA SUPERIOR en forma justificada"
+    },
+    {
+      "doc_id": "d41480e5b0ce4c16bf18f66225ada2dc",
+      "source": "https://www.igssgt.org/wp-content/uploads/2026/10/LICITACION-DA-No.-222-IGSS-2023-IGSS.pdf",
+      "page": 2,
+      "page_end": null,
+      "chunk_id": "d41480e5b0ce4c16bf18f66225ada2dc:00005",
+      "version_ingesta": 1,
+      "version_oficial": "Modificación Número 1",
+      "cita": "por única vez, prórroga para adjudicar la cual podrá ser por el mismo plazo o menor. (Artículos 33 de la LEY y 21 del REGLAMENTO)."
+    },
+    {
+      "doc_id": "d41480e5b0ce4c16bf18f66225ada2dc",
+      "source": "https://www.igssgt.org/wp-content/uploads/2026/10/LICITACION-DA-No.-222-IGSS-2023-IGSS.pdf",
+      "page": 3,
+      "page_end": null,
+      "chunk_id": "d41480e5b0ce4c16bf18f66225ada2dc:00014",
+      "version_ingesta": 1,
+      "version_oficial": "Modificación Número 1",
+      "cita": "el Departamento de Abastecimientos, remite el Oficio Número 8939, en el que solicita la Modificación No. 1 a los Documentos de Licitación"
+    }
+  ],
+  "abstained": false,
+  "tool_used": "buscar_documentos",
+  "needs_human_review": true,
+  "evento_id": "222-IGSS-2023",
+  "coverage_status": "parcial",
+  "warnings": [
+    "cobertura_incompleta: d41480e5b0ce4c16bf18f66225ada2dc páginas no indexadas 4"
+  ],
+  "needs_clarification": false,
+  "clarification_question": null
+}

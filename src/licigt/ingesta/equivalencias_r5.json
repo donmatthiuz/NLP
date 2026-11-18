@@ -1,0 +1,124 @@
+{
+  "version": 1,
+  "equivalencias": {
+    "03791a3471c04c0f9cc260814564756e:00001": {
+      "nuevo": "03791a3471c04c0f9cc260814564756e:00001",
+      "estado": "identico",
+      "candidatos": [
+        "03791a3471c04c0f9cc260814564756e:00001"
+      ]
+    },
+    "03791a3471c04c0f9cc260814564756e:00040": {
+      "nuevo": "03791a3471c04c0f9cc260814564756e:00040",
+      "estado": "identico",
+      "candidatos": [
+        "03791a3471c04c0f9cc260814564756e:00040"
+      ]
+    },
+    "03791a3471c04c0f9cc260814564756e:00041": {
+      "nuevo": "03791a3471c04c0f9cc260814564756e:00041",
+      "estado": "identico",
+      "candidatos": [
+        "03791a3471c04c0f9cc260814564756e:00041"
+      ]
+    },
+    "03791a3471c04c0f9cc260814564756e:00055": {
+      "nuevo": "03791a3471c04c0f9cc260814564756e:00055",
+      "estado": "identico",
+      "candidatos": [
+        "03791a3471c04c0f9cc260814564756e:00055"
+      ]
+    },
+    "03791a3471c04c0f9cc260814564756e:00070": {
+      "nuevo": "03791a3471c04c0f9cc260814564756e:00070",
+      "estado": "identico",
+      "candidatos": [
+        "03791a3471c04c0f9cc260814564756e:00070"
+      ]
+    },
+    "03791a3471c04c0f9cc260814564756e:00073": {
+      "nuevo": "03791a3471c04c0f9cc260814564756e:00073",
+      "estado": "identico",
+      "candidatos": [
+        "03791a3471c04c0f9cc260814564756e:00073"
+      ]
+    },
+    "03791a3471c04c0f9cc260814564756e:00110": {
+      "nuevo": "03791a3471c04c0f9cc260814564756e:00110",
+      "estado": "identico",
+      "candidatos": [
+        "03791a3471c04c0f9cc260814564756e:00110"
+      ]
+    },
+    "03791a3471c04c0f9cc260814564756e:00154": {
+      "nuevo": "03791a3471c04c0f9cc260814564756e:00154",
+      "estado": "contenido",
+      "candidatos": [
+        "03791a3471c04c0f9cc260814564756e:00154"
+      ]
+    },
+    "0818d24d643a426b966ddaeb41072a00:00149": {
+      "nuevo": "0818d24d643a426b966ddaeb41072a00:00149",
+      "estado": "contenido",
+      "candidatos": [
+        "0818d24d643a426b966ddaeb41072a00:00149"
+      ]
+    },
+    "d41480e5b0ce4c16bf18f66225ada2dc:00001": {
+      "nuevo": null,
+      "estado": "revision",
+      "candidatos": []
+    },
+    "d41480e5b0ce4c16bf18f66225ada2dc:00002": {
+      "nuevo": "d41480e5b0ce4c16bf18f66225ada2dc:00003",
+      "estado": "identico",
+      "candidatos": [
+        "d41480e5b0ce4c16bf18f66225ada2dc:00003"
+      ]
+    },
+    "d41480e5b0ce4c16bf18f66225ada2dc:00003": {
+      "nuevo": "d41480e5b0ce4c16bf18f66225ada2dc:00004",
+      "estado": "identico",
+      "candidatos": [
+        "d41480e5b0ce4c16bf18f66225ada2dc:00004"
+      ]
+    },
+    "d41480e5b0ce4c16bf18f66225ada2dc:00004": {
+      "nuevo": null,
+      "estado": "revision",
+      "candidatos": []
+    },
+    "d41480e5b0ce4c16bf18f66225ada2dc:00005": {
+      "nuevo": null,
+      "estado": "revision",
+      "candidatos": []
+    },
+    "d41480e5b0ce4c16bf18f66225ada2dc:00006": {
+      "nuevo": "d41480e5b0ce4c16bf18f66225ada2dc:00007",
+      "estado": "identico",
+      "candidatos": [
+        "d41480e5b0ce4c16bf18f66225ada2dc:00007"
+      ]
+    },
+    "d41480e5b0ce4c16bf18f66225ada2dc:00007": {
+      "nuevo": "d41480e5b0ce4c16bf18f66225ada2dc:00008",
+      "estado": "identico",
+      "candidatos": [
+        "d41480e5b0ce4c16bf18f66225ada2dc:00008"
+      ]
+    },
+    "d41480e5b0ce4c16bf18f66225ada2dc:00008": {
+      "nuevo": "d41480e5b0ce4c16bf18f66225ada2dc:00009",
+      "estado": "identico",
+      "candidatos": [
+        "d41480e5b0ce4c16bf18f66225ada2dc:00009"
+      ]
+    },
+    "d41480e5b0ce4c16bf18f66225ada2dc:00009": {
+      "nuevo": null,
+      "estado": "revision",
+      "candidatos": [],
+      "motivo": "id ausente del paquete viejo"
+    }
+  }
+}

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="diagrama-tamano" content="1600x1094">
+  <title>Arquitectura general de LiciGT</title>
+  <link rel="stylesheet" href="estilos.css">
+</head>
+<body>
+<div class="lienzo" id="lienzo" style="width:1600px">
+  <div class="cabecera">
+    <div class="titulo-principal">Arquitectura general de LiciGT</div>
+    <div class="subtitulo">Ingesta, índices y consulta con citas verificables</div>
+  </div>
+  <div class="mapa" id="mapa"></div>
+  <div id="leyenda"></div>
+</div>
+<div id="verificacion"></div>
+<script src="diagrama.js"></script>
+<script>
+(function () {
+  const D = window.Diagrama, F = D.flecha;
+  const PH = 104, DW = 196, DH = 120;
+  const AY = 44, AH = 152, BY = AY + AH + 6, BH = 140, CY = BY + BH + 6, CH = 454, DY = CY + CH + 6, DHL = 152;
+  const BOT = DY + DHL + 12;
+  D.init({ w: 1600, h: BOT + 12 });
+  D.leyenda('leyenda');
+  D.limite({ x: 12, y: 8, w: 1444, h: BOT - 8, etq: 'Sistema LiciGT' });
+
+  // ---------- A: ingesta ----------
+  D.carril({ id: 'A', x: 24, y: AY, w: 1420, h: AH, tab: 'A · Ingesta' });
+  const cyA = AY + AH / 2;
+  const p = (id, x, w, o) => D.nodo(Object.assign({ id, x, y: cyA - PH / 2, w, h: PH, tipo: 'codigo', carril: 'A', rol: 'rol 1', est: 'ok' }, o));
+  D.nodo({ id: 'an', x: 84, y: cyA - 50, w: 150, h: 100, tipo: 'humano', carril: 'A', titulo: 'Analista', rol: 'rol 4', est: 'pend' });
+  p('va', 334, 170, { titulo: 'Validar', linea: 'PDF, URL, SHA-256' });
+  p('or', 604, 150, { tipo: 'datos', titulo: 'Original' });
+  p('ex', 854, 170, { titulo: 'Extraer', linea: 'OCR y calidad' });
+  p('pa', 1144, 190, { tipo: 'documento', titulo: 'Fragmentos', linea: 'inyección y ZIP' });
+
+  // ---------- B: índices ----------
+  D.carril({ id: 'B', x: 760, y: BY, w: 684, h: BH, tab: 'B · Índices' });
+  const pgx = 830, pgw = 250, pgy = BY + (BH - 92) / 2;
+  D.nodo({ id: 'pg', x: pgx, y: pgy, w: pgw, h: 92, tipo: 'datos', carril: 'B', titulo: 'PostgreSQL + pgvector', rol: 'rol 2', est: 'ok' });
+
+  D.nodo({ id: 'li', x: 1180, y: pgy, w: 240, h: 92, tipo: 'codigo', carril: 'B', titulo: 'Lista de verificación', linea: 'confirma el usuario', rol: 'rol 3', est: 'pend' });
+
+  // ---------- C: consulta ----------
+  D.carril({ id: 'C', x: 24, y: CY, w: 1420, h: CH, tab: 'C · Consulta' });
+  D.marco({ id: 'estado', x: 70, y: CY + 10, w: 1358, h: CH - 26, titulo: 'Estado compartido:', rol: 'rol 3/4', est: 'pend', campos: 'tenant_id, usuario, evento, intención, chunk_ids' });
+  const cy = CY + 184, base = { carril: 'C', marco: 'estado' };
+  const xs = []; { let x = 94; [DW, DW, DW, 160, 170, 170].forEach(w => { xs.push(x); x += w + 44.4; }); }
+  const rom = (id, x, p2) => D.nodo(Object.assign({ id, x, y: cy - DH / 2, w: DW, h: DH, tipo: 'decision', rol: 'rol 3', est: 'ok' }, base, p2));
+  rom('g', xs[0], { titulo: 'Guardrail', linea: '¿Segura?' });
+  rom('e', xs[1], { titulo: 'Enrutador', linea: '¿Aplica?' });
+  rom('a', xs[2], { titulo: 'Ambigüedad', linea: '¿Concreta?' });
+  const pr = (id, i, w, p2) => D.nodo(Object.assign({ id, x: xs[i], y: cy - PH / 2, w, h: PH, tipo: 'codigo', rol: 'rol 3', est: 'ok' }, base, p2));
+  pr('he', 3, 160, { titulo: 'Herramienta', linea: 'busca y extrae' });
+  pr('ge', 4, 170, { tipo: 'llm', titulo: 'Generar', linea: 'LLM y validación', est: 'parc' });
+  pr('re', 5, 170, { tipo: 'salida', sk: 16, titulo: 'Respuesta', linea: 'con citas' });
+  const ex1 = CY + 314;
+  const xr = n => D.nodos[n].x + D.nodos[n].w / 2;
+  D.nodo(Object.assign({ id: 'x1', x: 94, y: ex1, w: 866, h: 96, tipo: 'salida', sk: 16, sec: true, titulo: 'Abstención, aclaración o error', linea: 'sin llamar al LLM', rol: 'rol 3', est: 'ok' }, base));
+  D.nodo(Object.assign({ id: 'x2', x: 1000, y: ex1, w: 190, h: 96, tipo: 'salida', sk: 14, sec: true, titulo: 'Salida controlada', rol: 'rol 3', est: 'ok' }, base));
+  D.nodo(Object.assign({ id: 'rv', x: xr('re') - 75, y: ex1, w: 150, h: 100, tipo: 'humano', sec: true, titulo: 'Revisor', rol: 'rol 4', est: 'pend' }, base));
+  D.nodo({ id: 'jev', x: 1480, y: CY + 26, w: 116, h: 100, tipo: 'externo', titulo: 'JEV', linea: 'API externa', rol: 'rol 3', est: 'parc' });
+
+  // ---------- D: servicios ----------
+  D.carril({ id: 'D', x: 1000, y: DY, w: 444, h: DHL, tab: 'D · Servicios' });
+  D.nodo({ id: 'au', x: 1090, y: DY + (DHL - PH) / 2, w: 170, h: PH, tipo: 'codigo', carril: 'D', titulo: 'Auditoría', linea: 'sin texto de PDF', rol: 'rol 4', est: 'pend' });
+
+  // ---------- flechas ----------
+  const cxn = id => D.nodos[id].x + D.nodos[id].w / 2;
+  F({ de: 'an', ds: 'e', a: 'va', as: 'w', et: [{ t: 'PDF y URL', l: 'a' }] });
+  F({ de: 'va', ds: 'e', a: 'or', as: 'w' });
+  F({ de: 'or', ds: 'e', a: 'ex', as: 'w' });
+  F({ de: 'ex', ds: 'e', a: 'pa', as: 'w', et: [{ t: 'texto', l: 'a' }] });
+  F({ de: 'pa', ds: 's', a: 'pg', as: 'n', via: [[null, BY + 8], [pgx + pgw / 2, null]] });
+  // pregunta del analista hacia la primera compuerta
+  F({ de: 'an', ds: 's', a: 'g', as: 'n', aof: cxn('an') - cxn('g'), et: [{ t: 'pregunta', l: 'd', f: 0.5 }] });
+  F({ de: 'g', ds: 'e', a: 'e', as: 'w', et: [{ t: 'sí', l: 'a' }] });
+  F({ de: 'e', ds: 'e', a: 'a', as: 'w', et: [{ t: 'sí', l: 'a' }] });
+  F({ de: 'a', ds: 'e', a: 'he', as: 'w', et: [{ t: 'sí', l: 'a' }] });
+  F({ de: 'he', ds: 'e', a: 'ge', as: 'w', et: [{ t: 'ok', l: 'a' }] });
+  F({ de: 'ge', ds: 'e', a: 're', as: 'w' });
+  const ex = 'excepcion';
+  F({ de: 'g', ds: 's', a: 'x1', as: 'n', tipo: ex, aof: cxn('g') - cxn('x1'), et: [{ t: 'falla', l: 'd', f: 0.8 }] });
+  F({ de: 'e', ds: 's', a: 'x1', as: 'n', tipo: ex, aof: cxn('e') - cxn('x1'), et: [{ t: 'ninguna', l: 'd', f: 0.8 }] });
+  F({ de: 'a', ds: 's', a: 'x1', as: 'n', tipo: ex, aof: cxn('a') - cxn('x1'), et: [{ t: 'no', l: 'd', f: 0.8 }] });
+  F({ de: 'he', ds: 's', a: 'x1', as: 'n', tipo: ex, aof: cxn('he') - cxn('x1'), et: [{ t: 'falla', l: 'd', f: 0.8 }] });
+  F({ de: 'ge', ds: 's', a: 'x2', as: 'n', tipo: ex, aof: cxn('ge') - cxn('x2'), et: [{ t: 'citas inválidas', l: 'i', f: 0.8 }] });
+  F({ de: 're', ds: 's', a: 'rv', as: 'n', tipo: 'revision', et: [{ t: 'conflicto', l: 'd', f: 0.5 }] });
+  // datos: Herramienta consulta PostgreSQL (cruza dos canales de JEV con puente)
+  const jvs = [];
+  const jc = CY + 76;
+  [['g', CY + 52, -24], ['e', CY + 76, 0], ['he', CY + 100, 24]].forEach(d => jvs.push(F({ de: d[0], ds: 'n', a: 'jev', as: 'w', aof: d[2], tipo: 'jev', via: [[null, d[1]]] })));
+  F({ de: 'he', ds: 'n', dof: -40, a: 'pg', as: 's', aof: 0, tipo: 'datos', via: [[null, BY + BH + 6], [pgx + pgw / 2, null]], hueco: [D.flechas.indexOf(jvs[0]), D.flechas.indexOf(jvs[1])] });
+  // lista de verificación: única escritura; cruza los tres canales de JEV con puente
+  F({ de: 're', ds: 'n', dof: cxn('li') - cxn('re'), a: 'li', as: 's', aof: 0, hueco: jvs.map(a => D.flechas.indexOf(a)), et: [{ t: 'confirmar', i: 0, l: 'd', f: 0.63 }] });
+  F({ de: 'li', ds: 'w', a: 'pg', as: 'e', tipo: 'datos', et: [{ t: 'guarda', l: 'a' }] });
+  // auditoría
+  F({ de: 're', ds: 'e', a: 'au', as: 'e', tipo: 'principal', via: [[1416, null], [null, DY + DHL / 2]], et: [{ t: 'audita', i: 2, l: 'a', f: 0.5 }] });
+  D.listo();
+})();
+</script>
+</body>
+</html>

@@ -1,11 +1,17 @@
+# La contraseña la genera `make keys-init` en keys/database/dev.password.
+# Levantar con `make db-up`, que también la crea si falta.
 services:
   postgres:
     image: pgvector/pgvector:pg17
     environment:
-      POSTGRES_USER: licigt
-      POSTGRES_PASSWORD: licigt_dev  # solo desarrollo local
-      POSTGRES_DB: licigt
-    ports: ["127.0.0.1:5432:5432"]
+      POSTGRES_USER: ${LICIGT_DB_USER:-licigt}
+      POSTGRES_DB: ${LICIGT_DB_NAME:-licigt}
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+    secrets: [db_password]
+    ports: ["127.0.0.1:${LICIGT_DB_PORT:-5432}:5432"]
     volumes: [pgdata:/var/lib/postgresql/data]
+secrets:
+  db_password:
+    file: ./keys/database/dev.password
 volumes:
   pgdata:

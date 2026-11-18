@@ -1,0 +1,102 @@
+:root {
+  color-scheme: light;
+  --color-fondo: #f7f7f5;
+  --color-superficie: #ffffff;
+  --color-superficie-2: #efefec;
+  --color-texto: #1c1f23;
+  --color-texto-secundario: #4a5059;
+  --color-borde: #c9ccd1;
+  --color-borde-control: #7d838c;
+  --color-acento: #1d4f91;
+  --color-acento-contraste: #ffffff;
+  --color-foco: #1d4f91;
+  --color-error: #a3242b;
+  --color-error-fondo: #fbeeee;
+  --estado-respuesta: #1e6b45;
+  --estado-respuesta-fondo: #edf6f0;
+  --estado-abstencion: #4a5059;
+  --estado-abstencion-fondo: #f1f2f4;
+  --estado-revision: #8a4600;
+  --estado-revision-fondo: #fdf1e1;
+  --estado-aclaracion: #4338a3;
+  --estado-aclaracion-fondo: #efeefb;
+
+  --fuente-texto: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", "Helvetica Neue", Arial, sans-serif;
+  --fuente-mono: ui-monospace, "Cascadia Code", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --texto-xs: 0.75rem;
+  --texto-sm: 0.875rem;
+  --texto-base: 1rem;
+  --texto-lg: 1.125rem;
+  --texto-xl: 1.25rem;
+  --texto-2xl: 1.5rem;
+  --interlinea-texto: 1.55;
+  --interlinea-titulo: 1.25;
+  --peso-normal: 400;
+  --peso-fuerte: 600;
+
+  --espacio-1: 0.25rem;
+  --espacio-2: 0.5rem;
+  --espacio-3: 0.75rem;
+  --espacio-4: 1rem;
+  --espacio-6: 1.5rem;
+  --espacio-8: 2rem;
+  --espacio-12: 3rem;
+  --radio: 4px;
+  --radio-panel: 6px;
+  --borde-fino: 1px;
+  --borde-estado: 2px;
+  --borde-acento: 4px;
+  --ancho-lectura: 60rem;
+  --alto-control: 2.75rem;
+  --sombra-dialogo: 0 8px 24px rgb(0 0 0 / 0.25);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-tema="claro"]) {
+    color-scheme: dark;
+    --color-fondo: #16181b;
+    --color-superficie: #1e2125;
+    --color-superficie-2: #262a2f;
+    --color-texto: #e6e7e9;
+    --color-texto-secundario: #a9afb8;
+    --color-borde: #3d434b;
+    --color-borde-control: #767d87;
+    --color-acento: #8fb6ec;
+    --color-acento-contraste: #16181b;
+    --color-foco: #8fb6ec;
+    --color-error: #f19a9f;
+    --color-error-fondo: #2e1c1e;
+    --estado-respuesta: #7fcfa3;
+    --estado-respuesta-fondo: #17291f;
+    --estado-abstencion: #b4bac3;
+    --estado-abstencion-fondo: #23262b;
+    --estado-revision: #f2b46b;
+    --estado-revision-fondo: #2f2214;
+    --estado-aclaracion: #b3abf2;
+    --estado-aclaracion-fondo: #22203a;
+  }
+}
+
+:root[data-tema="oscuro"] {
+  color-scheme: dark;
+  --color-fondo: #16181b;
+  --color-superficie: #1e2125;
+  --color-superficie-2: #262a2f;
+  --color-texto: #e6e7e9;
+  --color-texto-secundario: #a9afb8;
+  --color-borde: #3d434b;
+  --color-borde-control: #767d87;
+  --color-acento: #8fb6ec;
+  --color-acento-contraste: #16181b;
+  --color-foco: #8fb6ec;
+  --color-error: #f19a9f;
+  --color-error-fondo: #2e1c1e;
+  --estado-respuesta: #7fcfa3;
+  --estado-respuesta-fondo: #17291f;
+  --estado-abstencion: #b4bac3;
+  --estado-abstencion-fondo: #23262b;
+  --estado-revision: #f2b46b;
+  --estado-revision-fondo: #2f2214;
+  --estado-aclaracion: #b3abf2;
+  --estado-aclaracion-fondo: #22203a;
+}
