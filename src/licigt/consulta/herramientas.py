@@ -5,6 +5,8 @@ from typing import Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict, StrictBool, ValidationError
 
+from licigt.ingesta.pipeline import SUSPICIOUS
+
 from .esquemas import (
     BuscarDocumentosParams, Categoria, CompararVersionesParams, ExtraerRequisitosParams, NombreHerramienta,
 )
@@ -111,6 +113,30 @@ def _aviso_cobertura(alerta: Alerta) -> str:
     return f"cobertura_incompleta: {alerta.doc_id} {detalle}"
 
 
+def _es_sospechoso(fragmento: FragmentoRecuperado) -> bool:
+    """La sección cuenta con el texto: un encabezado inyectado se hereda al fragmento que le sigue."""
+    return bool(SUSPICIOUS.search((fragmento.seccion or "") + "\n" + fragmento.texto))
+
+
+def _quitar_sospechosos(fragmentos: list[FragmentoRecuperado]):
+    """Segunda barrera contra instrucciones incrustadas: separa los fragmentos que coinciden con SUSPICIOUS de la ingesta.
+
+    Devuelve (los limpios, un aviso por chunk_id sospechoso); el texto del fragmento no sale de aquí."""
+    limpios = [f for f in fragmentos if not _es_sospechoso(f)]
+    avisos = [f"fragmento_sospechoso:{f.chunk_id}" for f in fragmentos if _es_sospechoso(f)]
+    return limpios, list(dict.fromkeys(avisos))
+
+
+def _depurar(busqueda: ResultadoBusqueda):
+    """Búsqueda sin los fragmentos sospechosos y sus avisos; si el de mayor puntaje era sospechoso, ya no es suficiente.
+
+    El rol 2 dio por buena la búsqueda por ese fragmento: lo que queda no se puede presumir suficiente."""
+    limpios, avisos = _quitar_sospechosos(busqueda.fragmentos)
+    principal = max(busqueda.fragmentos, key=lambda f: f.score, default=None)
+    suficiente = busqueda.suficiente and not (principal is not None and _es_sospechoso(principal))
+    return busqueda.model_copy(update={"fragmentos": limpios, "suficiente": suficiente}), avisos
+
+
 def _interpretar(alertas: list[Alerta]):
     """Traduce las alertas del rol 2 a revisión humana, cobertura y advertencias cortas."""
     revisar, parcial, avisos = False, False, []
@@ -141,7 +167,10 @@ def buscar_documentos(ctx, params: BuscarDocumentosParams,
         return _fallo("buscar_documentos", params.evento_id, "contrato_invalido")
 
     revisar, parcial, avisos = _interpretar(resultado.alertas)
+    resultado, sospechosos = _depurar(resultado)
     fragmentos = resultado.fragmentos
+    avisos.extend(sospechosos)
+    revisar = revisar or bool(sospechosos)
     if params.tipo_documento is not None:
         # doc_id conserva el cambio, incluido_por los añadidos y chunk_ids_afectados las bases.
         en_conflicto = {a.doc_id for a in resultado.alertas if a.tipo == "posible_conflicto"}
@@ -181,6 +210,15 @@ def comparar_versiones(ctx, params: CompararVersionesParams,
         if not pedidos <= {d.doc_id for d in documentos}:
             return _fallo("comparar_versiones", params.evento_id, "documento_fuera_del_evento")
         documentos = [d for d in documentos if d.doc_id in pedidos]
+    sospechosos = []
+    for i, documento in enumerate(documentos):
+        limpios, avisados = _quitar_sospechosos(documento.fragmentos)
+        documentos[i] = documento.model_copy(update={"fragmentos": limpios})
+        sospechosos.extend(avisados)
+    busqueda, avisados = _depurar(busqueda)
+    sospechosos = list(dict.fromkeys([*sospechosos, *avisados]))
+    avisos.extend(sospechosos)
+    revisar = revisar or bool(sospechosos)
     documentos = [d for d in documentos if d.fragmentos]
     revisar = revisar or any(d.tipo_documento in ("modificacion", "aclaracion") for d in documentos)
     if len(documentos) < 2:
@@ -202,16 +240,19 @@ def extraer_requisitos(ctx, params: ExtraerRequisitosParams, recuperador: Recupe
     # La pregunta del usuario va primero y sin categoría: sus fragmentos no se etiquetan como requisito de una.
     if params.pregunta is not None:
         consultas.insert(0, (None, params.pregunta))
-    resultados, categorias = [], {}
+    resultados, categorias, sospechosos = [], {}, []
     for categoria, consulta in [*consultas, (None, CONSULTA_CRONOGRAMA)]:
         try:
             crudo = recuperador.buscar(ctx, params.evento_id, consulta, variante="mejorada", k=5)
         except Exception:
             return _fallo("extraer_requisitos", params.evento_id, "falla_recuperacion")
         try:
-            resultados.append(ResultadoBusqueda.model_validate(crudo))
+            busqueda = ResultadoBusqueda.model_validate(crudo)
         except ValidationError:
             return _fallo("extraer_requisitos", params.evento_id, "contrato_invalido")
+        busqueda, avisados = _depurar(busqueda)
+        sospechosos.extend(avisados)
+        resultados.append(busqueda)
         if categoria is not None:
             for fragmento in resultados[-1].fragmentos:
                 categorias.setdefault(fragmento.chunk_id, categoria)
@@ -223,6 +264,9 @@ def extraer_requisitos(ctx, params: ExtraerRequisitosParams, recuperador: Recupe
         for alerta in resultado.alertas:
             alertas.setdefault((alerta.tipo, alerta.doc_id), alerta)
     revisar, parcial, avisos = _interpretar(list(alertas.values()))
+    sospechosos = list(dict.fromkeys(sospechosos))
+    avisos.extend(sospechosos)
+    revisar = revisar or bool(sospechosos)
     conflicto = any(a.tipo == "posible_conflicto" for a in alertas.values())
     por_documento = {}
     for resultado in resultados:

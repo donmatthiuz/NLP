@@ -77,6 +77,9 @@ def _conflictos(busquedas, fragmentos):
     afectados = set()
     for crudo in busquedas:
         busqueda = ResultadoBusqueda.model_validate(crudo)
+        # Solo ids de los fragmentos crudos: descartar uno sospechoso no cambia a qué documento pertenece el afectado.
+        for f in busqueda.fragmentos:
+            por_chunk.setdefault(f.chunk_id, f.doc_id)
         for alerta in busqueda.alertas:
             if alerta.tipo == "posible_conflicto":
                 afectados.update(alerta.chunk_ids_afectados)
@@ -90,10 +93,11 @@ def _conflictos(busquedas, fragmentos):
 
 
 def _abstencion(evento_id, resultado=None, aviso=None, herramienta=None, conflicto=False):
-    """Revisión humana en una abstención solo si la herramienta trajo un posible_conflicto; la vigencia aplica al publicar."""
+    """Revisión humana en una abstención solo si la herramienta trajo un posible_conflicto o un fragmento sospechoso; la vigencia aplica al publicar."""
     avisos = list(resultado.warnings) if resultado else []
     if aviso and aviso not in avisos:
         avisos.append(aviso)
+    conflicto = conflicto or any(a.startswith("fragmento_sospechoso:") for a in avisos)
     return RespuestaEstructurada(
         answer=TEXTO_ABSTENCION, sources=[], abstained=True,
         tool_used=resultado.herramienta if resultado else herramienta, evento_id=evento_id,

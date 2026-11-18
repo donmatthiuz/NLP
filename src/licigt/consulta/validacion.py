@@ -440,8 +440,9 @@ def validar(salida_cruda: str, evidencia: dict[str, FragmentoRecuperado],
                    needs_human_review=resultado.needs_human_review or salida.revision_humana,
                    coverage_status=resultado.coverage_status, warnings=resultado.warnings)
     if salida.abstener:
-        # En una abstención solo un posible_conflicto de la herramienta pide revisión humana.
-        comunes["needs_human_review"] = bool(conflictos)
+        # En una abstención solo un posible_conflicto o un fragmento sospechoso de la herramienta piden revisión humana.
+        comunes["needs_human_review"] = bool(conflictos) or any(
+            w.startswith("fragmento_sospechoso:") for w in resultado.warnings)
         return RespuestaEstructurada(answer=TEXTO_ABSTENCION, sources=[], abstained=True, **comunes)
     if not salida.afirmaciones:
         return [ErrorValidacion(codigo="sin_afirmaciones")]

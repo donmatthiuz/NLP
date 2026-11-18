@@ -7,6 +7,8 @@ from typing import Literal, Protocol, runtime_checkable
 
 from pydantic import BaseModel, ConfigDict, ValidationError, field_validator
 
+from licigt.ingesta.pipeline import SUSPICIOUS
+
 from .lectura import FragmentoRecuperado, fuente_desde_fragmento
 from .lista import CambioLista, Estado, ItemLista, ItemPropuesto, caracter_de_seccion, huella
 from .validacion import _original, normalizar_cita
@@ -126,6 +128,9 @@ def _fuente_vigente(item: ItemPropuesto, fragmento: FragmentoRecuperado | None) 
     """La fuente coincide con el fragmento del evento y su cita sigue siendo un tramo literal del texto."""
     fuente = item.fuentes[0]
     if fragmento is None or fuente_desde_fragmento(fragmento, fuente.cita) != fuente:
+        return False
+    # Un fragmento que la ingesta marcaría hoy no respalda un ítem, aunque la cita sea literal.
+    if SUSPICIOUS.search((fragmento.seccion or "") + "\n" + fragmento.texto):
         return False
     literal = normalizar_cita(fuente.cita)
     if len(literal) < LARGO_MINIMO_CITA or sum(c.isalnum() for c in literal) < LARGO_MINIMO_CITA:
