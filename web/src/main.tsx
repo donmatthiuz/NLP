@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App'
+import './estilos/tema.css'
 import './estilos/variables.css'
 import './estilos/base.css'
 

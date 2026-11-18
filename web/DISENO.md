@@ -1,13 +1,13 @@
 # Contrato de diseño de la interfaz web de LiciGT
 
-Parte F6a del [encargo F6](../docs/consulta/delegacion/F6_interfaz_web.md). Fija la página de consulta antes de escribir código: zonas, estados, componentes, variables CSS, accesibilidad y un boceto por estado. F6b la implementa y `design-ui-finish-gate-reviewer` la valida contra este archivo en F6e. Requisitos de origen: [`DESIGN.md`](../DESIGN.md) (sección "Interfaz de usuario"), [I3](../docs/consulta/investigacion/I3_lista_e_interfaz.md) (preguntas 3, 4 y 5), [`AGENTS.md`](../AGENTS.md) ("Reglas que no se negocian") y `src/licigt/consulta/esquemas.py` (`Fuente` y `RespuestaEstructurada`).
+Parte F6a del [encargo F6](../docs/consulta/delegacion/F6_interfaz_web.md), con la base de componentes actualizada en W2 ([encargo W2](../docs/consulta/delegacion/W2_rediseno_con_shadcn.md)). Fija la página de consulta antes de escribir código: zonas, estados, componentes, variables CSS, accesibilidad y un boceto por estado. F6b la implementa y `design-ui-finish-gate-reviewer` la valida contra este archivo en F6e. Requisitos de origen: [`DESIGN.md`](../DESIGN.md) (sección "Interfaz de usuario"), [I3](../docs/consulta/investigacion/I3_lista_e_interfaz.md) (preguntas 3, 4 y 5), [`AGENTS.md`](../AGENTS.md) ("Reglas que no se negocian") y `src/licigt/consulta/esquemas.py` (`Fuente` y `RespuestaEstructurada`).
 
 ## Carácter de la página
 
 - Herramienta de trabajo para un analista que revisa una licitación, no una página de presentación. Una sola página, una sola columna de lectura, sin imágenes, sin ilustraciones, sin animaciones de entrada ni degradados.
 - La jerarquía la dan el texto, el espaciado y los bordes. El color refuerza el estado, pero nunca es la única señal.
 - Todo el texto de la interfaz está en español y en registro formal ("usted"), como las respuestas del sistema.
-- CSS propio con variables (`web/src/estilos/`), sin librería de componentes ni de utilidades. Sin fuentes externas: la demo debe funcionar sin red hacia CDN.
+- Componentes de shadcn/ui (Radix) y utilidades de Tailwind v4, con el tema de este archivo (ver "Base: Tailwind v4 y shadcn/ui" y "Tema"). Sin fuentes externas: la demo debe funcionar sin red hacia CDN.
 - Ningún texto de la respuesta se interpreta como HTML ni como Markdown: `answer`, `cita`, `warnings` y `clarification_question` se pintan como texto plano (`AGENTS.md`: los fragmentos son datos no confiables).
 
 ## Zonas de la página
@@ -214,42 +214,69 @@ Implementada en F6d sobre `PropuestaLista`, `ItemLista` y las rutas de proponer,
 - **Conflicto (409):** mensaje "Otro usuario cambió este ítem. Recargue la lista antes de guardar." El cambio local no se aplica.
 - **Propuesta:** botón "Proponer lista"; los ítems propuestos llevan una casilla "Incluir" para descartar antes de guardar, enlazada con `aria-describedby` a la cita de su ítem para que se anuncie con él. La cita no se edita.
 
-## Variables CSS
+## Base: Tailwind v4 y shadcn/ui
 
-Archivo `web/src/estilos/variables.css`. El modo claro va en `:root`; el oscuro sigue al sistema salvo que el usuario fije el tema con `data-tema` en `html`. El selector de tema guarda la elección en `localStorage` dentro de `try`/`catch` y, si falla, sigue al sistema. Razón del selector: el proyector de la demo puede verse mejor en claro aunque el equipo esté en oscuro.
+Desde W2 ([encargo](../docs/consulta/delegacion/W2_rediseno_con_shadcn.md)) la interfaz parte de un estándar: shadcn/ui sobre primitivas de Radix y Tailwind CSS v4. Cambia la implementación; las reglas de contenido de este archivo (estados, avisos, fuentes, contraste lado a lado, lista, sesión, accesibilidad) siguen iguales.
+
+- **Paquetes:** `tailwindcss` y `@tailwindcss/vite` 4.3.5; `shadcn` 4.23.0 (CLI y `shadcn/tailwind.css`); `tw-animate-css` 1.4.0; `radix-ui` 1.8.1; `class-variance-authority` 0.7.1; `cn` 0.5.2 (sustituye a `clsx` más `tailwind-merge`); `lucide-react` 1.75.0 (solo los íconos internos de shadcn). Se instalan con `pnpm`; los componentes se añaden con `pnpm dlx shadcn@latest add <nombre>`.
+- **Configuración:**
+  - `components.json`: estilo `radix-nova`, base Radix (no Base UI, que es el valor por defecto de la CLI desde julio de 2026), sin RTL, CSS en `src/estilos/tema.css`;
+  - alias `@/componentes`, `@/componentes/ui`, `@/utilidades` y `@/hooks`. No se usa `src/lib`: el `.gitignore` de la raíz ignora `lib/`;
+  - el alias `@` apunta a `src` en `tsconfig.json`, `tsconfig.app.json` y `vite.config.ts`.
+- **Sin fuentes externas:** se quitó la fuente Geist que trae el preset; la pila es la del sistema (`--font-sans`) y la demo sigue funcionando sin red.
+- **Archivos de estilo:**
+  - `src/estilos/tema.css`: entrada de Tailwind, variante `dark`, tokens en claro y oscuro, mapeo a utilidades (`@theme`) y capa base con las reglas de interacción;
+  - `src/estilos/variables.css` y `src/estilos/base.css`: puente temporal. `variables.css` reexpone los nombres viejos (`--color-fondo`, `--espacio-4`...) sobre las variables de shadcn, sin repetir colores, para que el CSS por bloques siga funcionando hasta la fase B. Al migrar los componentes se borran los dos.
+- **Componentes de `src/componentes/ui/`:** son código propio, no una dependencia. Ya vienen ajustados a este contrato (ver "Reglas de interacción"); si se regenera alguno con la CLI, hay que volver a aplicar esos ajustes.
+
+## Tema
+
+El tema vive en `src/estilos/tema.css`. El modo claro va en `:root`. El oscuro sigue al sistema salvo que el usuario fije el tema con `data-tema` en `html`, y se repite en dos bloques:
+
+- `@media (prefers-color-scheme: dark) { :root:not([data-tema="claro"]) { … } }`;
+- `:root[data-tema="oscuro"] { … }`.
+
+La variante `dark:` de Tailwind se redefine con `@custom-variant` para seguir esa misma regla; no se usa la clase `.dark` de shadcn. El selector de tema (Sistema, Claro, Oscuro) guarda la elección en `localStorage` dentro de `try`/`catch`; si falla, sigue al sistema. `index.html` aplica el tema guardado antes de pintar. Razón del selector: el proyector de la demo puede verse mejor en claro aunque el equipo esté en oscuro.
 
 ### Color
 
-| Variable | Claro | Oscuro | Uso |
-|---|---|---|---|
-| `--color-fondo` | `#f7f7f5` | `#16181b` | fondo de la página |
-| `--color-superficie` | `#ffffff` | `#1e2125` | paneles y tarjetas |
-| `--color-superficie-2` | `#efefec` | `#262a2f` | cita, banda del aviso fijo, metadatos |
-| `--color-texto` | `#1c1f23` | `#e6e7e9` | texto principal |
-| `--color-texto-secundario` | `#4a5059` | `#a9afb8` | metadatos, ayudas |
-| `--color-borde` | `#c9ccd1` | `#3d434b` | separadores decorativos |
-| `--color-borde-control` | `#7d838c` | `#767d87` | bordes de caja, selector y cita (3:1 o más) |
-| `--color-acento` | `#1d4f91` | `#8fb6ec` | botón primario, enlaces |
-| `--color-acento-contraste` | `#ffffff` | `#16181b` | texto sobre el botón primario |
-| `--color-foco` | `#1d4f91` | `#8fb6ec` | anillo de foco |
-| `--color-error` | `#a3242b` | `#f19a9f` | error de conexión |
-| `--color-error-fondo` | `#fbeeee` | `#2e1c1e` | fondo del error |
-| `--estado-respuesta` | `#1e6b45` | `#7fcfa3` | rótulo, ícono y borde |
-| `--estado-respuesta-fondo` | `#edf6f0` | `#17291f` | cabecera del panel |
-| `--estado-abstencion` | `#4a5059` | `#b4bac3` | rótulo, ícono y borde |
-| `--estado-abstencion-fondo` | `#f1f2f4` | `#23262b` | cabecera del panel |
-| `--estado-revision` | `#8a4600` | `#f2b46b` | rótulo, ícono, borde, aviso de cobertura |
-| `--estado-revision-fondo` | `#fdf1e1` | `#2f2214` | banda de revisión |
-| `--estado-aclaracion` | `#4338a3` | `#b3abf2` | rótulo, ícono y borde |
-| `--estado-aclaracion-fondo` | `#efeefb` | `#22203a` | cabecera del panel |
+Cada token del contrato anterior pasa a una variable de shadcn (o a una propia cuando shadcn no la tiene) y a una utilidad de Tailwind. Los valores no cambian.
 
-- `color-scheme: light` en `:root` y `color-scheme: dark` en el modo oscuro, para que los controles nativos sigan el tema.
-- Patrón del modo oscuro: `@media (prefers-color-scheme: dark) { :root:not([data-tema="claro"]) { … } }` y el mismo bloque en `:root[data-tema="oscuro"]`. `body` declara `background: var(--color-fondo)` y `color: var(--color-texto)`.
-- Ningún componente usa un color literal: todo sale de estas variables.
+| Token anterior | Variable de tema | Utilidad | Claro | Oscuro | Uso |
+|---|---|---|---|---|---|
+| `--color-fondo` | `--background` | `bg-background` | `#f7f7f5` | `#16181b` | fondo de la página |
+| `--color-superficie` | `--card`, `--popover` | `bg-card` | `#ffffff` | `#1e2125` | paneles, tarjetas y controles |
+| `--color-superficie-2` | `--muted`, `--secondary`, `--accent` | `bg-muted` | `#efefec` | `#262a2f` | cita, aviso fijo, etiquetas |
+| `--color-texto` | `--foreground` (y sus `-foreground`) | `text-foreground` | `#1c1f23` | `#e6e7e9` | texto principal |
+| `--color-texto-secundario` | `--muted-foreground` | `text-muted-foreground` | `#4a5059` | `#a9afb8` | metadatos, ayudas |
+| `--color-borde` | `--border` | `border-border` | `#c9ccd1` | `#3d434b` | separadores y borde de tarjeta, decorativos |
+| `--color-borde-control` | `--input` | `border-input` | `#7d838c` | `#767d87` | bordes de caja, selector, casilla y cita (3:1 o más) |
+| `--color-acento` | `--primary` | `bg-primary`, `text-primary` | `#1d4f91` | `#8fb6ec` | botón primario, enlaces |
+| `--color-acento-contraste` | `--primary-foreground` | `text-primary-foreground` | `#ffffff` | `#16181b` | texto sobre el botón primario |
+| `--color-foco` | `--ring` | `outline-ring` | `#1d4f91` | `#8fb6ec` | anillo de foco |
+| `--color-error` | `--destructive` | `text-destructive` | `#a3242b` | `#f19a9f` | error de conexión |
+| `--color-error-fondo` | `--destructive-fondo` | `bg-destructive-fondo` | `#fbeeee` | `#2e1c1e` | fondo del error |
+| `--estado-respuesta` | `--estado-respuesta` | `text-estado-respuesta` | `#1e6b45` | `#7fcfa3` | rótulo, ícono y borde |
+| `--estado-respuesta-fondo` | `--estado-respuesta-fondo` | `bg-estado-respuesta-fondo` | `#edf6f0` | `#17291f` | cabecera del panel |
+| `--estado-abstencion` | `--estado-abstencion` | `text-estado-abstencion` | `#4a5059` | `#b4bac3` | rótulo, ícono y borde |
+| `--estado-abstencion-fondo` | `--estado-abstencion-fondo` | `bg-estado-abstencion-fondo` | `#f1f2f4` | `#23262b` | cabecera del panel |
+| `--estado-revision` | `--estado-revision` | `text-estado-revision` | `#8a4600` | `#f2b46b` | rótulo, ícono, borde, aviso de cobertura |
+| `--estado-revision-fondo` | `--estado-revision-fondo` | `bg-estado-revision-fondo` | `#fdf1e1` | `#2f2214` | banda de revisión |
+| `--estado-aclaracion` | `--estado-aclaracion` | `text-estado-aclaracion` | `#4338a3` | `#b3abf2` | rótulo, ícono y borde |
+| `--estado-aclaracion-fondo` | `--estado-aclaracion-fondo` | `bg-estado-aclaracion-fondo` | `#efeefb` | `#22203a` | cabecera del panel |
+| (nuevo) | `--primary-hover` | `bg-primary-hover` | `#173f74` | `#adc9f1` | botón primario con el puntero encima |
+| (nuevo) | `--primary-active` | `bg-primary-active` | `#12315a` | `#c8dbf6` | botón primario pulsado |
+| (nuevo) | `--muted-hover` | `bg-muted-hover` | `#e7e7e3` | `#2c3036` | botón secundario, selector y casilla con el puntero encima |
+| (nuevo) | `--muted-active` | `bg-muted-active` | `#d8d8d3` | `#353a41` | botón secundario pulsado |
+
+- `--accent` de shadcn es un fondo de realce neutro (igual a `--muted`), no nuestro acento azul: el azul es `--primary`.
+- Los colores de `hover` y `active` son hex explícitos, no opacidades (`bg-primary/80`) ni `color-mix`, para que su contraste se pueda medir.
+- `color-scheme: light` en `:root` y `color-scheme: dark` en el modo oscuro, para que los controles nativos sigan el tema. `body` usa `bg-background text-foreground`.
+- Ningún componente usa un color literal ni una utilidad de la paleta de Tailwind (`bg-blue-600`, `text-gray-500`): todo sale de estas variables.
 
 ### Contraste medido (WCAG 2.1, fórmula de luminancia relativa)
 
-Calculado sobre los valores de la tabla; F6e lo vuelve a comprobar sobre la página corriendo.
+Calculado sobre los valores de la tabla; la compuerta lo vuelve a comprobar sobre la página corriendo.
 
 | Par | Claro | Oscuro |
 |---|---|---|
@@ -259,81 +286,148 @@ Calculado sobre los valores de la tabla; F6e lo vuelve a comprobar sobre la pág
 | texto secundario sobre superficie 2 | 7.1 | 6.5 |
 | acento sobre superficie | 8.1 | 7.8 |
 | texto del botón primario sobre acento | 8.1 | 8.5 |
+| texto del botón primario sobre `--primary-hover` | 10.5 | 10.5 |
+| texto del botón primario sobre `--primary-active` | 13.0 | 12.6 |
+| texto sobre `--muted-hover` | 13.3 | 10.7 |
+| texto sobre `--muted-active` | 11.6 | 9.3 |
 | estado respuesta sobre su fondo | 5.9 | 8.3 |
 | estado abstención sobre su fondo | 7.3 | 7.8 |
 | estado revisión sobre su fondo | 6.4 | 8.5 |
 | estado aclaración sobre su fondo | 7.8 | 7.5 |
 | error sobre su fondo | 6.5 | 7.6 |
 | borde de control sobre superficie | 3.8 | 3.9 |
+| borde de control sobre `--muted-hover` | 3.1 | 3.2 |
 | foco sobre fondo | 7.6 | 8.5 |
+| foco sobre superficie 2 | 7.1 | 6.9 |
 
-Todo el texto supera 4.5:1 (AA) y los bordes de controles y el foco superan 3:1 (contraste de elementos no textuales). `--color-borde` (1.6:1) solo se usa en separadores decorativos, nunca como único límite de un control.
+Todo el texto supera 4.5:1 (AA) y los bordes de controles y el foco superan 3:1 (contraste de elementos no textuales). `--border` (1.6:1) solo se usa en separadores y bordes decorativos, nunca como único límite de un control. Los controles deshabilitados bajan a opacidad 0.6; WCAG los exime del mínimo y el texto que explica por qué están deshabilitados va aparte, con contraste completo.
 
 ### Tipografía
 
-| Variable | Valor | Uso |
-|---|---|---|
-| `--fuente-texto` | `system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", "Helvetica Neue", Arial, sans-serif` | todo el texto |
-| `--fuente-mono` | `ui-monospace, "Cascadia Code", "SFMono-Regular", Consolas, "Liberation Mono", monospace` | `chunk_id`, códigos de aviso |
-| `--texto-xs` | `0.75rem` (12 px) | no se usa para contenido; solo contadores |
-| `--texto-sm` | `0.875rem` (14 px) | metadatos, códigos, ayudas |
-| `--texto-base` | `1rem` (16 px) | cuerpo, citas, títulos de tarjeta |
-| `--texto-lg` | `1.125rem` (18 px) | texto de `answer` y de la aclaración |
-| `--texto-xl` | `1.25rem` (20 px) | rótulo del estado (`h2`) |
-| `--texto-2xl` | `1.5rem` (24 px) | nombre "LiciGT" en el encabezado |
-| `--interlinea-texto` | `1.55` | cuerpo y citas |
-| `--interlinea-titulo` | `1.25` | títulos |
-| `--peso-normal` / `--peso-fuerte` | `400` / `600` | sin otros pesos |
+La escala de Tailwind coincide con la del contrato, así que no se redefine: solo se fijan las familias y las interlineas.
 
-- Tamaños en `rem`, nunca en px fijos, para respetar el tamaño de letra del navegador.
-- Longitud de línea de `answer` y de las citas: máximo `70ch`.
-- Números de página y versiones con `font-variant-numeric: tabular-nums`.
+| Token anterior | Utilidad | Valor | Uso |
+|---|---|---|---|
+| `--fuente-texto` | `font-sans` (`--font-sans`) | `system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", "Helvetica Neue", Arial, sans-serif` | todo el texto |
+| `--fuente-mono` | `font-mono` (`--font-mono`) | `ui-monospace, "Cascadia Code", "SFMono-Regular", Consolas, "Liberation Mono", monospace` | `chunk_id`, códigos de aviso |
+| `--texto-xs` | `text-xs` | `0.75rem` (12 px) | no se usa para contenido; solo contadores |
+| `--texto-sm` | `text-sm` | `0.875rem` (14 px) | metadatos, códigos, ayudas, etiquetas |
+| `--texto-base` | `text-base` | `1rem` (16 px) | cuerpo, citas, controles, títulos de tarjeta (`h3`) |
+| `--texto-lg` | `text-lg` | `1.125rem` (18 px) | texto de `answer` y de la aclaración |
+| `--texto-xl` | `text-xl` | `1.25rem` (20 px) | `h2`: rótulo del estado y títulos de sección |
+| `--texto-2xl` | `text-2xl` | `1.5rem` (24 px) | `h1`: nombre "LiciGT" |
+| `--interlinea-texto` | `leading-texto` | `1.55` | cuerpo y citas |
+| `--interlinea-titulo` | `leading-titulo` | `1.25` | títulos, botones, etiquetas |
+| `--peso-normal` / `--peso-fuerte` | `font-normal` / `font-semibold` | `400` / `600` | sin otros pesos: no se usa `font-medium` ni `font-bold` |
+
+- Tamaños en `rem`, nunca en px fijos, para respetar el tamaño de letra del navegador. Los controles no bajan a `text-sm` en escritorio (shadcn lo hace con `md:text-sm`; aquí se quitó).
+- La capa base da tamaño y peso a `h1` (2xl), `h2` (xl) y `h3` (base), porque la preflight de Tailwind los deja sin estilo.
+- Longitud de línea de `answer` y de las citas: máximo `70ch` (`max-w-[70ch]`).
+- Números de página y versiones con `tabular-nums` (lo pone `body`).
 
 ### Espaciado, bordes y medidas
 
-| Variable | Valor |
-|---|---|
-| `--espacio-1` | `0.25rem` (4 px) |
-| `--espacio-2` | `0.5rem` (8 px) |
-| `--espacio-3` | `0.75rem` (12 px) |
-| `--espacio-4` | `1rem` (16 px) |
-| `--espacio-6` | `1.5rem` (24 px) |
-| `--espacio-8` | `2rem` (32 px) |
-| `--espacio-12` | `3rem` (48 px) |
-| `--radio` | `4px` (controles, citas) |
-| `--radio-panel` | `6px` (paneles y tarjetas) |
-| `--borde-fino` | `1px` |
-| `--borde-estado` | `2px` (borde completo del panel) |
-| `--borde-acento` | `4px` (borde izquierdo de respuesta y de cobertura parcial) |
-| `--ancho-lectura` | `60rem` |
-| `--alto-control` | `2.75rem` (44 px) |
+La escala de espacio de Tailwind (`--spacing: 0.25rem`) coincide con la del contrato: `--espacio-N` es la utilidad `p-N`, `gap-N`, `m-N`.
 
-- Sin sombras salvo una sola, `--sombra-dialogo`, para el modal de confirmación de F6d.
-- Transiciones: solo color y fondo, `120ms`, y ninguna con `prefers-reduced-motion: reduce`.
-
-## Componentes y nombres
-
-Clases en español, con el patrón bloque y elemento (`.fuente`, `.fuente__cita`) y estado por atributo (`data-estado`, `aria-*`), no por clase de color.
-
-| Componente | Bloque | Notas |
+| Token anterior | Utilidad | Valor |
 |---|---|---|
-| Aviso de modo | `.aviso-modo` | fondo `--color-superficie-2`, texto `--texto-sm`, borde inferior |
-| Encabezado | `.encabezado` | no es fijo al desplazar |
-| Formulario | `.consulta` | `textarea` de 3 filas, `maxlength="500"`, contador con `aria-live="polite"` solo al pasar de 450 |
-| Botón primario | `.boton` | fondo `--color-acento`, alto `--alto-control`; deshabilitado con opacidad y cursor, sin perder el texto |
-| Botón secundario | `.boton.boton--secundario` | fondo transparente, borde `--color-borde-control` |
-| Aviso fijo | `.aviso-fijo` | fondo `--color-superficie-2`, borde izquierdo de 4 px `--color-borde-control`, ícono de información, `--texto-sm` en peso 600 |
-| Panel de resultado | `.resultado[data-estado]` | cabecera con fondo del estado, cuerpo con `--color-superficie` |
-| Banda de revisión | `.banda-revision` | ver "Panel de revisión humana" |
-| Avisos | `.avisos`, `.aviso-cobertura` | ver "Avisos de cobertura y advertencias" |
-| Tarjeta de fuente | `.fuente` | borde `--borde-fino` `--color-borde`, radio `--radio-panel` |
-| Contraste | `.contraste`, `.contraste__columna` | rejilla `repeat(auto-fit, minmax(18rem, 1fr))` |
-| Error | `.error-consulta` | borde sólido `--color-error`, fondo `--color-error-fondo` |
-| Lista (F6d) | `.lista`, `.item-lista`, `dialog.confirmacion` | ver "Lista de verificación" |
-| Documentos | `.documentos`, `.documento` | ver "Documentos del evento" |
-| Etiqueta | `.etiqueta` | `--texto-sm`; `--texto-xs` queda solo para contadores |
+| `--espacio-1` | `*-1` | `0.25rem` (4 px) |
+| `--espacio-2` | `*-2` | `0.5rem` (8 px) |
+| `--espacio-3` | `*-3` | `0.75rem` (12 px) |
+| `--espacio-4` | `*-4` | `1rem` (16 px) |
+| `--espacio-6` | `*-6` | `1.5rem` (24 px) |
+| `--espacio-8` | `*-8` | `2rem` (32 px) |
+| `--espacio-12` | `*-12` | `3rem` (48 px) |
+| `--radio` | `rounded-lg` (`--radius`) | `4px` (controles, citas, avisos, etiquetas) |
+| `--radio-panel` | `rounded-xl` (`--radius-panel`) | `6px` (paneles y tarjetas) |
+| `--borde-fino` | `border` | `1px` |
+| `--borde-estado` | `border-2` | `2px` (borde completo del panel) |
+| `--borde-acento` | `border-l-4` | `4px` (borde izquierdo de respuesta, aviso fijo y cobertura parcial) |
+| (cita) | `border-l-3` | `3px` |
+| `--ancho-lectura` | `max-w-lectura` | `60rem` |
+| `--alto-control` | `min-h-11` | `2.75rem` (44 px) |
+| `--sombra-dialogo` | `shadow-dialogo` | `0 8px 24px rgb(0 0 0 / 0.25)` |
 
-Pruebas de la web: Vitest sobre la lógica pura (`estado`, `lista`, `cobertura`) y sobre el HTML de las fuentes, la lista, el panel y el resultado con `renderToStaticMarkup`; el resto se valida con `tsc`, el build y la compuerta de F6e contra este archivo.
+- Puntos de corte: `sm:` es `40rem` y `lg:` es `64rem`, los dos de "Rejilla y ancho". No se usan `md:`, `xl:` ni `2xl:`.
+- Sin sombras salvo `shadow-dialogo`, para el modal de confirmación. Las tarjetas de shadcn traían `ring-1`; aquí llevan borde.
+- Transiciones: solo color y fondo (`transition-colors`), y ninguna con `prefers-reduced-motion: reduce` (la capa base las anula). El desplazamiento de 1 px al pulsar un botón va con `motion-safe:`.
+
+## Reglas de interacción
+
+Viven en la capa base de `tema.css` y en los componentes de `src/componentes/ui/`. Valen para todo lo que se pulsa, sea componente de shadcn o elemento nativo.
+
+| Estado | Regla |
+|---|---|
+| Cursor | Mano (`pointer`) en botones habilitados, `role="button"`, `role="radio"`, `role="checkbox"`, enlaces con `href`, `select`, `summary`, casillas y radios nativos y la `label` que los envuelve. Texto (`text`) en cajas de texto. `not-allowed` en `:disabled`, `aria-disabled="true"`, `data-disabled` y en la `label` de un control deshabilitado. |
+| `hover` | Primario: fondo `--primary-hover`. Secundario (`outline`), fantasma, selector y casilla: fondo `--muted-hover`. Enlace: subrayado de 2 px. Solo si el control no está deshabilitado (`hover:not-disabled:`), y Tailwind lo limita a dispositivos con puntero (`@media (hover: hover)`). |
+| `focus-visible` | Contorno sólido de 3 px en `--ring` con separación de 2 px, en todo control y enlace, por la capa base. Con `forced-colors: active`, el contorno usa `Highlight`. Ningún componente usa `outline-none` ni el anillo translúcido de shadcn (`ring-ring/50`, que no llega a 3:1). Los `h2` que reciben el foco por programa (`tabindex="-1"`) lo muestran igual con teclado. |
+| `active` | Primario: fondo `--primary-active`. Secundario y fantasma: fondo `--muted-active`. Botones: bajan 1 px (`motion-safe:active:translate-y-px`). |
+| `disabled` | Opacidad 0.6 y cursor `not-allowed`, sin `pointer-events: none` (shadcn lo trae; se quitó para que el cursor se vea). El texto del botón no cambia ni desaparece; si la causa es el rol, la explicación va en texto visible debajo. |
+
+- **Tamaño de objetivo:** botones, cajas, selectores y opciones de estado con alto mínimo de 44 px (`min-h-11`). Casillas y radios de 20 px (`size-5`) con zona de toque ampliada por `::after`, dentro de una `label` de 44 px.
+- **Texto que no desborda:** los botones permiten partir la línea (sin `whitespace-nowrap`) y crecen en alto; `doc_id`, `chunk_id` y URL cortan con `wrap-anywhere`.
+- **`Alert` sin `role` fijo:** el `Alert` de shadcn pone `role="alert"` siempre; aquí se quitó, porque el aviso fijo y el de cobertura no son alertas y no deben anunciarse cada vez. Quien lo use pone `role="alert"` solo en los errores que hoy lo llevan (inicio de sesión, documentos, aviso de la lista).
+
+## Componentes: mapa a shadcn/ui
+
+Componentes instalados en `src/componentes/ui/`: `button`, `input`, `textarea`, `label`, `native-select`, `checkbox`, `radio-group`, `card`, `badge`, `alert` y `separator`. No se instalan:
+
+- `tooltip`: este contrato prohíbe que el estado o un aviso vivan solo en un tooltip, y nada lo necesita;
+- `dialog`: la confirmación sigue siendo el `dialog` modal nativo (foco al título, atrapado, vuelta al botón de origen, `Escape` cancela), con el aspecto de una tarjeta.
+
+Variantes propias, que sustituyen a las de shadcn que no se usan:
+
+- `Button`: `default` (primario), `outline` (secundario), `ghost` y `link`; tamaños `default` (`px-6`), `sm` (`px-4`, mismo alto) e `icon`.
+- `Badge`: `default` (`.etiqueta`), `aviso` (`.etiqueta--aviso`) y `suave` (`.etiqueta--suave`).
+- `Alert`: `default`, `neutro` (aviso fijo), `revision` (cobertura parcial) y `destructive` (errores).
+- `Card`: acepta `asChild` para ser el `article` de una fuente o la `section` de una columna o del resultado.
+
+| Componente nuestro | Bloque actual | Base de shadcn | Notas para la fase B |
+|---|---|---|---|
+| Aviso de modo | `.aviso-modo` | utilidades (`bg-muted text-sm border-b`) | banda, no es un `Alert` |
+| Encabezado | `.encabezado` | utilidades, `Button variant="outline"` para "Cerrar sesión" | no es fijo al desplazar |
+| Selector de tema (`Tema.tsx`) | `.tema` | `Label` + `NativeSelect` | se queda nativo: tres opciones y teclado del sistema; misma lógica de `localStorage` |
+| Selector de ejemplo | `.campo select` | `Label` + `NativeSelect` a todo el ancho | solo en modo ejemplos |
+| Caja de pregunta | `.consulta textarea` | `Label` + `Textarea` (`rows={3}`, `maxLength={500}`) | contador en `text-xs`, con `aria-describedby` |
+| Botón primario | `.boton` | `Button` | "Consultar", "Iniciar sesión", "Guardar…", "Confirmar y guardar" |
+| Botón secundario | `.boton--secundario` | `Button variant="outline"` | "Escribir la aclaración", "Proponer lista", "Cancelar", "Cerrar sesión" |
+| Aviso fijo | `.aviso-fijo` | `Alert variant="neutro"` + `IconoInfo`, `text-sm font-semibold` | sin `role`; nunca se cierra |
+| Panel de resultado | `.resultado[data-estado]` | `Card asChild` sobre `section` | `data-estado` sigue siendo el único gancho: `data-[estado=revision]:border-estado-revision`, etc.; cabecera con el fondo del estado |
+| Rótulo de estado | `h2` + `IconoEstado` | `CardHeader` | íconos propios de `Iconos.tsx` (las formas son parte del contrato), no de lucide |
+| Banda de revisión | `.banda-revision` | utilidades (`bg-estado-revision-fondo border-b-2`) | a todo el ancho del panel; no es un `Alert` |
+| Metadatos | `.metadatos` (`dl`) | utilidades | se mantiene el `dl` |
+| Aviso de cobertura | `.aviso-cobertura` | `Alert variant="revision"` + `IconoCobertura` | sin `role` |
+| Lista de `warnings` | `.avisos__lista` | utilidades | texto original en `font-mono text-sm` |
+| Tarjeta de fuente | `.fuente` | `Card asChild` sobre `article` | `CardTitle` como `h3`; cita en `blockquote` con `border-l-3 border-input bg-muted` |
+| Enlaces al original | `.fuente__origen a` | `a` nativo (o `Button variant="link" asChild`) | los rótulos y atributos no cambian |
+| Contraste lado a lado | `.contraste`, `.contraste__columna` | rejilla (`sm:grid-cols-[repeat(auto-fit,minmax(18rem,1fr))]`) + `Card asChild` sobre `section` | las dos columnas con la misma variante y el mismo peso |
+| Error de consulta | `.error-consulta` | `Alert variant="destructive"` con su `h2` | la consulta sigue disponible |
+| Inicio de sesión | `.sesion` | `Label` + `Input` + `Button`; error con `Alert variant="destructive" role="alert"` | ancho máximo 24 rem |
+| Documentos del evento | `.documentos`, `.documento` | `Card` por documento; `Badge` para tipo, versión y "Falta información" (`aviso`) | con faltantes: `border-2 border-estado-revision bg-estado-revision-fondo` |
+| Ítem de la lista | `.item-lista` | `Card` | con revisión: borde `estado-revision` |
+| Rótulos del ítem | `.etiqueta` | `Badge` (`default`, `aviso`, `suave`) | "Sin guardar" es `aviso` |
+| Casilla "Incluir" | `.incluir input` | `Label` + `Checkbox` | ver "Notas de Radix" debajo de la tabla |
+| Estados del ítem | `.estados`, `.estados__opcion` | `RadioGroup` + `RadioGroupItem`, cada opción en una `Label` con borde de 44 px | ícono de estado (`IconoItem`) y texto; la opción activa con `border-2 border-foreground` |
+| Avisos de la lista | `.lista__aviso` | `Alert variant="destructive"` o `"revision"` (conflicto 409), con `role="alert"` | |
+| Confirmación | `dialog.confirmacion` | `dialog` nativo con clases de tarjeta (`bg-card border-2 rounded-xl shadow-dialogo`) + `Button` | sin `Dialog` de Radix |
+| Separadores | bordes de `.encabezado` y `.pie` | `Separator` donde no haya un contenedor con borde | decorativo (`--border`) |
+| Pie | `.pie` | utilidades (`text-sm text-muted-foreground`) | |
+
+Notas de Radix para la fase B:
+
+- `Checkbox` y `RadioGroupItem` pintan un `<button>` con `role="checkbox"` o `role="radio"`, no un `<input>`. El `aria-describedby` hacia la cita se pone en el `Checkbox` y llega al botón. La prueba de `fuentes.test.ts` que busca `<input type="checkbox"…aria-describedby…>` tendrá que buscar `role="checkbox"` con el mismo `aria-describedby`, sin debilitarse.
+- Un `fieldset disabled` deshabilita los botones de Radix de forma nativa, pero Radix no se entera (no pone `data-disabled`). Con el rol `lector`, pasar también `disabled` al `RadioGroup` y al `Checkbox`.
+- `RadioGroup` usa foco itinerante: una sola parada de tabulación por grupo y flechas entre opciones, como un grupo de radios nativo.
+
+Clases y nombres:
+
+- Mientras dure el puente, los bloques en español (`.fuente`, `.resultado`...) siguen en `base.css`. En la fase B se sustituyen por los componentes y utilidades de la tabla, y lo que quede sin usar se borra.
+- El estado sigue en atributos (`data-estado`, `data-faltantes`, `data-revision`, `aria-*`), nunca en clases por color.
+- Se combinan clases con `cn` (paquete `cn`; `@/utilidades/cn` lo reexporta).
+
+## Pruebas
+
+Pruebas de la web: Vitest sobre la lógica pura (`estado`, `lista`, `cobertura`) y sobre el HTML de las fuentes, la lista, el panel y el resultado con `renderToStaticMarkup`; el resto se valida con `tsc`, el build y la compuerta (`design-ui-finish-gate-reviewer`) contra este archivo, en vivo, en claro y oscuro, a 1366 y 320 px.
 
 ## Accesibilidad
 
@@ -341,7 +435,7 @@ Meta: WCAG 2.1 nivel AA.
 
 - **Idioma y estructura:** `html lang="es"`; un `h1` ("LiciGT") en el encabezado; `h2` para el rótulo del estado, "Fuentes" y "Lista de verificación"; `h3` para cada tarjeta. Regiones: `header`, `main`, `footer`; el formulario con `aria-label="Consulta"`.
 - **Orden de lectura y teclado:** orden del DOM igual al visual. Tabulación: selector de tema, selector de ejemplo (si existe), caja de pregunta, "Consultar", botón de la aclaración (si existe), enlaces "Ver copia archivada" y "Publicación en igssgt.org" de cada fuente. Con sesión, antes del selector de tema va "Cerrar sesión"; en la pantalla de inicio: "Usuario", "Contraseña" e "Iniciar sesión". Sin `tabindex` positivo. `Ctrl+Enter` o `Cmd+Enter` en la caja envía; `Enter` agrega una línea.
-- **Foco visible:** `:focus-visible` con `outline: 3px solid var(--color-foco)` y `outline-offset: 2px` en todo control y enlace. Nunca `outline: none` sin reemplazo.
+- **Foco visible:** `:focus-visible` con `outline: 3px solid var(--ring)` y `outline-offset: 2px` en todo control y enlace, desde la capa base de `tema.css` (ver "Reglas de interacción"). Nunca `outline: none` ni `outline-none` sin reemplazo.
 - **Al llegar un resultado:** el foco pasa al `h2` del panel (`tabindex="-1"`), de modo que el lector anuncia el estado ("Requiere revisión humana") antes que el texto. Un `div role="status"` aparte anuncia "Consultando…" y luego "Resultado: " más el rótulo del estado. No se pone `aria-live` sobre todo el panel, para no leer la respuesta dos veces.
 - **Lectores de pantalla:**
   - los íconos llevan `aria-hidden="true"`; el estado lo dice el texto;

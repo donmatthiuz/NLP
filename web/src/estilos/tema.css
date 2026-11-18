@@ -1,0 +1,236 @@
+/*
+  Tema de LiciGT sobre shadcn/ui (Tailwind v4). Contrato: web/DISENO.md, "Base: Tailwind y shadcn/ui".
+  Fuente única de los colores: las variables de shadcn (--background, --primary...) más las de estado.
+  variables.css solo las reexpone con los nombres viejos (--color-*) mientras base.css siga en uso.
+*/
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+/* Oscuro si el usuario lo fija (data-tema="oscuro") o si el sistema lo pide y no fijó "claro". */
+@custom-variant dark {
+  &:where([data-tema="oscuro"], [data-tema="oscuro"] *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-tema="claro"]), :root:not([data-tema="claro"]) *) {
+      @slot;
+    }
+  }
+}
+
+:root {
+  color-scheme: light;
+  --background: #f7f7f5;
+  --foreground: #1c1f23;
+  --card: #ffffff;
+  --card-foreground: #1c1f23;
+  --popover: #ffffff;
+  --popover-foreground: #1c1f23;
+  --primary: #1d4f91;
+  --primary-foreground: #ffffff;
+  --primary-hover: #173f74;
+  --primary-active: #12315a;
+  --secondary: #efefec;
+  --secondary-foreground: #1c1f23;
+  --muted: #efefec;
+  --muted-foreground: #4a5059;
+  --muted-hover: #e7e7e3;
+  --muted-active: #d8d8d3;
+  --accent: #efefec;
+  --accent-foreground: #1c1f23;
+  --destructive: #a3242b;
+  --destructive-fondo: #fbeeee;
+  --border: #c9ccd1;
+  --input: #7d838c;
+  --ring: #1d4f91;
+  --estado-respuesta: #1e6b45;
+  --estado-respuesta-fondo: #edf6f0;
+  --estado-abstencion: #4a5059;
+  --estado-abstencion-fondo: #f1f2f4;
+  --estado-revision: #8a4600;
+  --estado-revision-fondo: #fdf1e1;
+  --estado-aclaracion: #4338a3;
+  --estado-aclaracion-fondo: #efeefb;
+  --radius: 4px;
+  --radius-panel: 6px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-tema="claro"]) {
+    color-scheme: dark;
+    --background: #16181b;
+    --foreground: #e6e7e9;
+    --card: #1e2125;
+    --card-foreground: #e6e7e9;
+    --popover: #1e2125;
+    --popover-foreground: #e6e7e9;
+    --primary: #8fb6ec;
+    --primary-foreground: #16181b;
+    --primary-hover: #adc9f1;
+    --primary-active: #c8dbf6;
+    --secondary: #262a2f;
+    --secondary-foreground: #e6e7e9;
+    --muted: #262a2f;
+    --muted-foreground: #a9afb8;
+    --muted-hover: #2c3036;
+    --muted-active: #353a41;
+    --accent: #262a2f;
+    --accent-foreground: #e6e7e9;
+    --destructive: #f19a9f;
+    --destructive-fondo: #2e1c1e;
+    --border: #3d434b;
+    --input: #767d87;
+    --ring: #8fb6ec;
+    --estado-respuesta: #7fcfa3;
+    --estado-respuesta-fondo: #17291f;
+    --estado-abstencion: #b4bac3;
+    --estado-abstencion-fondo: #23262b;
+    --estado-revision: #f2b46b;
+    --estado-revision-fondo: #2f2214;
+    --estado-aclaracion: #b3abf2;
+    --estado-aclaracion-fondo: #22203a;
+  }
+}
+
+:root[data-tema="oscuro"] {
+  color-scheme: dark;
+  --background: #16181b;
+  --foreground: #e6e7e9;
+  --card: #1e2125;
+  --card-foreground: #e6e7e9;
+  --popover: #1e2125;
+  --popover-foreground: #e6e7e9;
+  --primary: #8fb6ec;
+  --primary-foreground: #16181b;
+  --primary-hover: #adc9f1;
+  --primary-active: #c8dbf6;
+  --secondary: #262a2f;
+  --secondary-foreground: #e6e7e9;
+  --muted: #262a2f;
+  --muted-foreground: #a9afb8;
+  --muted-hover: #2c3036;
+  --muted-active: #353a41;
+  --accent: #262a2f;
+  --accent-foreground: #e6e7e9;
+  --destructive: #f19a9f;
+  --destructive-fondo: #2e1c1e;
+  --border: #3d434b;
+  --input: #767d87;
+  --ring: #8fb6ec;
+  --estado-respuesta: #7fcfa3;
+  --estado-respuesta-fondo: #17291f;
+  --estado-abstencion: #b4bac3;
+  --estado-abstencion-fondo: #23262b;
+  --estado-revision: #f2b46b;
+  --estado-revision-fondo: #2f2214;
+  --estado-aclaracion: #b3abf2;
+  --estado-aclaracion-fondo: #22203a;
+}
+
+/* Utilidades: bg-primary, text-estado-revision, border-input, rounded-xl... */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-active: var(--primary-active);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted-hover: var(--muted-hover);
+  --color-muted-active: var(--muted-active);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-fondo: var(--destructive-fondo);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-estado-respuesta: var(--estado-respuesta);
+  --color-estado-respuesta-fondo: var(--estado-respuesta-fondo);
+  --color-estado-abstencion: var(--estado-abstencion);
+  --color-estado-abstencion-fondo: var(--estado-abstencion-fondo);
+  --color-estado-revision: var(--estado-revision);
+  --color-estado-revision-fondo: var(--estado-revision-fondo);
+  --color-estado-aclaracion: var(--estado-aclaracion);
+  --color-estado-aclaracion-fondo: var(--estado-aclaracion-fondo);
+  /* rounded-lg: controles, citas y avisos (4 px); rounded-xl: paneles y tarjetas (6 px). */
+  --radius-sm: calc(var(--radius) * 0.5);
+  --radius-md: calc(var(--radius) * 0.75);
+  --radius-lg: var(--radius);
+  --radius-xl: var(--radius-panel);
+}
+
+/* Tipografía y medidas. El espaciado (p-1 a p-12) y los tamaños de texto (text-xs a text-2xl)
+   de Tailwind ya coinciden con --espacio-* y --texto-*; no se redefinen. */
+@theme {
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Code", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --font-heading: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", "Helvetica Neue", Arial, sans-serif;
+  --leading-texto: 1.55;
+  --leading-titulo: 1.25;
+  --container-lectura: 60rem;
+  --shadow-dialogo: 0 8px 24px rgb(0 0 0 / 0.25);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring;
+  }
+  body {
+    @apply bg-background text-foreground font-sans text-base leading-texto tabular-nums;
+  }
+  /* La preflight de Tailwind deja los títulos sin tamaño ni peso y los enlaces sin subrayado. */
+  h1, h2, h3 {
+    @apply font-semibold leading-titulo;
+  }
+  h1 { @apply text-2xl; }
+  h2 { @apply text-xl; }
+  h3 { @apply text-base; }
+  a {
+    @apply text-primary underline underline-offset-2 hover:decoration-2;
+  }
+
+  /* Reglas de interacción (DISENO.md, "Reglas de interacción"). */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="radio"]:not(:disabled),
+  [role="checkbox"]:not(:disabled),
+  a[href],
+  select:not(:disabled),
+  summary,
+  input[type="checkbox"]:not(:disabled),
+  input[type="radio"]:not(:disabled),
+  label:has(input:not(:disabled), [role="radio"]:not(:disabled), [role="checkbox"]:not(:disabled)) {
+    cursor: pointer;
+  }
+  :disabled,
+  [aria-disabled="true"],
+  [data-disabled]:not([data-disabled="false"]),
+  label:has(:disabled) {
+    cursor: not-allowed;
+  }
+  :focus-visible {
+    outline: 3px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  @media (forced-colors: active) {
+    :focus-visible {
+      outline-color: Highlight;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      transition: none !important;
+      animation: none !important;
+    }
+  }
+}
