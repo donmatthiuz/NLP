@@ -276,13 +276,14 @@ class SospechosoTests(unittest.TestCase):
         de_2 = [c for c in chunks if c["pagina_inicio"] == 2]
         self.assertTrue(de_2 and all(c["injection_suspected"] for c in de_2))
 
-    def test_ningun_fragmento_del_paquete_r5_coincide(self):
+    def test_ningun_fragmento_del_paquete_coincide(self):
         ruta = Path(__file__).resolve().parents[4] / "entregables" / "recuperacion" / "empresa_demo.zip"
         with zipfile.ZipFile(ruta) as paquete, paquete.open("chunks.jsonl") as lineas:
             filas = [json.loads(l) for l in lineas if l.strip()]
+            indexables = json.loads(paquete.read("inventario.json"))["chunks_indexables"]
         # Igual que make_chunks: la sección cuenta con el texto.
         textos = [(f["chunk_id"], (f["seccion"] or "") + "\n" + f["texto"]) for f in filas]
-        self.assertEqual(len(textos), 893)
+        self.assertEqual(len(textos), indexables)
         self.assertEqual([c for c, t in textos if SUSPICIOUS.search(t)], [])
 
 

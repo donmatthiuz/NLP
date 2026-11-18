@@ -11,6 +11,7 @@ from pathlib import Path
 
 ID = re.compile(r"[0-9a-f]{32}:\d{5}")
 TOKEN = re.compile(r"\w+")
+PIE = re.compile(r"^\s*\d{1,3}(?:\s+Extensi[óo]n:\s*\d+)?\s*$")  # número de página o pie suelto
 UMBRAL = 0.9
 
 
@@ -43,11 +44,14 @@ def calcular_equivalencias(zip_viejo: Path, zip_nuevo: Path, ids: list[str]) -> 
             continue
         del_doc = [c for c in nuevos if c["doc_id"] == antiguo["doc_id"]]
         texto = _normal(antiguo["texto"])
-        iguales = [c["chunk_id"] for c in del_doc if _normal(c["texto"]) == texto]
+        fin = antiguo.get("pagina_fin", antiguo["pagina_inicio"])
+        iguales = [c["chunk_id"] for c in del_doc
+                   if _normal(c["texto"]) == texto and antiguo["pagina_inicio"] <= c["pagina_inicio"] <= fin]
         if len(iguales) == 1:
             tabla[id_viejo] = {"nuevo": iguales[0], "estado": "identico", "candidatos": iguales}
             continue
-        palabras = Counter(TOKEN.findall(antiguo["texto"]))
+        sin_pies = "\n".join(l for l in antiguo["texto"].splitlines() if not PIE.match(l))
+        palabras = Counter(TOKEN.findall(sin_pies))
         total = sum(palabras.values())
         candidatos = []
         for c in del_doc:

@@ -65,7 +65,49 @@ class _Sospechoso:
 
 SUSPICIOUS = _Sospechoso()
 AVISO_MODIFICACION = "El PDF parece una modificación; revisar el tipo documental"
-HEADING = re.compile(r"^(?:\d+(?:\.\d+)*[.)]?\s+|(?:art[íi]culo|numeral|anexo|cap[íi]tulo|secci[óo]n)\s+[\w.-]+[:.]?\s+).{3,120}$", re.I)
+_TITULO_CLAVE = re.compile(r"^(?:art[íi]culo|numeral|anexo|cap[íi]tulo|secci[óo]n)\s+(\w+(?:\.\w+)*)(\s*[.:-])?\s+(.{3,120})$", re.I)
+_CITA = re.compile(r"^(?:del|de la|de los|de su|bis)\b", re.I)
+_TITULO_MULTINIVEL = re.compile(r"^\d+(?:\.\d+)+[.)]?\s+.{3,120}$")
+_TITULO_SIMPLE = re.compile(r"^\d+[.)]\s+(.{3,120})$")
+
+
+def _mayusculas(texto: str) -> float:
+    letras = [c for c in texto if c.isalpha()]
+    return sum(c.isupper() for c in letras) / len(letras) if letras else 0.0
+
+
+class _Titulo:
+    """Título de sección: numeral de dos o más niveles ("2.7 LISTADO ...", en cualquier caja), número simple con
+    "." o ")" seguido de texto con al menos 70 % de mayúsculas ("4. ESPECIFICACIONES"), o palabra clave (artículo,
+    numeral, anexo, capítulo, sección) con su numeral, que no sea una cita.
+    Un número sin "." ("3 del Decreto ...", "5 mg/ml") o una lista en minúsculas ("8. Clasificación ...") es texto:
+    sigue con la sección vigente. Límite declarado: un título de un solo nivel en caja mixta ("4. Especificaciones
+    técnicas") no se reconoce, porque no se distingue de un elemento de lista."""
+
+    def match(self, linea: str) -> bool:
+        if _TITULO_MULTINIVEL.match(linea):
+            return True
+        clave = _TITULO_CLAVE.match(linea)
+        if clave:
+            return self._clave(clave)
+        simple = _TITULO_SIMPLE.match(linea)
+        if simple:
+            return _mayusculas(simple.group(1)) >= 0.7
+        return False
+
+    @staticmethod
+    def _clave(m: re.Match) -> bool:
+        """"Anexo 1: Formulario", "Artículo 5. Del objeto", "ANEXO 3 FORMULARIO"; no "Artículo 55 de la LEY",
+        "Numeral 15 del Decreto ..." ni "Artículo 62 Bis de su REGLAMENTO"."""
+        resto = m.group(3).strip()
+        if m.group(2):
+            return resto[0].isupper() and (resto[0].isalpha() or resto[0].isdigit())
+        if _CITA.match(resto):
+            return False
+        return _mayusculas(resto) == 1.0 and any(c.isalpha() for c in resto)
+
+
+HEADING = _Titulo()
 PUNTO = re.compile(r"^punto\s+\d+\s*:", re.I)
 NUMERAL_DEL_PUNTO = re.compile(r"(?:sub)?numeral\s+(\d+(?:\.\d+)*)\.?\s*(.*)", re.I | re.S)
 TIPOS_CON_PUNTOS = {"modificacion", "aclaracion"}
@@ -258,7 +300,57 @@ def _units(page: Page, previous_section: str, max_words: int = 600,
         else:
             current.append(line)
     flush()
-    return units, section
+    return _juntar_indice(units, previous_section, section)
+
+
+def _juntar_indice(units: list[dict[str, Any]], previous_section: str, section: str) -> tuple[list[dict[str, Any]], str]:
+    """Junta en una unidad las entradas de un índice: dos o más títulos seguidos, sin cuerpo, en mayúsculas y hermanos.
+
+    La unidad lleva la sección vigente antes de las entradas; esa sigue vigente después solo si terminan la página y
+    esta no tiene ninguna unidad con cuerpo (si la tiene, la última entrada es la sección vigente).
+    No es índice un título cuyo cuerpo viene tras una línea en blanco, ni uno con minúsculas, ni uno que es el padre
+    numérico del siguiente ("6. ANEXO (S)" y "6.1 ..."): ahí la última entrada queda como sección vigente.
+    """
+    def entrada(unit: dict[str, Any]) -> bool:
+        lineas = unit["texto"].splitlines()
+        return (unit["tipo_chunk"] == "texto" and len(lineas) == 1 and lineas[0].strip() == unit["seccion"]
+                and unit["seccion"] == unit["seccion"].upper())
+
+    def abre_con_titulo(unit: dict[str, Any]) -> bool:
+        return unit["texto"].splitlines()[0].strip() == unit["seccion"]
+
+    def numeral(unit: dict[str, Any]) -> str | None:
+        encontrado = re.match(r"\d+(?:\.\d+)*", unit["seccion"])
+        return encontrado.group(0) if encontrado else None
+
+    def cuerpo(unit: dict[str, Any]) -> bool:
+        # Un rótulo de una línea corta ("CONTENIDO DE LOS DOCUMENTOS") no es cuerpo; un párrafo o una tabla sí.
+        return not entrada(unit) and (unit["tipo_chunk"] != "texto" or len(unit["texto"].splitlines()) > 1
+                                      or len(unit["texto"].split()) >= 6)
+
+    def padre(a: dict[str, Any], b: dict[str, Any]) -> bool:
+        na, nb = numeral(a), numeral(b)
+        return bool(na and nb and nb.startswith(na + "."))
+
+    resultado: list[dict[str, Any]] = []
+    i = 0
+    while i < len(units):
+        j = i
+        while j < len(units) and entrada(units[j]) and not (j > i and padre(units[j - 1], units[j])):
+            j += 1
+        if j < len(units) and j > i and not abre_con_titulo(units[j]):
+            j -= 1  # el último título tiene su cuerpo en la unidad siguiente
+        if j - i >= 2:
+            antes = resultado[-1]["seccion"] if resultado else previous_section
+            resultado.append({"texto": "\n".join(u["texto"] for u in units[i:j]), "seccion": antes,
+                              "tipo_chunk": "texto", "tabla_markdown": None})
+            if j == len(units) and not any(cuerpo(u) for u in units):
+                section = antes
+            i = j
+        else:
+            resultado.append(units[i])
+            i += 1
+    return resultado, section
 
 
 def _printed_page(text: str) -> int | None:
@@ -286,21 +378,35 @@ def _nog_reference(pages: list[Page]) -> str | None:
 def _without_repeated_margins(pages: list[Page]) -> list[Page]:
     """Quita encabezados/pies repetidos del índice; conserva el texto original en pages."""
     corto = 2 <= len(pages) <= 5
-    counts = Counter()
+    counts: Counter = Counter()
+    con_numeral: set[str] = set()  # claves de líneas que, sin enmascarar, abren una sección
+
+    def clave(line: str) -> str:
+        # El pie lleva el número de página ("9 Extensión: 99175"): se compara con ese número (1 a 3 dígitos, al
+        # principio o al final) enmascarado, y solo si la línea es solo un número o habla de extensión o de página.
+        # Los números de otras líneas ("Punto 1:", fechas, "Cantidad requerida 252") no se tocan.
+        limpia = " ".join(line.split())
+        normal = _sin_tildes(limpia)
+        if not (re.fullmatch(r"\d{1,3}", normal) or "extensi" in normal or "pagina" in normal):
+            return limpia
+        return re.sub(r"^\d{1,3}(?=\s)|(?<=\s)\d{1,3}$|^\d{1,3}$", "#", limpia)
+
     for page in pages:
         if corto and (page.quality != "ok" or page.method != "text" or not page.text.strip()):
             continue  # una página sin capa de texto (OCR o ilegible) no cuenta
         lines = page.text.splitlines()
-        counts.update({line.strip() for line in lines[:8] + lines[-6:] if line.strip()})
+        candidatas = [line for line in lines[:8] + lines[-6:] if line.strip()]
+        counts.update({clave(line) for line in candidatas})
+        con_numeral.update(clave(line) for line in candidatas if HEADING.match(line.strip()))
     # En un documento de 2 a 5 páginas basta repetirse en 2; ahí una línea con numeral de sección se conserva.
     threshold = 2 if corto else max(3, (len(pages) + 1) // 2)
     repeated = {line for line, count in counts.items()
-                if count >= threshold and not (corto and HEADING.match(line))}
+                if count >= threshold and not (corto and line in con_numeral)}
     cleaned = []
     for page in pages:
         lines = page.text.splitlines()
         kept = [line for i, line in enumerate(lines)
-                if not ((i < 8 or i >= len(lines) - 6) and line.strip() in repeated)]
+                if not ((i < 8 or i >= len(lines) - 6) and line.strip() and clave(line) in repeated)]
         cleaned.append(Page(page.number, "\n".join(kept), page.method, page.quality, page.warnings))
     return cleaned
 
@@ -331,7 +437,8 @@ def make_chunks(pages: list[Page], doc_id: str, metadata: SourceMetadata, versio
         units, section = _units(page, section, max_words, metadata.tipo_documento in TIPOS_CON_PUNTOS)
         merged = []
         for unit in units:
-            if (merged and unit["tipo_chunk"] == "texto" and merged[-1]["tipo_chunk"] == "texto"
+            # Las páginas OCR no se funden: el umbral de ruido_ocr de reextraer necesita ver las unidades pequeñas.
+            if (merged and page.method == "text" and unit["tipo_chunk"] == "texto" and merged[-1]["tipo_chunk"] == "texto"
                     and unit["seccion"] == merged[-1]["seccion"]
                     and len((merged[-1]["texto"] + unit["texto"]).split()) <= max_words):
                 merged[-1]["texto"] += "\n\n" + unit["texto"]

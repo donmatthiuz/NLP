@@ -56,7 +56,7 @@ FILAS_CRONOGRAMA = [
     "| 2.2.7 | Apertura de PLICAS. | Después de concluido el período de presentación y recepción de OFERTAS. |",
 ]
 DATOS_TABLA = {
-    "chunk_id": "03791a3471c04c0f9cc260814564756e:00041", "doc_id": "03791a3471c04c0f9cc260814564756e",
+    "chunk_id": "03791a3471c04c0f9cc260814564756e:00032", "doc_id": "03791a3471c04c0f9cc260814564756e",
     "tipo_documento": "bases", "version_ingesta": 1, "pagina_inicio": 8, "pagina_fin": 8,
     "seccion": "2.2   CRONOGRAMA DE ACTIVIDADES",
     "url_origen": "https://www.igssgt.org/wp-content/uploads/2026/10/222-IGSS-2023.pdf",

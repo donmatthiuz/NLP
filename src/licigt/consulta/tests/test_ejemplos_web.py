@@ -41,7 +41,7 @@ class EjemplosWebTests(unittest.TestCase):
         # Citar una modificación escala a revisión humana (validación.TIPOS_QUE_ESCALAN).
         self.assertFalse(r["cobertura_parcial"].abstained or r["cobertura_parcial"].needs_clarification)
         self.assertTrue(r["cobertura_parcial"].needs_human_review)
-        self.assertIn("d41480e5b0ce4c16bf18f66225ada2dc:00008", {s.chunk_id for s in r["cobertura_parcial"].sources})
+        self.assertIn("d41480e5b0ce4c16bf18f66225ada2dc:00014", {s.chunk_id for s in r["cobertura_parcial"].sources})
         for n in ("respuesta", "cobertura_parcial"):
             self.assertTrue(r[n].sources)
 

@@ -38,6 +38,28 @@ class EquivalenciasTests(unittest.TestCase):
         self.assertIsNone(tabla[f"{DOC}:00003"]["nuevo"])
         self.assertEqual(tabla[f"{DOC}:00003"]["estado"], "revision")
 
+    def test_el_mismo_texto_en_otra_pagina_no_es_equivalente(self):
+        # Una entrada de índice de la página 3 ("4. TÉCNICAS") no equivale al título igual de la página 32.
+        with tempfile.TemporaryDirectory() as t:
+            t = Path(t)
+            viejo = paquete(t / "v.zip", [chunk(1, "4. TECNICAS", 3), chunk(2, "texto aparte de la página 32", 32)])
+            nuevo = paquete(t / "n.zip", [chunk(7, "4. TECNICAS", 32), chunk(8, "texto aparte de la página 32", 32)])
+            tabla = calcular_equivalencias(viejo, nuevo, [f"{DOC}:00001", f"{DOC}:00002"])
+        self.assertEqual(tabla[f"{DOC}:00001"]["estado"], "revision")
+        self.assertIsNone(tabla[f"{DOC}:00001"]["nuevo"])
+        self.assertEqual(tabla[f"{DOC}:00002"]["nuevo"], f"{DOC}:00008")
+
+    def test_el_numero_de_pagina_o_el_pie_quitado_no_cuenta_en_la_comparacion(self):
+        with tempfile.TemporaryDirectory() as t:
+            t = Path(t)
+            viejo = paquete(t / "v.zip", [chunk(1, "Artículo 62 Bis de su REGLAMENTO.\n\n27", 2),
+                                          chunk(2, "Se hará efectivo en el caso siguiente\n    9   Extensión: 99175", 3)])
+            nuevo = paquete(t / "n.zip", [chunk(1, "Artículo 62 Bis de su REGLAMENTO.", 2),
+                                          chunk(2, "Se hará efectivo en el caso siguiente", 3)])
+            tabla = calcular_equivalencias(viejo, nuevo, [f"{DOC}:00001", f"{DOC}:00002"])
+        self.assertEqual(tabla[f"{DOC}:00001"]["estado"], "contenido")
+        self.assertEqual(tabla[f"{DOC}:00002"]["estado"], "contenido")
+
     def test_cada_id_viejo_con_otro_texto_tiene_su_entrada(self):
         with tempfile.TemporaryDirectory() as t:
             t = Path(t)

@@ -34,3 +34,22 @@ El paquete candidato cambia solo tres cosas: la sección de los fragmentos de la
 - [ ] La alerta de conflicto por numeral (`NUMERAL_MODIFICADO`, `_alertas`) no cambia. Con la sección correcta, el fragmento de la solvencia patronal de la modificación queda bajo el numeral 2.7.
 
 Por defecto, si no hay respuesta, se asume que el rol 2 reimporta y migra las listas con esa tabla.
+
+## Actualización de R6: pies con número, índice y títulos (18 de noviembre de 2026, ZIP ya publicado)
+
+El paquete pasa de 893 a 625 fragmentos indexables. El texto y las páginas no cambian, salvo:
+
+- **Pies con número y números de página sueltos:** se quitaron ("9 Extensión: 99175"). Antes, 177 fragmentos tenían un pie como sección y 98 eran solo un pie.
+- **Índice de la página 3:** sus entradas ("1. TERMINOLOGÍA"… "6. ANEXOS") forman un solo fragmento, con "Sin sección".
+- **Títulos:** solo cuentan como sección los numerales de varios niveles, los números simples con texto en mayúsculas y los títulos con palabra clave que no son citas. Las líneas de lista ("8. Clasificación…") y las citas partidas ("3 del Decreto…", "Numeral 15 del…") ya no abren sección: los literales del 2.7 quedan en 2.7.
+- **Fragmentos más grandes:** sin esos cortes falsos se juntan los vecinos de la misma sección. La mediana pasa de 61 a 96 tokens de bge-m3 y el máximo de 615 a 699, lejos del límite de 8192.
+- **Modificación del 222:** las páginas OCR no se funden.
+  - La página 4 sigue sin indexar (`paginas_no_indexadas` [4]).
+  - De la página 3 solo queda indexable el párrafo de la aprobación (`d41480…:00014`).
+  - El membrete, la fecha de la resolución y dos órdenes de trámite quedan como `ruido_ocr` (límite declarado en `Corpus_IGSS.md`).
+
+- [ ] **Reimportar** con `make importar`.
+- [ ] **Listas guardadas:** las que citen ids desplazados se migran con [`equivalencias_r6.json`](../../src/licigt/ingesta/equivalencias_r6.json) (881 ids: 466 idénticos, 293 contenidos y 122 en revisión). Las entradas en `revision` las resuelve una persona; `d41480…:00009` no tiene equivalente.
+- [ ] **Alertas:** `NUMERAL_MODIFICADO` y `_alertas` no cambian; con las secciones correctas, más fragmentos quedan bajo su numeral real.
+
+Por defecto, si no hay respuesta, se asume que el rol 2 reimporta y migra las listas con esa tabla.
