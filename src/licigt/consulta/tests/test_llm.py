@@ -124,6 +124,24 @@ class LlmTests(unittest.TestCase):
             c.generar([], esquema_salida(["F1"]), semilla_extra=1)
         self.assertEqual([x.kwargs["seed"] for x in crear.call_args_list], [42, 43])
 
+    def test_expone_el_uso_de_tokens_acumulado(self):
+        sdk, crear = sdk_falso()
+        crear.return_value = SimpleNamespace(model="m", usage=SimpleNamespace(prompt_tokens=100, completion_tokens=7),
+                                             choices=[SimpleNamespace(message=SimpleNamespace(content="{}", refusal=None))])
+        with patch.dict(sys.modules, {"openai": sdk}):
+            c = ClienteGeneradorOpenAI(ConfiguracionLlm())
+            self.assertEqual(c.uso, {"llamadas": 0, "tokens_entrada": 0, "tokens_salida": 0})
+            c.generar([], esquema_salida(["F1"]))
+            c.generar([], esquema_salida(["F1"]))
+        self.assertEqual(c.uso, {"llamadas": 2, "tokens_entrada": 200, "tokens_salida": 14})
+
+    def test_sin_usage_cuenta_la_llamada_sin_tokens(self):
+        sdk, _ = sdk_falso()
+        with patch.dict(sys.modules, {"openai": sdk}):
+            c = ClienteGeneradorOpenAI(ConfiguracionLlm())
+            c.generar([], esquema_salida(["F1"]))
+        self.assertEqual(c.uso, {"llamadas": 1, "tokens_entrada": 0, "tokens_salida": 0})
+
     def test_a7_openai_no_envia_longitud_ni_rangos_numericos(self):
         sdk, crear = sdk_falso()
         esquema = esquema_salida(["F1", "F2"])

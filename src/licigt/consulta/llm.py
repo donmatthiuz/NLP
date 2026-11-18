@@ -41,6 +41,8 @@ class ClienteGeneradorOpenAI:
         self.config = config or obtener_configuracion_llm()
         self.perfil = self.config.perfil
         self.modelo_generador = self.config.modelo
+        # Acumulado del `usage` que devuelve el servidor; quien mide toma la diferencia entre dos lecturas.
+        self.uso = {"llamadas": 0, "tokens_entrada": 0, "tokens_salida": 0}
         if not _destino_seguro(self.config):
             raise FallaGenerador("config_insegura")
         try:
@@ -83,6 +85,7 @@ class ClienteGeneradorOpenAI:
             raise FallaGenerador("api") from None
         except Exception:
             raise FallaGenerador("api") from None
+        self._contar_uso(respuesta)
         try:
             # Con finish_reason "length" el JSON llega incompleto: es un error propio, no un json_invalido del modelo.
             if getattr(respuesta.choices[0], "finish_reason", None) == "length":
@@ -97,6 +100,13 @@ class ClienteGeneradorOpenAI:
         if isinstance(modelo, str) and modelo:
             self.modelo_generador = modelo
         return contenido
+
+    def _contar_uso(self, respuesta):
+        uso = getattr(respuesta, "usage", None)
+        self.uso["llamadas"] += 1
+        for campo, atributo in (("tokens_entrada", "prompt_tokens"), ("tokens_salida", "completion_tokens")):
+            valor = getattr(uso, atributo, 0)
+            self.uso[campo] += valor if isinstance(valor, int) else 0
 
     def cerrar(self):
         self._cliente.close()
