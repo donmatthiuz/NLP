@@ -291,11 +291,11 @@ class InterfacesUnidadTests(unittest.TestCase):
 
     def test_obtener_fragmentos_acepta_fragmento_recuperado(self):
         from licigt.consulta.lectura import FragmentoRecuperado
-        fila = dict(zip(busqueda.CAMPOS, ("c", "d", "bases", 1, 1, 1, "s", "t", "https://x", None)), _score=0)
+        fila = dict(zip(busqueda.CAMPOS, ("c", "d", "bases", 1, 1, 1, "s", "t", "https://x", None, 7)), _score=0)
         conn = _Conn([tuple(fila[c] for c in busqueda.CAMPOS) + (0,)])
         f = obtener_fragmentos(Contexto("e1"), "ev", ["c"], conn=conn)[0]
         self.assertEqual(f["score"], 0.0)
-        FragmentoRecuperado(**f)
+        self.assertEqual(FragmentoRecuperado(**f).pagina_impresa, 7)
 
     def test_obtener_fragmentos_sin_ids_no_consulta(self):
         conn = _Conn([])
@@ -310,6 +310,39 @@ class InterfacesUnidadTests(unittest.TestCase):
         self.assertIn("evento_id", sql)
         self.assertEqual(params["t"], "e1")
         self.assertEqual(params["e"], "ev")
+
+
+class PaginaImpresaUnidadTests(unittest.TestCase):
+    """Página impresa: esquema, CAMPOS e importación de las ventanas de la línea base."""
+
+    def test_esquema_agrega_la_columna_sin_romper_una_base_existente(self):
+        sql = indice.SCHEMA.read_text()
+        self.assertIn("pagina_impresa", sql.split("CREATE TABLE IF NOT EXISTS fragmentos")[1].split(");")[0])
+        self.assertIn("ALTER TABLE fragmentos ADD COLUMN IF NOT EXISTS pagina_impresa INTEGER", sql)
+
+    def test_campos_y_columnas_incluyen_pagina_impresa(self):
+        self.assertIn("pagina_impresa", busqueda.CAMPOS)
+        self.assertIn("pagina_impresa", busqueda.COLUMNAS)
+
+    def test_importador_sanea_la_pagina_impresa(self):
+        def chunk(fisica, impresa, doc="d"):
+            return {"doc_id": doc, "pagina_inicio": fisica, "pagina_impresa": impresa}
+        chunks = [chunk(1, None)] + [chunk(n, n - 1) for n in range(2, 10)]
+        chunks[4] = chunk(5, 120)  # desfase distinto del modal (1): queda sin página impresa
+        chunks += [chunk(3, 0, "otro"), chunk(4, 3, "otro"), chunk(5, "x", "otro"), chunk(6, 5, "otro")]
+        r = indice.impresas_por_pagina(chunks)
+        self.assertEqual(r["d"], {n: n - 1 for n in range(2, 10) if n != 5})
+        self.assertEqual(r["otro"], {4: 3, 6: 5})
+
+    def test_ventanas_base_llevan_la_pagina_impresa_de_su_pagina_de_inicio(self):
+        class Tokenizador:
+            def __call__(self, texto, **kw):
+                return {"offset_mapping": [(i, i + 1) for i in range(len(texto))]}
+        manifiesto = {"doc_id": "d", "version_ingesta": 1, "metadata": {}, "pages": [
+            {"number": 1, "quality": "ok", "text": "portada"},
+            {"number": 2, "quality": "ok", "text": "pagina dos"}]}
+        ventanas = list(indice.ventanas_base(manifiesto, Tokenizador(), {2: 1}))
+        self.assertEqual({v["pagina_inicio"]: v["pagina_impresa"] for v in ventanas}, {1: None, 2: 1})
 
 
 class InterfacesIntegracionTests(unittest.TestCase):
@@ -346,6 +379,19 @@ class InterfacesIntegracionTests(unittest.TestCase):
         ajeno = buscar(self.ctx, self.e399, "cronograma de actividades", conn=self.conn)["fragmentos"][0]["chunk_id"]
         self.assertEqual(obtener_fragmentos(self.ctx, self.e222, [ajeno], conn=self.conn), [])
         self.assertEqual(obtener_fragmentos(Contexto("otra_empresa"), self.e222, ids, conn=self.conn), [])
+
+    def test_pagina_impresa_de_punta_a_punta_en_el_222(self):
+        fila = self.conn.execute("SELECT chunk_id FROM fragmentos WHERE tenant_id = 'empresa_demo' AND evento_id = %s "
+                                 "AND variante = 'mejorada' AND chunk_id LIKE '03791a%%:00032'", (self.e222,)).fetchone()
+        self.assertIsNotNone(fila)
+        f = obtener_fragmentos(self.ctx, self.e222, [fila[0]], conn=self.conn)[0]
+        self.assertEqual((f["pagina_inicio"], f["pagina_impresa"]), (8, 7))
+        from licigt.consulta.lectura import FragmentoRecuperado, fuente_desde_fragmento
+        fuente = fuente_desde_fragmento(FragmentoRecuperado(**f), "cita")
+        self.assertEqual((fuente.page, fuente.printed_page), (8, 7))
+        base = self.conn.execute("SELECT count(*) FROM fragmentos WHERE variante = 'base' AND pagina_impresa IS NOT NULL "
+                                 "AND tenant_id = 'empresa_demo'").fetchone()[0]
+        self.assertGreater(base, 0)
 
     def test_aislamiento_contra_empresa_b(self):
         eventos = dict(self.conn.execute(

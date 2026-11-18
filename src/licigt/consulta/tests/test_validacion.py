@@ -727,6 +727,13 @@ class ValidacionTests(unittest.TestCase):
         self.assertEqual(r.answer, "Las bases piden humedad <5%. [1]\nLa modificación pide humedad <3%. [2]")
         self.assertEqual(r.sources[0].cita, "El contenido de humedad debe ser <5% según las bases")
 
+    def test_pagina_impresa_cero_no_impide_publicar_una_cita_literal(self):
+        base = fragmentos_222()
+        f = FragmentoRecuperado.model_validate({**base[0].model_dump(), "pagina_impresa": 0})
+        r = self.verificar(resultado=herramienta(fragmentos=[f, *base[1:]]))
+        self.assertIsInstance(r, RespuestaEstructurada)
+        self.assertIsNone(r.sources[0].printed_page)
+
     def verificar(self, salida=None, resultado=None, conflictos=()):
         resultado = resultado or herramienta()
         _, evidencia, _, _ = construir_prompt("Recepción de ofertas", resultado.fragmentos)

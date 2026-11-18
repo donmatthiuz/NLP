@@ -1,6 +1,6 @@
 """Lectura tolerante de lo que devuelve el rol 2: extra fuera, obligatorios siempre."""
 
-from pydantic import BaseModel, ConfigDict, StrictBool
+from pydantic import BaseModel, ConfigDict, StrictBool, field_validator
 
 from .esquemas import Fuente
 
@@ -29,11 +29,18 @@ class FragmentoRecuperado(BaseModel):
     seccion: str | None = None
     url_origen: str | None = None
     identificador_version_oficial: str | None = None
+    pagina_impresa: int | None = None
     reranker: float | None = None
     semantico: float | None = None
     lexico: float | None = None
     rrf: float | None = None
     incluido_por: str | None = None
+
+    @field_validator("pagina_impresa", mode="before")
+    @classmethod
+    def _impresa_tolerante(cls, valor):
+        """Un número impreso dudoso (< 1, no entero) no rompe la cita: queda en None."""
+        return valor if isinstance(valor, int) and not isinstance(valor, bool) and valor >= 1 else None
 
 
 class Alerta(BaseModel):
@@ -85,6 +92,7 @@ def fuente_desde_fragmento(fragmento: FragmentoRecuperado, cita: str) -> Fuente:
         source=fragmento.url_origen or fragmento.doc_id,
         page=fragmento.pagina_inicio,
         page_end=fragmento.pagina_fin if fragmento.pagina_fin != fragmento.pagina_inicio else None,
+        printed_page=fragmento.pagina_impresa,
         chunk_id=fragmento.chunk_id,
         version_ingesta=fragmento.version_ingesta,
         version_oficial=fragmento.identificador_version_oficial,

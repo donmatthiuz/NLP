@@ -154,6 +154,22 @@ class FuenteDesdeFragmentoTests(unittest.TestCase):
             fragmento(pagina_fin=10)), "cita")
         self.assertEqual((rango.page, rango.page_end), (8, 10))
 
+    def test_pagina_impresa_es_opcional_y_pasa_a_la_fuente(self):
+        sin = FragmentoRecuperado.model_validate(fragmento())
+        self.assertIsNone(sin.pagina_impresa)
+        self.assertIsNone(fuente_desde_fragmento(sin, "cita").printed_page)
+        con = FragmentoRecuperado.model_validate(fragmento(pagina_impresa=7))
+        fuente = fuente_desde_fragmento(con, "cita")
+        self.assertEqual((fuente.page, fuente.printed_page), (8, 7))
+        self.assertEqual(fuente.model_dump()["printed_page"], 7)
+
+    def test_pagina_impresa_dudosa_queda_en_none_sin_romper_la_cita(self):
+        for dudoso in (0, -3, 7.5, "7", True):
+            with self.subTest(valor=dudoso):
+                f = FragmentoRecuperado.model_validate(fragmento(pagina_impresa=dudoso))
+                self.assertIsNone(f.pagina_impresa)
+                self.assertIsNone(fuente_desde_fragmento(f, "cita").printed_page)
+
     def test_mapea_identificadores(self):
         fuente = fuente_desde_fragmento(FragmentoRecuperado.model_validate(fragmento(
             identificador_version_oficial="Modificación Número 1", version_ingesta=2)), "cita")

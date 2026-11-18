@@ -651,6 +651,13 @@ class ProponerListaTests(unittest.TestCase):
         return proponer_lista(self.ctx, "222", categoria, recuperador=self.recuperador,
                               auditar=self.eventos.append, **extra)
 
+    def test_pagina_impresa_cero_no_rompe_la_propuesta(self):
+        self.recuperador = RecuperadorPorConsulta({
+            CONSULTAS_POR_CATEGORIA["legal"]: [{**FUNDAMENTAL, "pagina_impresa": 0}], CONSULTA_CRONOGRAMA: [FECHA_BASES]})
+        p = self.proponer()
+        self.assertFalse(p.respuesta.abstained)
+        self.assertIsNone(p.items[0].fuentes[0].printed_page)
+
     def test_devuelve_items_con_fuentes_validadas_y_audita(self):
         p = self.proponer()
         self.assertFalse(p.respuesta.abstained)

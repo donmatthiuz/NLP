@@ -19,9 +19,10 @@ CODIGO = re.compile(r"\b\d{2,6}\b")
 NUMERAL_MODIFICADO = re.compile(r"(?:sub)?numeral\s+(\d+(?:\.\d+)*)", re.I)
 
 COLUMNAS = """chunk_id, doc_id, tipo_documento, version_ingesta, pagina_inicio, pagina_fin,
-              seccion, texto, url_origen, meta->>'identificador_version_oficial'"""
+              seccion, texto, url_origen, meta->>'identificador_version_oficial', pagina_impresa"""
 CAMPOS = ("chunk_id", "doc_id", "tipo_documento", "version_ingesta", "pagina_inicio", "pagina_fin",
-          "seccion", "texto", "url_origen", "identificador_version_oficial")
+          "seccion", "texto", "url_origen", "identificador_version_oficial",
+          "pagina_impresa")
 
 
 @dataclass(frozen=True)
@@ -72,13 +73,13 @@ def _lexica(conn, ctx, evento_id, pregunta, limite, doc_id=None):
             SELECT {COLUMNAS},
                    ts_rank_cd(tsv, to_tsquery('spanish', q.s))
                    + CASE WHEN codigos && %(cod)s THEN 1 ELSE 0 END
-                   + CASE WHEN split_part(trim(seccion), ' ', 1) = ANY(%(num)s) THEN 1 ELSE 0 END
+                   + CASE WHEN split_part(trim(seccion), ' ', 1) = ANY(%(num)s) THEN 1 ELSE 0 END AS puntaje
             FROM fragmentos, q
             WHERE tenant_id = %(t)s AND evento_id = %(e)s AND variante = 'mejorada'
               AND (%(d)s::text IS NULL OR doc_id = %(d)s)
               AND (q.s <> '' AND tsv @@ to_tsquery('spanish', q.s)
                    OR codigos && %(cod)s OR split_part(trim(seccion), ' ', 1) = ANY(%(num)s))
-            ORDER BY 11 DESC LIMIT %(n)s""",
+            ORDER BY puntaje DESC LIMIT %(n)s""",
         {"q": pregunta, "cod": CODIGO.findall(pregunta), "num": NUMERAL.findall(pregunta),
          "t": ctx.tenant_id, "e": evento_id, "d": doc_id, "n": limite})
     return _filas(cur)

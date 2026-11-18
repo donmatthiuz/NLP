@@ -25,6 +25,7 @@ class Fuente(BaseModel):
     source: TextoNoVacio
     page: Entero = Field(ge=1)
     page_end: Entero | None
+    printed_page: Entero | None = Field(default=None, ge=1)
     chunk_id: TextoNoVacio
     version_ingesta: Entero = Field(ge=0)
     version_oficial: str | None

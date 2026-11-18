@@ -21,11 +21,6 @@ _ACTUALIZAR = ("UPDATE lista_items SET estado = %s, actualizado_por = %s, actual
                f"WHERE tenant_id = %s AND item_id = %s AND estado = %s RETURNING {_LISTA}")
 _CAMBIOS = ("SELECT c.item_id, c.accion, c.estado_anterior, c.estado_nuevo, c.usuario, c.momento FROM lista_cambios c "
             "WHERE c.tenant_id = %s AND c.evento_id = %s ORDER BY c.cambio_id")
-_FRAGMENTOS = ("SELECT chunk_id, doc_id, tipo_documento, version_ingesta, pagina_inicio, pagina_fin, seccion, texto, "
-               "url_origen, meta->>'identificador_version_oficial' FROM fragmentos "
-               "WHERE tenant_id = %s AND evento_id = %s AND chunk_id = ANY(%s)")
-_CAMPOS_FRAGMENTO = ("chunk_id", "doc_id", "tipo_documento", "version_ingesta", "pagina_inicio", "pagina_fin",
-                     "seccion", "texto", "url_origen", "identificador_version_oficial")
 
 
 @contextmanager
@@ -90,7 +85,7 @@ class RepositorioPostgres:
 
 
 class LectorFragmentosPostgres:
-    """Adaptador temporal hasta que el rol 2 entregue obtener_fragmentos (aviso del 17 de noviembre); solo SELECT."""
+    """Lee fragmentos por id con obtener_fragmentos del rol 2 (sesión por empresa, solo SELECT)."""
 
     def __init__(self, conn_factory):
         self._conn_factory = conn_factory
@@ -98,7 +93,8 @@ class LectorFragmentosPostgres:
     def obtener(self, ctx, evento_id, chunk_ids):
         if not chunk_ids:
             return {}
-        with _transaccion(self._conn_factory, ctx.tenant_id) as conn:
-            filas = conn.execute(_FRAGMENTOS, (ctx.tenant_id, evento_id, list(chunk_ids))).fetchall()
-        fragmentos = (FragmentoRecuperado(**dict(zip(_CAMPOS_FRAGMENTO, f)), score=0.0) for f in filas)
+        from licigt.recuperacion import busqueda  # importación tardía: arrastra psycopg y los modelos
+        with self._conn_factory() as conn:
+            filas = busqueda.obtener_fragmentos(ctx, evento_id, list(chunk_ids), conn=conn)
+        fragmentos = (FragmentoRecuperado(**f) for f in filas)
         return {f.chunk_id: f for f in fragmentos}

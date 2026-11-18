@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS fragmentos (
   version_ingesta int  NOT NULL,
   pagina_inicio   int  NOT NULL,
   pagina_fin      int  NOT NULL,
+  pagina_impresa  integer,       -- número impreso en la página; NULL si no lo tiene (portada, página sin pie)
   seccion         text,
   texto           text NOT NULL,
   codigos         text[] NOT NULL DEFAULT '{}',
@@ -41,6 +42,8 @@ CREATE TABLE IF NOT EXISTS fragmentos (
   emb_base        vector(384),   -- paraphrase-multilingual-MiniLM-L12-v2
   emb_mejorada    vector(1024)   -- BAAI/bge-m3
 );
+
+ALTER TABLE fragmentos ADD COLUMN IF NOT EXISTS pagina_impresa INTEGER;  -- bases creadas antes de R2/I1
 
 CREATE INDEX IF NOT EXISTS fragmentos_filtro ON fragmentos (tenant_id, evento_id, variante);
 CREATE INDEX IF NOT EXISTS fragmentos_tsv ON fragmentos USING gin (tsv);

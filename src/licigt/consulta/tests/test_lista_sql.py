@@ -197,20 +197,26 @@ class ContratoConDobleTests(unittest.TestCase):
                            CONFIRMADO, repositorio=Repo(lambda: conn))
         self.assertEqual(falla.exception.codigo, "estado_desactualizado")
 
-    def test_lector_solo_select_filtrado_por_empresa_y_evento(self):
-        conn = ConexionFalsa(lambda sql: [("c1", "d1", "bases", 1, 2, 2, "Sección", "texto", "http://x", "v1")])
+    def test_lector_delega_en_obtener_fragmentos_del_rol_2(self):
+        from unittest.mock import patch
+        conn = ConexionFalsa()
+        llamadas = []
+
+        def falso(ctx, evento_id, chunk_ids, conn=None):
+            llamadas.append((ctx.tenant_id, evento_id, list(chunk_ids), conn))
+            return [{"chunk_id": "c1", "doc_id": "d1", "tipo_documento": "bases", "version_ingesta": 1,
+                     "pagina_inicio": 2, "pagina_fin": 2, "seccion": "S", "texto": "t", "url_origen": "http://x",
+                     "identificador_version_oficial": "v1", "pagina_impresa": 1, "score": 0.0}]
         lector = LectorFragmentosPostgres(lambda: conn)
         ctx = SimpleNamespace(tenant_id="empresa-a", usuario="persona-a")
-        resultado = lector.obtener(ctx, "222", ["c1", "c2"])
+        with patch("licigt.recuperacion.busqueda.obtener_fragmentos", falso):
+            resultado = lector.obtener(ctx, "222", ["c1", "c2"])
+            self.assertEqual(lector.obtener(ctx, "222", []), {})
+        self.assertEqual(llamadas, [("empresa-a", "222", ["c1", "c2"], conn)])
         self.assertEqual(list(resultado), ["c1"])
-        self.assertEqual(resultado["c1"].pagina_inicio, 2)
-        self.assert_sesion_por_empresa(conn, "empresa-a")
-        sql, params = conn.sentencias[2]
-        self.assertTrue(sql.lstrip().startswith("SELECT"))
-        for condicion in ("tenant_id = %s", "evento_id = %s", "chunk_id = ANY(%s)"):
-            self.assertIn(condicion, sql)
-        self.assertEqual(params, ("empresa-a", "222", ["c1", "c2"]))
-        self.assertEqual(lector.obtener(ctx, "222", []), {})
+        self.assertEqual((resultado["c1"].pagina_inicio, resultado["c1"].pagina_impresa), (2, 1))
+        self.assertTrue(conn.cerrada)
+        self.assertEqual(conn.sentencias, [])  # sin SQL propio
 
 
 @unittest.skipUnless(DB_URL, "Sin LICIGT_DB_URL: pruebas de integración de la lista en Postgres omitidas (levanta la base con make db-up)")

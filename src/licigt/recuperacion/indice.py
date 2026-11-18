@@ -7,6 +7,7 @@ import logging
 import os
 import threading
 import zipfile
+from collections import Counter
 from functools import lru_cache
 from pathlib import Path
 
@@ -142,8 +143,26 @@ def leer_paquete(zip_path):
     return inventario, chunks, manifiestos
 
 
-def ventanas_base(manifiesto, tokenizer):
-    """Ventanas de 120 tokens (solape 20) por página; el texto se recorta del original."""
+def impresas_por_pagina(chunks):
+    """{doc_id: {página física: página impresa}} desde chunks.jsonl, saneado: solo enteros >= 1 y solo las
+    páginas cuyo desfase (física - impresa) es el modal del documento; las demás quedan sin página impresa."""
+    por_doc = {}
+    for c in chunks:
+        v = c.get("pagina_impresa")
+        if isinstance(v, int) and not isinstance(v, bool) and v >= 1:
+            por_doc.setdefault(c["doc_id"], {})[c["pagina_inicio"]] = v
+    salida = {}
+    for doc, paginas in por_doc.items():
+        desfases = Counter(f - i for f, i in paginas.items())
+        modal = min(desfases, key=lambda d: (-desfases[d], d))
+        salida[doc] = {f: i for f, i in paginas.items() if f - i == modal}
+    return salida
+
+
+def ventanas_base(manifiesto, tokenizer, impresas=None):
+    """Ventanas de 120 tokens (solape 20) por página; el texto se recorta del original.
+    impresas: {página física: página impresa}, de chunks.jsonl; el manifiesto no la trae."""
+    impresas = impresas or {}
     meta = manifiesto["metadata"]
     for page in manifiesto["pages"]:
         if page["quality"] != "ok" or not page["text"].strip():
@@ -157,7 +176,7 @@ def ventanas_base(manifiesto, tokenizer):
                 yield {**meta, "chunk_id": f"{manifiesto['doc_id']}:b{page['number']:03d}-{n:03d}",
                        "doc_id": manifiesto["doc_id"], "version_ingesta": manifiesto["version_ingesta"],
                        "pagina_inicio": page["number"], "pagina_fin": page["number"],
-                       "seccion": None, "texto": texto}
+                       "pagina_impresa": impresas.get(page["number"]), "seccion": None, "texto": texto}
 
 
 def importar(zip_path, conn=None, batch=32):
@@ -176,7 +195,9 @@ def importar(zip_path, conn=None, batch=32):
         # Reimportar reemplaza los fragmentos de los documentos del paquete.
         conn.execute("DELETE FROM fragmentos WHERE doc_id = ANY(%s)", (list(manifiestos),))
 
-        base = [c for m in manifiestos.values() for c in ventanas_base(m, modelo(MODELO_BASE).tokenizer)]
+        impresas = impresas_por_pagina(chunks)
+        base = [c for m in manifiestos.values()
+                for c in ventanas_base(m, modelo(MODELO_BASE).tokenizer, impresas.get(m["doc_id"]))]
         for variante, filas, nombre, columna in (
             ("base", base, MODELO_BASE, "emb_base"),
             ("mejorada", chunks, MODELO_MEJORADA, "emb_mejorada"),
@@ -187,12 +208,12 @@ def importar(zip_path, conn=None, batch=32):
             with conn.cursor() as cur:
                 cur.executemany(
                     f"""INSERT INTO fragmentos (chunk_id, variante, doc_id, tenant_id, evento_id, numero_evento,
-                          tipo_documento, version_ingesta, pagina_inicio, pagina_fin, seccion, texto, codigos,
-                          url_origen, meta, {columna})
-                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                          tipo_documento, version_ingesta, pagina_inicio, pagina_fin, pagina_impresa, seccion, texto,
+                          codigos, url_origen, meta, {columna})
+                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
                     [(c["chunk_id"], variante, c["doc_id"], c["tenant_id"], c["evento_id"], c["numero_evento"],
                       c["tipo_documento"], c["version_ingesta"], c["pagina_inicio"], c["pagina_fin"],
-                      c.get("seccion"), c["texto"], c.get("codigos_producto_igss") or [], c["url_origen"],
+                      impresas.get(c["doc_id"], {}).get(c["pagina_inicio"]), c.get("seccion"), c["texto"], c.get("codigos_producto_igss") or [], c["url_origen"],
                       Jsonb({k: v for k, v in c.items() if k != "texto"}), e)
                      for c, e in zip(filas, embs)])
     return {"documentos": len(manifiestos), "base": len(base), "mejorada": len(chunks)}

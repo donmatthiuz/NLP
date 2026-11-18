@@ -12,7 +12,7 @@ Lo que recibimos, tal como lo devuelve el código hoy.
 {"evento_id": "...", "variante": "mejorada", "suficiente": true,
  "fragmentos": [{"chunk_id": "...", "doc_id": "...", "tipo_documento": "bases", "version_ingesta": 1,
                  "pagina_inicio": 8, "pagina_fin": 8, "seccion": "2.2.6 ...", "texto": "...",
-                 "url_origen": "https://...", "identificador_version_oficial": null,
+                 "url_origen": "https://...", "identificador_version_oficial": null, "pagina_impresa": 7,
                  "score": 0.91, "reranker": 0.91, "semantico": 0.62, "lexico": 0.4, "rrf": 0.016,
                  "incluido_por": "posible_conflicto"}],
  "alertas": [{"tipo": "cobertura_incompleta", "doc_id": "...", "paginas_no_indexadas": [3, 4], "status": "requiere_revision"},
@@ -21,6 +21,7 @@ Lo que recibimos, tal como lo devuelve el código hoy.
              {"tipo": "evento_con_modificaciones", "doc_id": "...", "documento": "Modificación Número 1"}]}
 ```
 
+- `pagina_impresa` es opcional: `null` si la página no tiene número impreso.
 - `incluido_por`, `reranker`, `semantico`, `lexico` y `rrf` solo aparecen según la variante y el origen del fragmento; son opcionales para nosotros.
 - La variante `base` no tiene `reranker`, `lexico` ni `rrf`.
 - Solo `mejorada` se usa en producción; `base` existe para la comparación del rol 4.
@@ -32,7 +33,7 @@ Lo que recibimos, tal como lo devuelve el código hoy.
   {"doc_id": "...", "tipo_documento": "bases", "identificador_version_oficial": null,
    "fragmentos": [{"chunk_id": "...", "doc_id": "...", "tipo_documento": "bases", "version_ingesta": 1,
                    "pagina_inicio": 8, "pagina_fin": 8, "seccion": "...", "texto": "...", "url_origen": "https://...",
-                   "identificador_version_oficial": null, "score": 0.7}]}]}
+                   "identificador_version_oficial": null, "pagina_impresa": 7, "score": 0.7}]}]}
 ```
 
 ### Reglas de uso (rol 3)
@@ -70,7 +71,7 @@ Respuesta estructurada (Pydantic):
 | Campo | Tipo | Regla |
 |---|---|---|
 | `answer` | texto | Respuesta redactada. Si se abstiene, es el texto fijo de abstención. |
-| `sources` | lista | Cada una con `doc_id`, `source`, `page`, `page_end`, `chunk_id`, `version_ingesta`, `version_oficial` y `cita`. La versión se separa en dos porque el anteproyecto pide no confundir la carga con la modificación oficial. Al menos una fuente si no hay abstención. |
+| `sources` | lista | Cada una con `doc_id`, `source`, `page`, `page_end`, `printed_page`, `chunk_id`, `version_ingesta`, `version_oficial` y `cita`. `printed_page` es opcional (`null` si la página no trae número impreso): el número impreso en la hoja, que puede diferir de `page`, la página física del PDF por la que navega el enlace. el validador de F4 no lo compara; la revalidación de la lista sí, para que no se guarde un printed_page alterado. La versión se separa en dos porque el anteproyecto pide no confundir la carga con la modificación oficial. Al menos una fuente si no hay abstención. |
 | `abstained` | booleano | Verdadero cuando la evidencia no permite responder. |
 | `tool_used` | texto o nulo | `buscar_documentos`, `extraer_requisitos`, `comparar_versiones` o nulo. |
 | `needs_human_review` | booleano | Contradicción, ambigüedad o condición crítica. |

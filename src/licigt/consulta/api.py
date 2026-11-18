@@ -146,17 +146,11 @@ def _abrir_conexion_rol2():
 
 def resolver_evento(evento_id: Annotated[str, Path()], ctx: Annotated[object, Depends(contexto_acceso)]) -> str:
     """Traduce el valor de la ruta (evento_id o numero_evento) al evento_id interno, solo de la empresa de la sesión."""
-    conn, sesion = _abrir_conexion_rol2()
-    try:
-        with conn.transaction():
-            sesion(conn, ctx)
-            fila = conn.execute("SELECT evento_id FROM documentos WHERE tenant_id = %s AND %s IN (evento_id, numero_evento)",
-                                (ctx.tenant_id, evento_id)).fetchone()
-    finally:
-        conn.close()
-    if not fila:
+    from licigt.recuperacion import busqueda
+    interno = busqueda.resolver_evento(ctx, evento_id)
+    if interno is None:
         raise HTTPException(404, detail={"codigo": "evento_no_encontrado"})
-    return fila[0]
+    return interno
 
 
 EventoInterno = Annotated[str, Depends(resolver_evento)]

@@ -313,10 +313,20 @@ class ResolverEventoTests(unittest.TestCase):
         self.parche = patch.object(api, "_abrir_conexion_rol2",
                                    lambda: (self.conn, lambda c, x: self.sesiones.append((c, x.tenant_id))))
         self.parche.start()
+        # El evento se resuelve con la función del rol 2; el doble responde por empresa y valor como la tabla.
+        self.resoluciones = []
+
+        def resolver(ctx, evento, conn=None):
+            self.resoluciones.append((ctx.tenant_id, evento))
+            fila = next((f for f in self.conn.filas if f[0] == ctx.tenant_id and evento in f[1:]), None)
+            return fila[1] if fila else None
+        self.parche_resolver = patch("licigt.recuperacion.busqueda.resolver_evento", resolver)
+        self.parche_resolver.start()
         self.cliente = TestClient(api.app)
         soporte.iniciar_sesion(self.cliente)
 
     def tearDown(self):
+        self.parche_resolver.stop()
         self.parche.stop()
         api.app.dependency_overrides.clear()
         self.entorno.stop()
@@ -339,14 +349,11 @@ class ResolverEventoTests(unittest.TestCase):
         self.assertTrue(r.json()["abstained"])
         self.assertEqual(r.json()["evento_id"], "222-IGSS-2023")
 
-    def test_acepta_el_id_interno_y_usa_la_sesion_de_la_empresa(self):
+    def test_acepta_el_id_interno_y_lo_resuelve_con_la_funcion_del_rol_2(self):
         r = self.cliente.get(f"/api/eventos/{self.INTERNO}/lista")
         self.assertEqual(r.status_code, 200, r.text)
-        self.assertEqual(self.sesiones, [(self.conn, "empresa_demo")])
-        sql, params = self.conn.consultas[0]
-        self.assertEqual(params, ("empresa_demo", self.INTERNO))
-        self.assertIn("IN (evento_id, numero_evento)", sql)
-        self.assertTrue(self.conn.cerrada)
+        self.assertEqual(self.resoluciones, [("empresa_demo", self.INTERNO)])
+        self.assertEqual(self.conn.consultas, [])  # la API ya no escribe SQL para resolver el evento
 
     def test_evento_de_otra_empresa_o_inexistente_da_404(self):
         for valor in ("999-IGSS-2024", "ajeno", "no-existe"):
@@ -415,7 +422,7 @@ class ResolverEventoTests(unittest.TestCase):
 
     def test_c16_documentos_usa_la_sesion_de_la_empresa_y_solo_lee(self):
         self.cliente.get("/api/eventos/222-IGSS-2023/documentos")
-        self.assertEqual(self.sesiones, [(self.conn, "empresa_demo")] * 2)  # el evento y los documentos
+        self.assertEqual(self.sesiones, [(self.conn, "empresa_demo")])  # los documentos; el evento lo resuelve el rol 2
         sql, params = self.conn.consultas[-1]
         self.assertTrue(sql.startswith("SELECT"), sql)
         self.assertNotIn("texto", sql.lower().replace("inventario", ""))
