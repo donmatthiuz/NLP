@@ -6,8 +6,8 @@
 
 | Variante | Fragmentos | Modelo | Índice |
 |---|---|---|---|
-| Línea base | 1054 ventanas de 120 tokens con solape de 20, una página por ventana y medidas con el tokenizer de MiniLM. Ninguna se trunca, y una prueba lo verifica. | `paraphrase-multilingual-MiniLM-L12-v2` (384) | HNSW con coseno, `m=16`, `ef_construction=64` |
-| Mejorada | Los 1003 fragmentos por sección de la ingesta | `BAAI/bge-m3` (1024) | HNSW con coseno, y además un `tsvector` en español (GIN) |
+| Línea base | 1077 ventanas (paquete R6) de 120 tokens con solape de 20, una página por ventana y medidas con el tokenizer de MiniLM. Ninguna se trunca, y una prueba lo verifica. | `paraphrase-multilingual-MiniLM-L12-v2` (384) | HNSW con coseno, `m=16`, `ef_construction=64` |
+| Mejorada | Los 625 fragmentos (paquete R6) por sección de la ingesta | `BAAI/bge-m3` (1024) | HNSW con coseno, y además un `tsvector` en español (GIN) |
 
 Las dos variantes comparten la tabla `fragmentos`, distinguidas por la columna `variante`. Cada una usa su propia columna de vector y su propio índice parcial. Los códigos IGSS se guardan aparte en el campo exacto `codigos` (`text[]`, GIN).
 
