@@ -240,7 +240,7 @@
       "evento": "399-IGSS-2026",
       "tipo": "parametros_fuera_de_rango",
       "question": "Compara las bases del evento 399-IGSS-2026 con la modificación 1 para identificar cambios en la recepción de ofertas.",
-      "expected_behavior": "Al ejecutar comparar_versiones con el doc_cambio_id simulado, detecta que corresponde al evento 222-IGSS-2023. Devuelve documento_fuera_del_evento, se abstiene y no publica fragmentos ni fuentes de ese otro evento. Corregido después de la primera corrida (18 de noviembre): faltaba esperado.tool_used=comparar_versiones, sin el cual el ejecutor probaba buscar_documentos.",
+      "expected_behavior": "Al ejecutar comparar_versiones con el doc_cambio_id simulado, detecta que corresponde al evento 222-IGSS-2023. Devuelve documento_fuera_del_evento, se abstiene y no publica fragmentos ni fuentes de ese otro evento. Corregido después de la primera corrida (18 de noviembre): faltaba esperado.tool_used=comparar_versiones, sin el cual el ejecutor probaba buscar_documentos. Segunda corrección (18 de noviembre): el esquema exige los dos ids o ninguno, así que con un solo id el rechazo correcto es contrato_invalido; para probar documento_fuera_del_evento se pasan las bases del 399 y la modificación del 222.",
       "expected_sources": [],
       "expected_pages": [],
       "answerable": false,
@@ -256,6 +256,7 @@
       "nivel": "herramienta",
       "simulacion": {
         "llm_params": {
+          "doc_base_id": "4182413774fa4149a9a15f4ecd0ef466",
           "doc_cambio_id": "d41480e5b0ce4c16bf18f66225ada2dc"
         }
       },
