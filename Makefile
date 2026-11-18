@@ -33,7 +33,7 @@ EVENTO ?= 222-IGSS-2023
 .PHONY: help setup env-init keys-init keys-status key-set db-up db-down db-password-sync \
         importar evaluar buscar models-status claude opencode codex test-consulta test-ingesta test-recuperacion corpus \
         diagramas llm-descargar llm-servidor llm-estado llm-detener deps-consulta sondeo-jev api banco experimento-jev web web-build lista-schema test-consulta-sql \
-        usuarios-demo empresa-b test-plataforma reporte
+        usuarios-demo empresa-b test-plataforma reporte deps
 
 help: ## Muestra esta ayuda
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(firstword $(MAKEFILE_LIST)) \
@@ -41,6 +41,10 @@ help: ## Muestra esta ayuda
 
 setup: env-init keys-init ## Deja listo un clon: .env, llaves generadas o vacías para llenar
 	@bash scripts/keys.sh status
+
+deps: ## Instala las dependencias de Python (requirements.txt, con el SDK de JEV) y de la web (pnpm)
+	@$(PYTHON) -m pip install -r requirements.txt
+	@pnpm --dir web install --frozen-lockfile
 
 env-init: ## Crea .env desde .env.example sin pisarlo
 	@if [ -e .env ]; then printf 'ok\t.env ya existe; no se tocó\n'; else cp .env.example .env && printf 'creado\t.env\n'; fi
@@ -106,7 +110,7 @@ llm-detener: ## Detiene y elimina el contenedor licigt-llm (modo docker)
 
 # --- Consulta (rol 3) -----------------------------------------------------------
 
-deps-consulta: ## Instala las dependencias del rol 3, incluido el SDK de JEV
+deps-consulta: ## Reinstala solo las dependencias del rol 3, incluido el SDK de JEV (ya vienen con make deps)
 	@$(PYTHON) -m pip install -r src/licigt/consulta/requirements.txt
 
 sondeo-jev: ## Vista previa del sondeo de JEV; CONFIRMAR=1 autoriza el envío

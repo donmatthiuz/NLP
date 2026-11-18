@@ -1,0 +1,3 @@
+-r src/licigt/ingesta/requirements.txt
+-r src/licigt/recuperacion/requirements.txt
+-r src/licigt/consulta/requirements.txt
