@@ -1,6 +1,6 @@
 # Pendientes del rol 1: ingesta de documentos
 
-**Estado al 14 de noviembre de 2026.** Este documento registra el trabajo que falta para completar la ingesta prevista en el [anteproyecto](../anteproyecto/Anteproyecto.md#flujo-de-ingesta) y las [responsabilidades del rol 1](../roles/Asignacion_de_roles.md#rol-1--ingesta-y-documentos). La elección del almacenamiento de despliegue corresponde al equipo; aquí se documentan MinIO y la alternativa Google Cloud Storage (GCS).
+**Estado al 18 de noviembre de 2026** (puntos 1, 2 y 4 actualizados con las rondas R1 a R5 y C20; la revisión completa queda para la revisión retrospectiva de `docs/Pendientes.md`). Este documento registra el trabajo que falta para completar la ingesta prevista en el [anteproyecto](../anteproyecto/Anteproyecto.md#flujo-de-ingesta) y las [responsabilidades del rol 1](../roles/Asignacion_de_roles.md#rol-1--ingesta-y-documentos). La elección del almacenamiento de despliegue corresponde al equipo; aquí se documentan MinIO y la alternativa Google Cloud Storage (GCS).
 
 ## Lo que ya funciona
 
@@ -13,18 +13,18 @@
 
 ### 1. Completar la evidencia del evento 222 — prioridad alta
 
-- [ ] Instalar o habilitar Tesseract con el idioma `spa` y extraer de nuevo las páginas 3 y 4 de la modificación 1. La página 3 contiene una aprobación de cambios; actualmente no genera fragmentos.
-- [ ] Añadir una operación de **reextracción del PDF original** que preserve `doc_id`, `version_ingesta` y SHA-256 y actualice páginas, alertas y fragmentos. [`reprocess()`](../../src/licigt/ingesta/pipeline.py) solo vuelve a segmentar el texto previamente guardado: no ejecuta OCR. Repetir `ingest()` con el mismo PDF devuelve la carga existente por deduplicación.
-- [ ] Buscar el anexo oficial de 11 hojas mencionado en la página 4 y cargarlo como documento relacionado si se encuentra. Si no aparece, mantener explícita la cobertura incompleta; OCR por sí solo no demuestra que el expediente esté completo.
-- [ ] Revisar el texto OCR contra las imágenes de las páginas, volver a generar el ZIP y ejecutar las pruebas de ingesta y de entrega.
+- [x] Instalar o habilitar Tesseract con el idioma `spa` y extraer de nuevo las páginas 3 y 4 de la modificación 1. Hecho en R1: la página 3 aporta `:00006` a `:00008` y la 4 queda como `ruido_ocr` ([Corpus_IGSS](Corpus_IGSS.md), "Límite de cobertura"). La página 3 contiene una aprobación de cambios; actualmente no genera fragmentos.
+- [x] Añadir una operación de **reextracción del PDF original** (hecho en R1: `reextraer.py`) que preserve `doc_id`, `version_ingesta` y SHA-256 y actualice páginas, alertas y fragmentos. [`reprocess()`](../../src/licigt/ingesta/pipeline.py) solo vuelve a segmentar el texto previamente guardado: no ejecuta OCR. Repetir `ingest()` con el mismo PDF devuelve la carga existente por deduplicación.
+- [x] Buscar el anexo oficial de 11 hojas (no se encontró; la cobertura incompleta queda explícita en el paquete y en el panel de documentos de la web) mencionado en la página 4 y cargarlo como documento relacionado si se encuentra. Si no aparece, mantener explícita la cobertura incompleta; OCR por sí solo no demuestra que el expediente esté completo.
+- [x] Revisar el texto OCR contra las imágenes de las páginas, volver a generar el ZIP y ejecutar las pruebas de ingesta y de entrega (R1; el ZIP vigente es el de R5).
 
 **Hecho cuando:** el inventario refleja qué páginas son legibles y qué anexos se cargaron; cada nuevo fragmento cita el PDF y la página correctos. Si el anexo falta, el paquete conserva la advertencia para que el sistema se abstenga cuando la pregunta dependa de él.
 
 ### 2. Corregir la clasificación del conector automático — prioridad alta
 
-- [ ] Evitar que [`ingest_event()`](../../src/licigt/ingesta/automatic.py) registre siempre el primer PDF enlazado como `bases_integradas` y `bases`. En el evento 222, el enlace de la ficha lleva a una modificación.
-- [ ] Exigir un tipo documental explícito o una clasificación verificable antes de ingerir cada enlace. Conservar por separado bases, anexos, aclaraciones y modificaciones, y registrar su relación sin confundir modificación oficial con `version_ingesta`.
-- [ ] Probar al menos un evento con bases y modificación y uno sin código IGSS. La carga curada del corpus ya tiene esos tipos correctos; el pendiente afecta al conector general.
+- [x] Evitar que [`ingest_event()`](../../src/licigt/ingesta/automatic.py) registre siempre el primer PDF enlazado como `bases_integradas` y `bases`. En el evento 222, el enlace de la ficha lleva a una modificación.
+- [x] Exigir un tipo documental explícito (R1: `automatic.py` falla sin `tipo_documento` y exige `relacion_documental` en modificaciones, aclaraciones y anexos; aviso al rol 4 en `docs/plataforma/Avisos_del_rol_1.md`) o una clasificación verificable antes de ingerir cada enlace. Conservar por separado bases, anexos, aclaraciones y modificaciones, y registrar su relación sin confundir modificación oficial con `version_ingesta`.
+- [x] Probar al menos un evento con bases y modificación y uno sin código IGSS (`test_automatic.py`: `test_evento_con_bases_y_modificacion` y los casos de tipo y relación; el 327 del corpus no tiene código IGSS). La carga curada del corpus ya tiene esos tipos correctos; el pendiente afecta al conector general.
 
 **Hecho cuando:** el conector no puede etiquetar automáticamente una modificación como bases y el manifiesto muestra el tipo y relación documental correctos.
 
@@ -39,7 +39,7 @@
 ### 4. Revisar calidad y estrategia de segmentación con el rol 2 — prioridad media
 
 - [ ] Muestrear en los PDF reales citas de requisitos, fechas, códigos IGSS y tablas; comparar cada fragmento con la página original. La prueba actual comprueba consistencia del paquete, pero no evalúa exhaustivamente si la extracción entendió cada tabla.
-- [ ] Acordar con el rol 2 la línea base de ventanas de 120 tokens y el tokenizer del modelo. Los fragmentos actuales usan hasta 600 palabras con solapamiento de 90 como aproximación para la versión mejorada; se debe comprobar que el modelo de embeddings no trunque pasajes silenciosamente.
+- [x] Acordar con el rol 2 la línea base de ventanas de 120 tokens y el tokenizer del modelo. Medido el 18 de noviembre con los tokenizadores de las revisiones fijadas: en los 893 fragmentos, p50 de 61 tokens, p95 de 410 y máximo de 615; `bge-m3` y `bge-reranker-v2-m3` aceptan 8192, así que nada se trunca. La línea base usa ventanas de 120 tokens a propósito (`ventanas_base`). Los fragmentos actuales usan hasta 600 palabras con solapamiento de 90 como aproximación para la versión mejorada; se debe comprobar que el modelo de embeddings no trunque pasajes silenciosamente.
 
 **Hecho cuando:** se documentan ejemplos revisados y ambas estrategias de segmentación tienen tamaño medido con el tokenizer elegido.
 
