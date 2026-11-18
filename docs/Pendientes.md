@@ -107,4 +107,10 @@ El plan por fases está en [Plan_rol_3](consulta/Plan_rol_3.md). Orden sugerido:
 - [ ] F6. Interfaz mínima y demo con el evento 222.
 - [ ] F7. Casos de herramientas y seguridad para el banco del rol 4.
 - [ ] Repasar las notas de la semana 15.1 (grounding, abstención, versionado), 2.2 (guardrails) y 7.1 (agentes) para justificar decisiones en el documento y la defensa.
+- [ ] **Revisión retrospectiva al cierre de los roles 1 y 3** (pedido del usuario, 18 de noviembre). Cuando los dos roles estén completos:
+  - aplicar a todo lo hecho el mismo criterio que a los cambios nuevos: cinco porqués con evidencia, diseño, buenas prácticas y visión del sistema completo;
+  - el alcance son los encargos R1 a R5, C1 a C20, F1 a F7, B1, el experimento de JEV y las decisiones de `Pendientes.md` y `Plan_rol_3.md`;
+  - el resultado, en `docs/consulta/Revision_retrospectiva.md`, dice por decisión si está bien, mal o es mejorable, con su evidencia y qué se hace: mantener, corregir o declarar como limitación;
+  - lo que no tenga respuesta se escala al usuario con contexto y plan;
+  - en esa misma pasada se actualizan las casillas de `Plan_rol_3.md`, `Pendientes_rol_1.md` y de este archivo, que hoy no reflejan lo hecho.
 - [ ] Carácter de los literales del numeral 2.7 (listado de documentos): hoy salen `no_indicado` porque `caracter_de_seccion` solo lee la sección del propio fragmento. Saber si cada documento es fundamental exige cruzarlo con lo que dicen los numerales 2.8 y 2.9 del mismo evento. Mientras tanto se declara como limitación: la lista no inventa el carácter.
