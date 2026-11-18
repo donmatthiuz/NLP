@@ -1,0 +1,603 @@
+{
+  "casos": [
+    {
+      "id": "comun-001",
+      "question": "¿En qué orden abre la Junta las plicas del evento 399-IGSS-2026?",
+      "expected_behavior": "Indica que las abre en el orden en que fueron recibidas y cita las bases.",
+      "expected_sources": [
+        {
+          "tipo_documento": "bases",
+          "paginas": [
+            21
+          ],
+          "pasaje": "la JUNTA procederá a la apertura de PLICAS en el orden que fueron recibidas"
+        }
+      ],
+      "expected_pages": [
+        21
+      ],
+      "answerable": true,
+      "risk_level": "bajo",
+      "evento": "399-IGSS-2026",
+      "tipo": "Preguntas directas",
+      "esperado": {
+        "accion": "usar_herramienta",
+        "motivo": "ok",
+        "tool_used": "buscar_documentos",
+        "abstained": false
+      },
+      "nivel": "e2e",
+      "particion": "prueba",
+      "revisado_por": "revisor-casos (evidencia)"
+    },
+    {
+      "id": "comun-002",
+      "question": "¿Por qué medio bancario se paga al contratista en el evento 363-IGSS-2026?",
+      "expected_behavior": "Indica depósito en cuenta monetaria de BANRURAL u otro banco del sistema que el contratista haya registrado. No limita el pago exclusivamente a BANRURAL. Cita las bases.",
+      "expected_sources": [
+        {
+          "tipo_documento": "bases",
+          "paginas": [
+            31
+          ],
+          "pasaje": "por medio de depósito en cuenta monetaria del Banco de Desarrollo Rural, Sociedad Anónima, -BANRURAL- u otros del sistema que el CONTRATISTA haya registrado."
+        }
+      ],
+      "expected_pages": [
+        31
+      ],
+      "answerable": true,
+      "risk_level": "medio",
+      "evento": "363-IGSS-2026",
+      "tipo": "Preguntas directas",
+      "esperado": {
+        "accion": "usar_herramienta",
+        "motivo": "ok",
+        "tool_used": "buscar_documentos",
+        "abstained": false
+      },
+      "nivel": "e2e",
+      "particion": "prueba",
+      "revisado_por": "revisor-casos (evidencia)"
+    },
+    {
+      "id": "comun-003",
+      "question": "¿Tiene algún costo adquirir los documentos de la licitación 368-IGSS-2026?",
+      "expected_behavior": "Responde que los documentos pueden adquirirse gratuitamente por medio electrónico y cita la convocatoria.",
+      "expected_sources": [
+        {
+          "tipo_documento": "bases",
+          "paginas": [
+            1,
+            9
+          ],
+          "pasaje": "podrán adquirir los Documentos de Licitación, en forma gratuita"
+        }
+      ],
+      "expected_pages": [
+        1,
+        9
+      ],
+      "answerable": true,
+      "risk_level": "bajo",
+      "evento": "368-IGSS-2026",
+      "tipo": "Preguntas directas",
+      "esperado": {
+        "accion": "usar_herramienta",
+        "motivo": "ok",
+        "tool_used": "buscar_documentos",
+        "abstained": false
+      },
+      "nivel": "e2e",
+      "particion": "prueba",
+      "revisado_por": "revisor-casos (evidencia)"
+    },
+    {
+      "id": "comun-004",
+      "question": "¿Quién asume el costo de los análisis de laboratorio del producto en el evento 327-IGSS-2023?",
+      "expected_behavior": "Identifica al contratista como responsable del costo de los análisis y cita la disposición especial correspondiente.",
+      "expected_sources": [
+        {
+          "tipo_documento": "bases",
+          "paginas": [
+            32
+          ],
+          "pasaje": "El costo de los análisis efectuados correrán a cuenta del CONTRATISTA"
+        }
+      ],
+      "expected_pages": [
+        32
+      ],
+      "answerable": true,
+      "risk_level": "medio",
+      "evento": "327-IGSS-2023",
+      "tipo": "Preguntas directas",
+      "esperado": {
+        "accion": "usar_herramienta",
+        "motivo": "ok",
+        "tool_used": "buscar_documentos",
+        "abstained": false
+      },
+      "nivel": "e2e",
+      "particion": "prueba",
+      "revisado_por": "revisor-casos (evidencia)"
+    },
+    {
+      "id": "comun-005",
+      "question": "Según las bases del evento 222-IGSS-2023, ¿por qué canal pueden los interesados solicitar aclaraciones?",
+      "expected_behavior": "Identifica GUATECOMPRAS como canal para solicitar aclaraciones, con cita del subnumeral 2.4. No confunde este canal con el correo destinado a la inducción.",
+      "expected_sources": [
+        {
+          "tipo_documento": "bases",
+          "paginas": [
+            9
+          ],
+          "pasaje": "Los interesados podrán solicitar aclaraciones a través de GUATECOMPRAS"
+        }
+      ],
+      "expected_pages": [
+        9
+      ],
+      "answerable": true,
+      "risk_level": "bajo",
+      "evento": "222-IGSS-2023",
+      "tipo": "Preguntas directas",
+      "esperado": {
+        "accion": "usar_herramienta",
+        "motivo": "ok",
+        "tool_used": "buscar_documentos",
+        "abstained": false
+      },
+      "nivel": "e2e",
+      "particion": "prueba",
+      "revisado_por": "revisor-casos (evidencia)"
+    },
+    {
+      "id": "comun-006",
+      "question": "En la 399-IGSS-2026, si dos proveedores empatan en el total cotizado, ¿las bases permiten repartirles la compra?",
+      "expected_behavior": "Explica que, ante igualdad de condiciones respecto del monto total, la Junta puede adjudicar parcialmente. Conserva el carácter facultativo: no afirma que deba repartir la compra ni que las partes sean iguales.",
+      "expected_sources": [
+        {
+          "tipo_documento": "bases",
+          "paginas": [
+            25
+          ],
+          "pasaje": "En caso que dos (2) o más OFERENTES se encuentren en igualdad de condiciones con respecto al Monto Total de la Oferta, la JUNTA podrá adjudicar en forma parcial."
+        }
+      ],
+      "expected_pages": [
+        25
+      ],
+      "answerable": true,
+      "risk_level": "medio",
+      "evento": "399-IGSS-2026",
+      "tipo": "Paráfrasis",
+      "esperado": {
+        "accion": "usar_herramienta",
+        "motivo": "ok",
+        "tool_used": "buscar_documentos",
+        "abstained": false
+      },
+      "nivel": "e2e",
+      "particion": "prueba",
+      "revisado_por": "revisor-casos (evidencia)"
+    },
+    {
+      "id": "comun-007",
+      "question": "Para poner las propuestas en igualdad de condiciones en la 363-IGSS-2026, ¿la Junta compara los importes con el IVA incluido o se lo quita?",
+      "expected_behavior": "Explica que, para ponderar el precio, la Junta deduce el IVA de los productos ofertados con ese impuesto. Distingue esa operación de evaluación de las instrucciones para expresar el precio ofertado.",
+      "expected_sources": [
+        {
+          "tipo_documento": "bases",
+          "paginas": [
+            24
+          ],
+          "pasaje": "a los productos ofertados con el Impuesto al Valor Agregado -IVA-, la JUNTA les deducirá el referido impuesto"
+        }
+      ],
+      "expected_pages": [
+        24
+      ],
+      "answerable": true,
+      "risk_level": "medio",
+      "evento": "363-IGSS-2026",
+      "tipo": "Paráfrasis",
+      "esperado": {
+        "accion": "usar_herramienta",
+        "motivo": "ok",
+        "tool_used": "buscar_documentos",
+        "abstained": false
+      },
+      "nivel": "e2e",
+      "particion": "prueba",
+      "revisado_por": "revisor-casos (evidencia)"
+    },
+    {
+      "id": "comun-008",
+      "question": "Estoy llenando los campos de Guatecompras para la 327-IGSS-2023. Si un dato no corresponde a mi caso, ¿dejo la casilla vacía o escribo algo?",
+      "expected_behavior": "Extrae la instrucción de consignar NO APLICA en los parámetros donde no corresponda ingresar datos; señala que esa situación no será motivo de rechazo según el instructivo, sin certificar el cumplimiento integral de la oferta. Adjudicación del usuario: no se fija la herramienta (la cláusula también encaja en buscar_documentos); se exige la respuesta con la fuente esperada.",
+      "expected_sources": [
+        {
+          "tipo_documento": "bases",
+          "paginas": [
+            36
+          ],
+          "pasaje": "En aquellos parámetros que no aplique ingresar algún dato, deberá consignarse el texto NO APLICA y no será motivo de rechazo por parte de la JUNTA."
+        }
+      ],
+      "expected_pages": [
+        36
+      ],
+      "answerable": true,
+      "risk_level": "medio",
+      "evento": "327-IGSS-2023",
+      "tipo": "Paráfrasis",
+      "esperado": {
+        "abstained": false
+      },
+      "nivel": "e2e",
+      "particion": "prueba",
+      "revisado_por": "revisor-casos (evidencia) y usuario (adjudicación)"
+    },
+    {
+      "id": "comun-009",
+      "question": "Código IGSS 10583: localiza la cantidad total solicitada para doce meses en el evento 368-IGSS-2026.",
+      "expected_behavior": "Recupera el renglón del código IGSS 10583 e indica una cantidad total de 4,520 para doce meses. No la confunde con las cantidades asignadas a cada unidad solicitante.",
+      "expected_sources": [
+        {
+          "tipo_documento": "bases",
+          "paginas": [
+            32
+          ],
+          "pasaje": "Amfotericina B complejo Suspensión inyectable 5 10583 4,520 lipídico mg/ml, vial 10ml - 20 ml"
+        }
+      ],
+      "expected_pages": [
+        32
+      ],
+      "answerable": true,
+      "risk_level": "medio",
+      "evento": "368-IGSS-2026",
+      "tipo": "Identificadores exactos",
+      "esperado": {
+        "accion": "usar_herramienta",
+        "motivo": "ok",
+        "tool_used": "buscar_documentos",
+        "abstained": false
+      },
+      "nivel": "e2e",
+      "particion": "prueba",
+      "revisado_por": "revisor-casos (evidencia)"
+    },
+    {
+      "id": "comun-010",
+      "question": "Según los documentos del evento 327-IGSS-2023, ¿qué órgano judicial emitió el Amparo Provisional No. 01021-2022-00338?",
+      "expected_behavior": "Usa buscar_documentos para localizar el número exacto 01021-2022-00338 y responde que lo emitió la Sala Segunda de la Corte de Apelaciones de Trabajo y Previsión Social, constituida en Tribunal de Amparo. Respalda la respuesta con una cita documental válida que incluya chunk_id, documento, página y versión.",
+      "expected_sources": [
+        {
+          "tipo_documento": "bases",
+          "paginas": [
+            1,
+            2,
+            8
+          ],
+          "pasaje": "Amparo Provisional No. 01021-2022-00338 de fecha 1 de diciembre de 2022, proferido\npor la Sala Segunda de la Corte de Apelaciones de Trabajo y Previsión Social, constituida en\nTribunal de Amparo."
+        }
+      ],
+      "expected_pages": [
+        1,
+        2,
+        8
+      ],
+      "answerable": true,
+      "risk_level": "bajo",
+      "evento": "327-IGSS-2023",
+      "tipo": "Identificadores exactos",
+      "esperado": {
+        "accion": "usar_herramienta",
+        "motivo": "ok",
+        "tool_used": "buscar_documentos",
+        "abstained": false
+      },
+      "nivel": "e2e",
+      "particion": "prueba",
+      "revisado_por": "revisor-casos (evidencia) y usuario (adjudicación: reescrito con un identificador real)"
+    },
+    {
+      "id": "comun-011",
+      "question": "¿Qué conducta señala el numeral 2.27.4 de las bases de la 363-IGSS-2026 como causal de inhabilitación?",
+      "expected_behavior": "Localiza exactamente el numeral 2.27.4 y responde que señala proporcionar información falsa. No sustituye la causal por las de numerales vecinos.",
+      "expected_sources": [
+        {
+          "tipo_documento": "bases",
+          "paginas": [
+            29
+          ],
+          "pasaje": "2.27.4 Que proporcione información falsa."
+        }
+      ],
+      "expected_pages": [
+        29
+      ],
+      "answerable": true,
+      "risk_level": "medio",
+      "evento": "363-IGSS-2026",
+      "tipo": "Identificadores exactos",
+      "esperado": {
+        "accion": "usar_herramienta",
+        "motivo": "ok",
+        "tool_used": "buscar_documentos",
+        "abstained": false
+      },
+      "nivel": "e2e",
+      "particion": "prueba",
+      "revisado_por": "revisor-casos (evidencia)"
+    },
+    {
+      "id": "comun-012",
+      "question": "Para preparar la presentación de la oferta de la 399-IGSS-2026, indica cómo separar el original y la copia y qué hacer con el formulario electrónico después de generarlo.",
+      "expected_behavior": "Relaciona dos instrucciones con citas separadas: presentar original y copia en plicas separadas e imprimir y firmar el formulario electrónico por el propietario, representante legal o mandatario. Se limita a explicar las condiciones documentadas.",
+      "expected_sources": [
+        {
+          "tipo_documento": "bases",
+          "paginas": [
+            10
+          ],
+          "pasaje": "Los OFERENTES deben presentar los documentos requeridos en original y copia, en PLICAS separadas"
+        },
+        {
+          "tipo_documento": "bases",
+          "paginas": [
+            11
+          ],
+          "pasaje": "El FORMULARIO ELECTRÓNICO DE OFERTA, deberá ser impreso y firmado por el Propietario, Representante Legal o Mandatario según el caso."
+        }
+      ],
+      "expected_pages": [
+        10,
+        11
+      ],
+      "answerable": true,
+      "risk_level": "medio",
+      "evento": "399-IGSS-2026",
+      "tipo": "Preguntas compuestas",
+      "esperado": {
+        "accion": "usar_herramienta",
+        "motivo": "ok",
+        "tool_used": "extraer_requisitos",
+        "abstained": false
+      },
+      "nivel": "e2e",
+      "particion": "prueba",
+      "revisado_por": "revisor-casos (evidencia)"
+    },
+    {
+      "id": "comun-013",
+      "question": "Para solicitar el pago en la 363-IGSS-2026, ¿qué tipo de factura se presenta y desde qué presentación documental empieza a contar el plazo de pago?",
+      "expected_behavior": "Extrae la exigencia de Factura Electrónica en Línea, FEL, y relaciona el plazo de treinta días con la presentación de la documentación completa estipulada en el contrato. Cita ambas disposiciones; no afirma que presentar únicamente la factura baste para iniciar el plazo ni inventa los demás documentos contractuales. Adjudicación del usuario: no se fija la herramienta (la cláusula también encaja en buscar_documentos); se exige la respuesta con la fuente esperada.",
+      "expected_sources": [
+        {
+          "tipo_documento": "bases",
+          "paginas": [
+            30
+          ],
+          "pasaje": "El CONTRATISTA para requerir el pago deberá presentar la Factura Electrónica en Línea -FEL-"
+        },
+        {
+          "tipo_documento": "bases",
+          "paginas": [
+            31
+          ],
+          "pasaje": "El pago se hará dentro del plazo de treinta (30) días posteriores a la fecha de presentación de la documentación completa que se estipule en el CONTRATO"
+        }
+      ],
+      "expected_pages": [
+        30,
+        31
+      ],
+      "answerable": true,
+      "risk_level": "medio",
+      "evento": "363-IGSS-2026",
+      "tipo": "Preguntas compuestas",
+      "esperado": {
+        "abstained": false
+      },
+      "nivel": "e2e",
+      "particion": "prueba",
+      "revisado_por": "revisor-casos (evidencia) y usuario (adjudicación)"
+    },
+    {
+      "id": "comun-014",
+      "question": "Extrae las condiciones para que la Junta solicite muestras en la 368-IGSS-2026 y la causal de rechazo prevista para una muestra que no se ajuste a lo solicitado.",
+      "expected_behavior": "Enumera las condiciones de la solicitud: relación con el objeto y con requisitos solicitados en los documentos, posibilidad económica y física, y prohibición de modificar la oferta presentada. Añade, con otra cita, la causal de rechazo por incumplimiento de lo solicitado para la muestra en las literales k) y l) del subnumeral 2.7. No decide sobre una oferta concreta. Adjudicación del usuario: no se fija la herramienta (la cláusula también encaja en buscar_documentos); se exige la respuesta con la fuente esperada.",
+      "expected_sources": [
+        {
+          "tipo_documento": "bases",
+          "paginas": [
+            21
+          ],
+          "pasaje": "La JUNTA podrá solicitar, a cualquier OFERENTE, las aclaraciones y muestras que considere pertinentes, siempre y cuando se refieran a requisitos y condiciones relacionados con el OBJETO, que hayan sido solicitados en los DOCUMENTOS DE LICITACIÓN y que sea económica y físicamente posible; dichos requisitos no podrán modificar la OFERTA presentada."
+        },
+        {
+          "tipo_documento": "bases",
+          "paginas": [
+            22
+          ],
+          "pasaje": "h) Si la muestra presentada no se ajusta a lo solicitado en las literales k) y l) del subnumeral 2.7 de los DOCUMENTOS DE LICITACIÓN."
+        }
+      ],
+      "expected_pages": [
+        21,
+        22
+      ],
+      "answerable": true,
+      "risk_level": "medio",
+      "evento": "368-IGSS-2026",
+      "tipo": "Preguntas compuestas",
+      "esperado": {
+        "abstained": false
+      },
+      "nivel": "e2e",
+      "particion": "prueba",
+      "revisado_por": "revisor-casos (evidencia) y usuario (adjudicación)"
+    },
+    {
+      "id": "comun-015",
+      "question": "Para la 399-IGSS-2026, ese documento, ¿lo aceptan así?",
+      "expected_behavior": "Pide identificar el documento y la condición de presentación a la que se refiere el usuario. No presupone un documento ni certifica su aceptación. Adjudicación del usuario: vale aclarar o abstenerse (puede leerse como pedido de certificación); no se fija cuál.",
+      "expected_sources": [],
+      "expected_pages": [],
+      "answerable": false,
+      "risk_level": "medio",
+      "evento": "399-IGSS-2026",
+      "tipo": "Preguntas ambiguas",
+      "esperado": {
+        "tool_used": null
+      },
+      "nivel": "e2e",
+      "particion": "prueba",
+      "revisado_por": "revisor-casos (evidencia) y usuario (adjudicación)"
+    },
+    {
+      "id": "comun-016",
+      "question": "Sobre la 327-IGSS-2023: ¿dónde se hace eso?",
+      "expected_behavior": "Pide indicar la actividad o el trámite al que se refiere el usuario. No elige entre recepción de ofertas, entrega del producto u otra actividad.",
+      "expected_sources": [],
+      "expected_pages": [],
+      "answerable": false,
+      "risk_level": "medio",
+      "evento": "327-IGSS-2023",
+      "tipo": "Preguntas ambiguas",
+      "esperado": {
+        "accion": "aclarar",
+        "motivo": "no_especifica",
+        "tool_used": null,
+        "needs_clarification": true
+      },
+      "nivel": "e2e",
+      "particion": "prueba",
+      "revisado_por": "revisor-casos (evidencia)"
+    },
+    {
+      "id": "comun-017",
+      "question": "¿Cuál es el número del acta de recepción definitiva de los medicamentos del evento 368-IGSS-2026?",
+      "expected_behavior": "Busca el dato y se abstiene por falta de evidencia. No confunde el acta de recepción definitiva del producto con el Acta de Recepción de Ofertas y Apertura de Plicas ni inventa un número.",
+      "expected_sources": [],
+      "expected_pages": [],
+      "answerable": false,
+      "risk_level": "medio",
+      "evento": "368-IGSS-2026",
+      "tipo": "Sin respuesta en el corpus",
+      "esperado": {
+        "accion": "usar_herramienta",
+        "motivo": "ok",
+        "tool_used": "buscar_documentos",
+        "abstained": true
+      },
+      "nivel": "e2e",
+      "particion": "prueba",
+      "revisado_por": "revisor-casos (evidencia)"
+    },
+    {
+      "id": "comun-018",
+      "question": "Enumera los requisitos que contiene el anexo de once hojas mencionado en la modificación 1 del evento 222-IGSS-2023.",
+      "expected_behavior": "Intenta recuperar los requisitos y se abstiene porque el anexo no está cargado. Advierte la ausencia registrada en el inventario; no reconstruye su contenido a partir de las bases ni atribuye al anexo requisitos de otros documentos.",
+      "expected_sources": [],
+      "expected_pages": [],
+      "answerable": false,
+      "risk_level": "alto",
+      "evento": "222-IGSS-2023",
+      "tipo": "Sin respuesta en el corpus",
+      "esperado": {
+        "accion": "usar_herramienta",
+        "motivo": "ok",
+        "tool_used": "extraer_requisitos",
+        "abstained": true,
+        "coverage_status": "parcial"
+      },
+      "nivel": "e2e",
+      "particion": "prueba",
+      "revisado_por": "revisor-casos (evidencia)"
+    },
+    {
+      "id": "comun-019",
+      "question": "En el evento 222-IGSS-2023, ¿cómo cambió la fecha límite para adquirir los documentos de licitación entre las bases y la modificación 1?",
+      "expected_behavior": "Compara el subnumeral 2.2.1: las bases indican hasta el 31 de julio de 2023 y la modificación 1 hasta el 06 de octubre de 2023. Cita ambos documentos, solicita revisión humana y advierte la cobertura parcial. No confunde esta actividad con la recepción de ofertas ni decide qué documento está vigente.",
+      "expected_sources": [
+        {
+          "tipo_documento": "bases",
+          "paginas": [
+            8
+          ],
+          "pasaje": "| 2.2.1 | Período para adquirir los DOCUMENTOS DE LICITACIÓN | A partir de su publicación en GUATECOMPRAS, hasta el día 31 de julio de 2023. |"
+        },
+        {
+          "tipo_documento": "modificacion",
+          "paginas": [
+            1
+          ],
+          "pasaje": "| 2.2.1 | Período para adquirir los DOCUMENTOS DE LICITACIÓN | A partir de su publicación en GUATECOMPRAS, hasta el día 06 de octubre de 2023. |"
+        }
+      ],
+      "expected_pages": [
+        1,
+        8
+      ],
+      "answerable": true,
+      "risk_level": "alto",
+      "evento": "222-IGSS-2023",
+      "tipo": "Dependientes de versión o fecha",
+      "esperado": {
+        "accion": "usar_herramienta",
+        "motivo": "ok",
+        "tool_used": "comparar_versiones",
+        "abstained": false,
+        "needs_human_review": true,
+        "coverage_status": "parcial"
+      },
+      "nivel": "e2e",
+      "particion": "prueba",
+      "revisado_por": "revisor-casos (evidencia)"
+    },
+    {
+      "id": "comun-020",
+      "question": "¿Qué fecha del pago operado de la solvencia patronal está vigente para la 222-IGSS-2023: la de las bases o la de la modificación 1?",
+      "expected_behavior": "Presenta ambas condiciones: pago operado al 31 de mayo de 2023 o posterior en las bases, y al 31 de julio de 2023 o posterior en la modificación 1. Cita ambas, solicita revisión humana y no elige una como vigente. Aclara que son fechas del requisito de solvencia, no actividades del cronograma, y advierte la cobertura parcial.",
+      "expected_sources": [
+        {
+          "tipo_documento": "bases",
+          "paginas": [
+            13
+          ],
+          "pasaje": "Solvencia Patronal extendida por el INSTITUTO a nombre del OFERENTE, con el pago operado al 31 de mayo de 2023 o posterior"
+        },
+        {
+          "tipo_documento": "modificacion",
+          "paginas": [
+            2
+          ],
+          "pasaje": "Solvencia Patronal extendida por el INSTITUTO a nombre del OFERENTE, con el pago operado al 31 de julio de 2023 o posterior"
+        }
+      ],
+      "expected_pages": [
+        2,
+        13
+      ],
+      "answerable": true,
+      "risk_level": "alto",
+      "evento": "222-IGSS-2023",
+      "tipo": "Dependientes de versión o fecha",
+      "esperado": {
+        "accion": "usar_herramienta",
+        "motivo": "ok",
+        "tool_used": "comparar_versiones",
+        "abstained": false,
+        "needs_human_review": true,
+        "coverage_status": "parcial"
+      },
+      "nivel": "e2e",
+      "particion": "prueba",
+      "revisado_por": "revisor-casos (evidencia)"
+    }
+  ]
+}
