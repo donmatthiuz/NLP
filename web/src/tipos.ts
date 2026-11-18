@@ -74,3 +74,10 @@ export interface DocumentosEvento {
   evento_id: string
   documentos: DocumentoEvento[]
 }
+
+// Copia a mano de SesionSalida: src/licigt/consulta/api.py
+export interface Sesion {
+  usuario: string
+  tenant_id: string
+  rol: string
+}

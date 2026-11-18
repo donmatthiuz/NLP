@@ -48,3 +48,9 @@ export function esHttps(url: string): boolean {
 export function alAclarar(pregunta: string): { texto: string; cursor: number } {
   return { texto: pregunta, cursor: pregunta.length }
 }
+
+export const MENSAJE_SESION_TERMINADA = 'La sesión terminó. Inicie sesión de nuevo.'
+
+// Un solo texto para usuario, empresa y rol en la cabecera.
+export const textoSesion = (s: { usuario: string; tenant_id: string; rol: string }) =>
+  `${s.usuario} · ${s.tenant_id} · rol ${s.rol}`

@@ -16,10 +16,11 @@ En orden del DOM, que es también el orden visual y el de lectura y tabulación:
 
 1. **Aviso de modo** (`.aviso-modo`), banda angosta arriba de todo, solo cuando aplica:
    - con `VITE_MODO=ejemplos`: "Modo ejemplos: respuestas fijas, no se consulta la API.";
-   - con la cabecera `X-LiciGT-Autenticacion: ninguna-demo`: "Modo demostración: sin autenticación. La empresa es fija (empresa_demo)." No muestra el `tenant_id` como dato ni como campo.
+   - ya no hay aviso de modo demostración: la cabecera `X-LiciGT-Autenticacion` y el adaptador sin autenticación no existen; la web usa la sesión (ver "Sesión").
 2. **Encabezado** (`header.encabezado`):
    - nombre "LiciGT" y subtítulo "Consulta de licitaciones";
    - evento activo: `evento_id` en texto (por ejemplo, "Evento 222-IGSS-2023");
+   - con sesión iniciada, a la derecha: usuario, empresa y rol en texto pequeño, junto al botón secundario "Cerrar sesión" (`DELETE /api/sesion`);
    - selector de tema (Sistema, Claro, Oscuro), compacto, a la derecha.
 3. **Consulta** (`form.consulta`, dentro de `main`):
    - en modo ejemplos, un selector "Ejemplo" con los cinco escenarios antes de la caja;
@@ -31,6 +32,18 @@ En orden del DOM, que es también el orden visual y el de lectura y tabulación:
 8. **Pie** (`footer`): una línea con "LiciGT, proyecto CC3103 (UVG). No presenta ofertas ni decide la vigencia de documentos."
 
 El panel de documentos del evento (`section.documentos`) va entre el encabezado y la consulta. Ver "Documentos del evento".
+
+## Sesión
+
+Desde que toda ruta `/api/*` (salvo `/api/sesion`) exige cookie, la web comprueba la sesión antes de mostrar nada. Solo con `VITE_MODO=api`; en modo ejemplos no hay sesión.
+
+- **Al cargar:** `GET /api/sesion`. Con 200 se muestra la aplicación; con 401, la pantalla de inicio de sesión; mientras tanto, "Comprobando la sesión…".
+- **Pantalla de inicio de sesión** (`form.sesion`, componente `InicioSesion`): encabezado de la página, título "Iniciar sesión", mensaje de error en `p.sesion__error` con `role="alert"` ("Usuario o contraseña no válidos", genérico, sin distinguir la causa), campos "Usuario" y "Contraseña" con `<label>` visible, y el botón "Iniciar sesión". Nada más. Ancho máximo 24 rem, una columna, válida desde 320 px; usa solo las variables CSS (campos con `--color-borde-control`, foco con `--color-foco`), por lo que respeta el tema claro y oscuro y el contraste medido.
+- **Cookie y contraseña:** la cookie es `HttpOnly`: la web ni la lee ni la guarda. La contraseña vive solo en el estado del formulario; no va a `localStorage`, `sessionStorage` ni a la URL.
+- **401 a mitad de uso:** vuelve a la pantalla de inicio de sesión con el aviso "La sesión terminó. Inicie sesión de nuevo." en el `role="alert"`; la pregunta escrita sigue en el estado de `App` y reaparece al volver a entrar.
+- **403 y rol `lector`:** el servidor responde 403 si un `lector` intenta proponer, guardar o cambiar estado; la lista muestra "Su rol no permite modificar la lista". Con `rol: lector` los botones "Proponer lista", "Guardar N ítems", los estados y "Guardar cambio" se muestran deshabilitados, con esa misma frase visible debajo de los botones (no solo en el atributo `disabled`).
+- **Foco y detalles:** al entrar, el foco va a la caja de pregunta; al salir o al perder la sesión, al título "Iniciar sesión". Tras un intento fallido se vacía la contraseña. El error usa `--color-error` y `--color-error-fondo`. Con el lector, los estados van en un `fieldset disabled` descrito por la explicación, y con 403 no se ofrece "Recargar lista".
+- **Cerrar sesión:** `DELETE /api/sesion`; vuelve al inicio de sesión y limpia la pregunta.
 
 ## Documentos del evento
 
@@ -158,9 +171,11 @@ Contenido, en este orden:
   - "Versión oficial": el texto de `version_oficial` o "No indicada" si es nulo;
   - "Fragmento": `chunk_id` en `--fuente-mono` y `--texto-sm`, seleccionable.
 - **Cita literal:** `blockquote.cita` con borde izquierdo de 3 px en `--color-borde-control`, fondo `--color-superficie-2`, `lang="es"`, texto tal cual (sin recortar más allá de lo que trae el campo, sin reformatear fechas ni mayúsculas). Única excepción de pantalla: una cita de tabla llega como `título | texto` y la barra se lee como ": " (o un espacio tras un punto), igual en la tarjeta y en la lista; lo guardado no cambia.
-- **Acceso al original:**
-  - si `source` empieza con `https://`: enlace "Abrir documento original" con el texto visible "(página 8)" al lado y la indicación accesible "abre en una pestaña nueva"; `target="_blank"` y `rel="noopener noreferrer"`. La URL no se modifica (no se añade `#page=`);
-  - si no: el texto "Original no disponible en línea" y el `doc_id`, sin enlace.
+- **Accesos al original:** dos enlaces distintos, con rótulos que no se confunden:
+  - "Ver copia archivada, p. N" (solo con la API, nunca en modo ejemplos): copia que sirve el sistema, `/api/eventos/{evento}/documentos/{doc_id}/original#page=N`, con `target="_blank"` y `rel="noopener"`. El `doc_id` y la página salen de la fuente (el `doc_id` se codifica en la ruta), nunca de texto del usuario. El servidor solo sirve documentos de la empresa de la sesión y responde 404 en cualquier otro caso;
+  - "Publicación en igssgt.org": si `source` empieza con `https://`, enlace a la publicación externa, sin número de página y sin modificar la URL (no se añade `#page=`); `target="_blank"` y `rel="noopener noreferrer"`. Ambos llevan la indicación accesible "abre en una pestaña nueva";
+  - si `source` no es https: el texto "Publicación externa no disponible" y el `doc_id`, sin enlace.
+  - Estilo del primero: peso `--peso-fuerte`, color `--color-acento`, mismos tamaños que `.fuente__origen`.
 
 ### Tipo del documento
 
@@ -325,7 +340,7 @@ Pruebas de la web: Vitest sobre la lógica pura (`estado`, `lista`, `cobertura`)
 Meta: WCAG 2.1 nivel AA.
 
 - **Idioma y estructura:** `html lang="es"`; un `h1` ("LiciGT") en el encabezado; `h2` para el rótulo del estado, "Fuentes" y "Lista de verificación"; `h3` para cada tarjeta. Regiones: `header`, `main`, `footer`; el formulario con `aria-label="Consulta"`.
-- **Orden de lectura y teclado:** orden del DOM igual al visual. Tabulación: selector de tema, selector de ejemplo (si existe), caja de pregunta, "Consultar", botón de la aclaración (si existe), enlaces "Abrir documento original". Sin `tabindex` positivo. `Ctrl+Enter` o `Cmd+Enter` en la caja envía; `Enter` agrega una línea.
+- **Orden de lectura y teclado:** orden del DOM igual al visual. Tabulación: selector de tema, selector de ejemplo (si existe), caja de pregunta, "Consultar", botón de la aclaración (si existe), enlaces "Ver copia archivada" y "Publicación en igssgt.org" de cada fuente. Con sesión, antes del selector de tema va "Cerrar sesión"; en la pantalla de inicio: "Usuario", "Contraseña" e "Iniciar sesión". Sin `tabindex` positivo. `Ctrl+Enter` o `Cmd+Enter` en la caja envía; `Enter` agrega una línea.
 - **Foco visible:** `:focus-visible` con `outline: 3px solid var(--color-foco)` y `outline-offset: 2px` en todo control y enlace. Nunca `outline: none` sin reemplazo.
 - **Al llegar un resultado:** el foco pasa al `h2` del panel (`tabindex="-1"`), de modo que el lector anuncia el estado ("Requiere revisión humana") antes que el texto. Un `div role="status"` aparte anuncia "Consultando…" y luego "Resultado: " más el rótulo del estado. No se pone `aria-live` sobre todo el panel, para no leer la respuesta dos veces.
 - **Lectores de pantalla:**
@@ -379,7 +394,7 @@ Los valores entre `<>` son marcadores: F6b los toma reales de `entregables/recup
 | | Página: pp. 26–27            Versión de ingesta: v<n>            | |
 | | Versión oficial: <texto>     Fragmento: <chunk_id>               | |
 | | | «<cita literal del fragmento>»                                 | |
-| | Abrir documento original (página 26)                             | |
+| | Ver copia archivada, p. 26 · Publicación en igssgt.org           | |
 | +------------------------------------------------------------------+ |
 +----------------------------------------------------------------------+
 | LiciGT, proyecto CC3103 (UVG). No presenta ofertas ni decide ...     |
@@ -446,7 +461,7 @@ El borde discontinuo rodea todo el panel.
 | | Fragmento: <chunk_id>         | | Fragmento: <chunk_id>         |  |
 | | | «<cita 2.2.6, 31 de julio   | | | «<cita, 06 de octubre de    |  |
 | | |   de 2023 ...>»             | | |   2023, a las 11:00 ...>»   |  |
-| | Abrir documento original      | | Abrir documento original      |  |
+| | Ver copia archivada · Publicación | | Ver copia archivada · Publicación |  |
 | | (página 8)                    | | (página 1)                    |  |
 | +-------------------------------+ +-------------------------------+  |
 ```

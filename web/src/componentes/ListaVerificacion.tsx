@@ -1,7 +1,7 @@
 import { useEffect, useId, useMemo, useReducer, useRef, useState } from 'react'
 import { rotuloDocumento } from '../cobertura'
 import type { MapaTipos } from '../cobertura'
-import { ErrorLista, cambiarEstadoApi, guardarApi, listarApi, proponerApi } from '../api'
+import { ErrorLista, ErrorNoAutenticado, MENSAJE_ROL, cambiarEstadoApi, guardarApi, listarApi, proponerApi } from '../api'
 import { crearListaEjemplos } from '../listaEjemplos'
 import {
   ESTADOS_ITEM, ROTULOS_ESTADO_ITEM, cambiosPendientes, itemsAGuardar, mostrarCita, partesItem, reducirLista, sinGuardar,
@@ -14,6 +14,9 @@ import { IconoItem } from './Iconos'
 const CATEGORIAS = { administrativa: 'Administrativa', legal: 'Legal', tecnica: 'Técnica', financiera: 'Financiera' }
 const CARACTERES = { fundamental: 'Fundamental', no_fundamental: 'No fundamental', no_indicado: 'No indicado' }
 const TIPOS = { requisito: 'Requisito', fecha: 'Fecha' }
+
+// Con 403 recargar no ayuda: el rol no cambia.
+export const ofreceRecargar = (codigo: string) => codigo !== 'rol_no_permitido'
 
 const paginas = (p: number, fin: number | null) => (fin === null || fin === p ? `p. ${p}` : `pp. ${p}–${fin}`)
 const nombre = (i: ItemPropuesto) => `${TIPOS[i.tipo]}${i.categoria ? ` ${CATEGORIAS[i.categoria].toLowerCase()}` : ''}`
@@ -29,9 +32,11 @@ interface ApiLista {
   cambiarEstado: (itemId: string, anterior: EstadoItem, nuevo: EstadoItem, confirmado: boolean) => Promise<ItemLista>
 }
 
-export function FilaItem({ fila, tipos, alIncluir, alMarcar, alGuardarCambio, alDescartar }: {
+export function FilaItem({ fila, tipos, soloLectura = false, idExplicacion, alIncluir, alMarcar, alGuardarCambio, alDescartar }: {
   fila: FilaLista
   tipos?: MapaTipos
+  soloLectura?: boolean
+  idExplicacion?: string
   alIncluir: () => void
   alMarcar: (e: EstadoItem) => void
   alGuardarCambio: (origen: HTMLElement) => void
@@ -62,11 +67,11 @@ export function FilaItem({ fila, tipos, alIncluir, alMarcar, alGuardarCambio, al
           versión oficial: {f.version_oficial ?? 'No indicada'}
         </p>
         {guardado ? (
-          <fieldset className="estados">
+          <fieldset className="estados" disabled={soloLectura} aria-describedby={soloLectura ? idExplicacion : undefined}>
             <legend>Estado de «{nombre(i)}»</legend>
             {ESTADOS_ITEM.map((e) => (
               <label key={e} className="estados__opcion" data-activo={fila.estado === e}>
-                <input type="radio" name={grupo} checked={fila.estado === e} onChange={() => alMarcar(e)} />
+                <input type="radio" name={grupo} checked={fila.estado === e} disabled={soloLectura} onChange={() => alMarcar(e)} />
                 <IconoItem estado={e} />
                 <span>{ROTULOS_ESTADO_ITEM[e]}</span>
               </label>
@@ -83,7 +88,7 @@ export function FilaItem({ fila, tipos, alIncluir, alMarcar, alGuardarCambio, al
           <div className="item-lista__cambio">
             <span className="etiqueta etiqueta--aviso">Sin guardar</span>
             <span className="ayuda">{ROTULOS_ESTADO_ITEM[fila.estadoGuardado!]} a {ROTULOS_ESTADO_ITEM[fila.estado]}</span>
-            <button type="button" className="boton boton--secundario" onClick={(e) => alGuardarCambio(e.currentTarget)}>Guardar cambio</button>
+            <button type="button" className="boton boton--secundario" disabled={soloLectura} onClick={(e) => alGuardarCambio(e.currentTarget)}>Guardar cambio</button>
             <button type="button" className="boton boton--secundario" onClick={alDescartar}>Descartar</button>
           </div>
         )}
@@ -92,7 +97,7 @@ export function FilaItem({ fila, tipos, alIncluir, alMarcar, alGuardarCambio, al
   )
 }
 
-export function ListaVerificacion({ eventoId, modoEjemplos, tipos }: { eventoId: string; modoEjemplos: boolean; tipos?: MapaTipos }) {
+export function ListaVerificacion({ eventoId, modoEjemplos, tipos, soloLectura = false }: { eventoId: string; modoEjemplos: boolean; tipos?: MapaTipos; soloLectura?: boolean }) {
   const api = useMemo<ApiLista>(() => {
     if (modoEjemplos) {
       const e = crearListaEjemplos(eventoId, new URLSearchParams(window.location.search).get('conflicto') === '1')
@@ -106,11 +111,12 @@ export function ListaVerificacion({ eventoId, modoEjemplos, tipos }: { eventoId:
     }
   }, [eventoId, modoEjemplos])
 
+  const idRol = useId()
   const [filas, despachar] = useReducer(reducirLista, [] as FilaLista[])
   const [confirmando, setConfirmando] = useState<Confirmando | null>(null)
   const [guardando, setGuardando] = useState(false)
   const [cargando, setCargando] = useState(false)
-  const [aviso, setAviso] = useState<{ tipo: 'error' | 'conflicto' | 'ok'; texto: string } | null>(null)
+  const [aviso, setAviso] = useState<{ tipo: 'error' | 'conflicto' | 'ok'; texto: string; codigo?: string } | null>(null)
   const [abstencion, setAbstencion] = useState<string | null>(null)
   const [anuncio, setAnuncio] = useState('')
   const origen = useRef<HTMLElement | null>(null)
@@ -122,7 +128,8 @@ export function ListaVerificacion({ eventoId, modoEjemplos, tipos }: { eventoId:
       despachar({ tipo: 'cargar', items: await api.listar() })
       setAviso(null)
     } catch (e) {
-      setAviso({ tipo: 'error', texto: e instanceof ErrorLista ? e.message : 'Error inesperado' })
+      if (e instanceof ErrorNoAutenticado) return
+      setAviso({ tipo: 'error', texto: e instanceof ErrorLista ? e.message : 'Error inesperado', codigo: e instanceof ErrorLista ? e.codigo : undefined })
     } finally {
       setCargando(false)
     }
@@ -140,7 +147,8 @@ export function ListaVerificacion({ eventoId, modoEjemplos, tipos }: { eventoId:
       if (p.items.length === 0) setAbstencion(p.respuesta.abstained ? 'No hay información suficiente en los documentos para proponer ítems.' : 'La propuesta no trae ítems nuevos.')
       setAnuncio(`Propuesta: ${p.items.length} ítems`)
     } catch (e) {
-      setAviso({ tipo: 'error', texto: e instanceof ErrorLista ? e.message : 'Error inesperado' })
+      if (e instanceof ErrorNoAutenticado) return
+      setAviso({ tipo: 'error', texto: e instanceof ErrorLista ? e.message : 'Error inesperado', codigo: e instanceof ErrorLista ? e.codigo : undefined })
     } finally {
       setCargando(false)
     }
@@ -164,12 +172,13 @@ export function ListaVerificacion({ eventoId, modoEjemplos, tipos }: { eventoId:
       }
       setAviso(null)
     } catch (e) {
+      if (e instanceof ErrorNoAutenticado) return
       const error = e instanceof ErrorLista ? e : new ErrorLista('Error inesperado', 'desconocido')
       if (error.codigo === 'estado_desactualizado' && confirmando.tipo === 'cambio') {
         despachar({ tipo: 'descartarCambio', clave: confirmando.fila.clave })
         setAviso({ tipo: 'conflicto', texto: error.message })
       } else {
-        setAviso({ tipo: 'error', texto: error.message })
+        setAviso({ tipo: 'error', texto: error.message, codigo: error.codigo })
       }
     } finally {
       setGuardando(false)
@@ -186,19 +195,20 @@ export function ListaVerificacion({ eventoId, modoEjemplos, tipos }: { eventoId:
       <h2 id="titulo-lista" ref={titulo} tabIndex={-1}>Lista de verificación</h2>
       <p className="aviso-fijo"><span>Los estados de la lista no certifican cumplimiento.</span></p>
       <div className="lista__acciones">
-        <button type="button" className="boton boton--secundario" onClick={() => void proponer()} disabled={cargando}>Proponer lista</button>
+        <button type="button" className="boton boton--secundario" onClick={() => void proponer()} disabled={cargando || soloLectura}>Proponer lista</button>
         <button
-          type="button" className="boton" disabled={porGuardar.length === 0 || guardando}
+          type="button" className="boton" disabled={porGuardar.length === 0 || guardando || soloLectura}
           onClick={(e) => { origen.current = e.currentTarget; setConfirmando({ tipo: 'guardar', items: porGuardar }) }}
         >
           Guardar {porGuardar.length} {porGuardar.length === 1 ? 'ítem' : 'ítems'}
         </button>
       </div>
+      {soloLectura && <p id={idRol} className="ayuda">{MENSAJE_ROL}.</p>}
       <div role="status" className="oculto-visual">{anuncio}</div>
       {aviso && (
         <div className={`lista__aviso lista__aviso--${aviso.tipo}`} role="alert">
           <p>{aviso.texto}</p>
-          {aviso.tipo !== 'ok' && <button type="button" className="boton boton--secundario" onClick={() => void recargar()}>Recargar lista</button>}
+          {aviso.tipo !== 'ok' && ofreceRecargar(aviso.codigo ?? '') && <button type="button" className="boton boton--secundario" onClick={() => void recargar()}>Recargar lista</button>}
         </div>
       )}
       {abstencion && <p className="ayuda">{abstencion}</p>}
@@ -209,7 +219,7 @@ export function ListaVerificacion({ eventoId, modoEjemplos, tipos }: { eventoId:
         <ul className="lista__items">
           {filas.map((f) => (
             <FilaItem
-              key={f.clave} fila={f} tipos={tipos}
+              key={f.clave} fila={f} tipos={tipos} soloLectura={soloLectura} idExplicacion={idRol}
               alIncluir={() => despachar({ tipo: 'alternarIncluir', clave: f.clave })}
               alMarcar={(estado) => despachar({ tipo: 'marcar', clave: f.clave, estado })}
               alGuardarCambio={(el) => { origen.current = el; setConfirmando({ tipo: 'cambio', fila: f }) }}

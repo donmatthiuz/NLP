@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ErrorConsulta, consultarApi } from './api'
+import {
+  ErrorConsulta, ErrorNoAutenticado, alPerderSesion, cerrarSesionApi, consultarApi, iniciarSesionApi, obtenerSesionApi,
+} from './api'
+import { InicioSesion } from './componentes/InicioSesion'
 import { IconoInfo } from './componentes/Iconos'
 import { DocumentosEvento, useDocumentosEvento } from './componentes/DocumentosEvento'
 import { Resultado } from './componentes/Resultado'
@@ -8,8 +11,8 @@ import { ListaVerificacion } from './componentes/ListaVerificacion'
 import { SelectorTema } from './componentes/Tema'
 import { mapaTipos } from './cobertura'
 import { EJEMPLOS } from './ejemplos'
-import { ROTULOS, alAclarar, estadoDe } from './estado'
-import type { RespuestaEstructurada } from './tipos'
+import { MENSAJE_SESION_TERMINADA, ROTULOS, alAclarar, estadoDe, textoSesion } from './estado'
+import type { RespuestaEstructurada, Sesion } from './tipos'
 
 const MODO_EJEMPLOS = (import.meta.env.VITE_MODO ?? (import.meta.env.DEV ? 'ejemplos' : 'api')) === 'ejemplos'
 const EVENTO_ID = import.meta.env.VITE_EVENTO_ID ?? '222-IGSS-2023'
@@ -25,12 +28,48 @@ export default function App() {
   const [ejemploId, setEjemploId] = useState(EJEMPLOS[0].id)
   const [texto, setTexto] = useState(MODO_EJEMPLOS ? EJEMPLOS[0].pregunta : '')
   const [situacion, setSituacion] = useState<Situacion>({ tipo: 'vacia' })
-  const [sinAutenticacion, setSinAutenticacion] = useState(false)
+  // undefined: comprobando; null: sin sesión (pantalla de inicio); en modo ejemplos no hay sesión.
+  const [sesion, setSesion] = useState<Sesion | null | undefined>(MODO_EJEMPLOS ? null : undefined)
+  const [errorSesion, setErrorSesion] = useState<string | null>(null)
+  const [entrando, setEntrando] = useState(false)
   const [anuncio, setAnuncio] = useState('')
-  const documentos = useDocumentosEvento(EVENTO_ID, MODO_EJEMPLOS)
+  const conSesion = MODO_EJEMPLOS || !!sesion
+  const documentos = useDocumentosEvento(EVENTO_ID, MODO_EJEMPLOS, conSesion)
   const tipos = useMemo(() => (documentos.tipo === 'listo' ? mapaTipos(documentos.datos.documentos) : undefined), [documentos])
   const cajaRef = useRef<HTMLTextAreaElement>(null)
   const rotuloRef = useRef<HTMLHeadingElement>(null)
+
+  useEffect(() => {
+    if (MODO_EJEMPLOS) return
+    alPerderSesion(() => { setSesion(null); setErrorSesion(MENSAJE_SESION_TERMINADA); setSituacion({ tipo: 'vacia' }) })
+    obtenerSesionApi()
+      .then(setSesion)
+      .catch((e) => { setSesion(null); setErrorSesion(e instanceof Error ? e.message : 'Error inesperado') })
+    return () => alPerderSesion(null)
+  }, [])
+
+  // Al entrar, el foco va a la caja de pregunta.
+  useEffect(() => { if (!MODO_EJEMPLOS && sesion) cajaRef.current?.focus() }, [sesion])
+
+  const entrar = async (usuario: string, contrasena: string) => {
+    setEntrando(true)
+    setErrorSesion(null)
+    try {
+      await iniciarSesionApi(usuario, contrasena)
+      setSesion(await obtenerSesionApi())
+    } catch (e) {
+      setErrorSesion(e instanceof Error ? e.message : 'Error inesperado')
+    } finally {
+      setEntrando(false)
+    }
+  }
+
+  const salir = async () => {
+    try { await cerrarSesionApi() } catch { /* la cookie se borra en el servidor; si no responde, igual se vuelve al inicio */ }
+    setSesion(null)
+    setSituacion({ tipo: 'vacia' })
+    setTexto('')
+  }
 
   useEffect(() => {
     if (situacion.tipo !== 'resultado') return
@@ -59,10 +98,11 @@ export default function App() {
       return
     }
     try {
-      const { respuesta, sinAutenticacion: sin } = await consultarApi(EVENTO_ID, pregunta)
-      setSinAutenticacion(sin)
+      const respuesta = await consultarApi(EVENTO_ID, pregunta)
       setSituacion({ tipo: 'resultado', respuesta, pregunta })
     } catch (e) {
+      // El 401 ya devolvió a la pantalla de inicio de sesión y la pregunta sigue en la caja.
+      if (e instanceof ErrorNoAutenticado) return
       const motivo = e instanceof ErrorConsulta ? e.message : 'Error inesperado'
       setSituacion({ tipo: 'error', motivo })
       setAnuncio(`No se pudo completar la consulta. ${motivo}`)
@@ -76,9 +116,6 @@ export default function App() {
   return (
     <>
       {MODO_EJEMPLOS && <p className="aviso-modo">Modo ejemplos: respuestas fijas, no se consulta la API.</p>}
-      {sinAutenticacion && (
-        <p className="aviso-modo">Modo demostración: sin autenticación. La empresa es fija (empresa_demo).</p>
-      )}
       <header className="encabezado">
         <div className="contenedor encabezado__interior">
           <div>
@@ -86,9 +123,24 @@ export default function App() {
             <p className="encabezado__sub">Consulta de licitaciones</p>
             <p className="encabezado__evento">Evento {EVENTO_ID}</p>
           </div>
-          <SelectorTema />
+          <div className="encabezado__acciones">
+            {sesion && (
+              <p className="encabezado__sesion">
+                <span>{textoSesion(sesion)}</span>
+                <button type="button" className="boton boton--secundario" onClick={() => void salir()}>Cerrar sesión</button>
+              </p>
+            )}
+            <SelectorTema />
+          </div>
         </div>
       </header>
+      {!conSesion ? (
+        <main className="contenedor">
+          {sesion === undefined
+            ? <p className="ayuda vacia" aria-busy="true">Comprobando la sesión…</p>
+            : <InicioSesion error={errorSesion} enviando={entrando} alEntrar={(u, c) => void entrar(u, c)} />}
+        </main>
+      ) : (
       <main className="contenedor">
         <DocumentosEvento carga={documentos} />
         <form
@@ -153,12 +205,14 @@ export default function App() {
               }}
             />
             {estado !== 'aclaracion' && (
-              <ZonaFuentes fuentes={r.sources} abstencion={r.abstained} conflicto={r.needs_human_review} tipos={tipos} />
+              <ZonaFuentes fuentes={r.sources} abstencion={r.abstained} conflicto={r.needs_human_review} tipos={tipos}
+                eventoId={MODO_EJEMPLOS ? undefined : EVENTO_ID} />
             )}
           </>
         )}
-        <ListaVerificacion eventoId={EVENTO_ID} modoEjemplos={MODO_EJEMPLOS} tipos={tipos} />
+        <ListaVerificacion eventoId={EVENTO_ID} modoEjemplos={MODO_EJEMPLOS} tipos={tipos} soloLectura={sesion?.rol === 'lector'} />
       </main>
+      )}
       <footer className="pie">
         <div className="contenedor">LiciGT, proyecto CC3103 (UVG). No presenta ofertas ni decide la vigencia de documentos.</div>
       </footer>

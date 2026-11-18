@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ErrorConsulta, documentosApi } from '../api'
+import { ErrorConsulta, ErrorNoAutenticado, documentosApi } from '../api'
 import { advertenciasDe, faltantesDe, resumenCobertura, rotuloEstadoDocumento, rotuloTipoDocumento, textoPaginas } from '../cobertura'
 import { EJEMPLO_DOCUMENTOS } from '../ejemplos'
 import type { DocumentoEvento, DocumentosEvento as Documentos } from '../tipos'
@@ -7,18 +7,19 @@ import type { DocumentoEvento, DocumentosEvento as Documentos } from '../tipos'
 export type Carga = { tipo: 'cargando' } | { tipo: 'error'; motivo: string } | { tipo: 'listo'; datos: Documentos }
 
 // La carga vive en App para que las citas de las fuentes y de la lista conozcan el tipo de cada documento.
-export function useDocumentosEvento(eventoId: string, modoEjemplos: boolean): Carga {
+export function useDocumentosEvento(eventoId: string, modoEjemplos: boolean, habilitado = true): Carga {
   const [carga, setCarga] = useState<Carga>({ tipo: 'cargando' })
 
   useEffect(() => {
     if (modoEjemplos) { setCarga({ tipo: 'listo', datos: EJEMPLO_DOCUMENTOS }); return }
+    if (!habilitado) return
     let activo = true
     setCarga({ tipo: 'cargando' })
     documentosApi(eventoId)
       .then((datos) => { if (activo) setCarga({ tipo: 'listo', datos }) })
-      .catch((e) => { if (activo) setCarga({ tipo: 'error', motivo: e instanceof ErrorConsulta ? e.message : 'Error inesperado' }) })
+      .catch((e) => { if (activo && !(e instanceof ErrorNoAutenticado)) setCarga({ tipo: 'error', motivo: e instanceof ErrorConsulta ? e.message : 'Error inesperado' }) })
     return () => { activo = false }
-  }, [eventoId, modoEjemplos])
+  }, [eventoId, modoEjemplos, habilitado])
   return carga
 }
 

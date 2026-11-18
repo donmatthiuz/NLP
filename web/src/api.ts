@@ -1,14 +1,63 @@
-import type { DocumentosEvento, EstadoItem, ItemLista, ItemPropuesto, PropuestaLista, RespuestaEstructurada } from './tipos'
-
-export interface ResultadoApi {
-  respuesta: RespuestaEstructurada
-  sinAutenticacion: boolean
-}
+import { MENSAJE_SESION_TERMINADA } from './estado'
+import type { DocumentosEvento, EstadoItem, ItemLista, ItemPropuesto, PropuestaLista, RespuestaEstructurada, Sesion } from './tipos'
 
 export class ErrorConsulta extends Error {}
 
+// La cookie de sesión es HttpOnly: la web nunca la lee ni la guarda; el navegador la envía solo (same-origin).
+export class ErrorNoAutenticado extends Error {
+  constructor() { super(MENSAJE_SESION_TERMINADA) }
+}
+
+export const MENSAJE_CREDENCIALES = 'Usuario o contraseña no válidos'
+export const MENSAJE_ROL = 'Su rol no permite modificar la lista'
+
+let avisarSesionPerdida: (() => void) | null = null
+export const alPerderSesion = (fn: (() => void) | null) => { avisarSesionPerdida = fn }
+
+// Cualquier 401 de /api a mitad de uso devuelve a la pantalla de inicio de sesión.
+function sesionPerdida(res: Response): never | void {
+  if (res.status !== 401) return
+  avisarSesionPerdida?.()
+  throw new ErrorNoAutenticado()
+}
+
+export async function obtenerSesionApi(): Promise<Sesion | null> {
+  let res: Response
+  try {
+    res = await fetch('/api/sesion')
+  } catch {
+    throw new ErrorConsulta('La API no respondió')
+  }
+  if (res.status === 401) return null
+  if (!res.ok) throw new ErrorConsulta(`La API devolvió un error (${res.status})`)
+  return (await res.json()) as Sesion
+}
+
+// Solo usuario y contraseña; la contraseña no se guarda en ningún almacenamiento.
+export async function iniciarSesionApi(usuario: string, contrasena: string): Promise<void> {
+  let res: Response
+  try {
+    res = await fetch('/api/sesion', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ usuario, contrasena }),
+    })
+  } catch {
+    throw new ErrorConsulta('La API no respondió')
+  }
+  if (res.status === 401 || res.status === 422) throw new ErrorConsulta(MENSAJE_CREDENCIALES)
+  if (res.status === 503) throw new ErrorConsulta('El servicio de sesión no está configurado')
+  if (!res.ok) throw new ErrorConsulta(`La API devolvió un error (${res.status})`)
+}
+
+export async function cerrarSesionApi(): Promise<void> {
+  try {
+    await fetch('/api/sesion', { method: 'DELETE' })
+  } catch {
+    throw new ErrorConsulta('La API no respondió')
+  }
+}
+
 // El cuerpo lleva solo la pregunta: el tenant sale de la sesión del servidor.
-export async function consultarApi(eventoId: string, pregunta: string): Promise<ResultadoApi> {
+export async function consultarApi(eventoId: string, pregunta: string): Promise<RespuestaEstructurada> {
   let res: Response
   try {
     res = await fetch(`/api/eventos/${encodeURIComponent(eventoId)}/consultas`, {
@@ -19,12 +68,10 @@ export async function consultarApi(eventoId: string, pregunta: string): Promise<
   } catch {
     throw new ErrorConsulta('La API no respondió')
   }
+  sesionPerdida(res)
   if (res.status === 422) throw new ErrorConsulta('La pregunta no es válida (422)')
   if (!res.ok) throw new ErrorConsulta(`La API devolvió un error (${res.status})`)
-  return {
-    respuesta: (await res.json()) as RespuestaEstructurada,
-    sinAutenticacion: res.headers.get('X-LiciGT-Autenticacion') === 'ninguna-demo',
-  }
+  return (await res.json()) as RespuestaEstructurada
 }
 
 // Solo lectura; sin tenant_id: sale de la sesión del servidor.
@@ -35,9 +82,13 @@ export async function documentosApi(eventoId: string): Promise<DocumentosEvento>
   } catch {
     throw new ErrorConsulta('La API no respondió')
   }
+  sesionPerdida(res)
   if (!res.ok) throw new ErrorConsulta(`La API devolvió un error (${res.status})`)
   return (await res.json()) as DocumentosEvento
 }
+
+export const rutaOriginal = (eventoId: string, docId: string, pagina: number) =>
+  `/api/eventos/${encodeURIComponent(eventoId)}/documentos/${encodeURIComponent(docId)}/original#page=${pagina}`
 
 export const MENSAJE_CONFLICTO = 'Otro usuario cambió este ítem. Recargue la lista antes de guardar.'
 
@@ -65,6 +116,8 @@ async function pedirLista<T>(url: string, init?: RequestInit): Promise<T> {
   } catch {
     throw new ErrorLista('La API no respondió', 'sin_respuesta')
   }
+  sesionPerdida(res)
+  if (res.status === 403) throw new ErrorLista(MENSAJE_ROL, 'rol_no_permitido')
   if (!res.ok) {
     // Solo el código: el detalle nunca trae texto de documentos.
     let codigo = `http_${res.status}`
