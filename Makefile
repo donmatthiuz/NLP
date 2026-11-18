@@ -32,7 +32,7 @@ EVENTO ?= 222-IGSS-2023
 
 .PHONY: help setup env-init keys-init keys-status key-set db-up db-down db-password-sync \
         importar buscar models-status claude opencode codex test-consulta test-ingesta test-recuperacion corpus \
-        diagramas llm-descargar llm-servidor llm-estado llm-detener deps-consulta sondeo-jev api experimento-jev web web-build lista-schema test-consulta-sql
+        diagramas llm-descargar llm-servidor llm-estado llm-detener deps-consulta sondeo-jev api banco experimento-jev web web-build lista-schema test-consulta-sql
 
 help: ## Muestra esta ayuda
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(firstword $(MAKEFILE_LIST)) \
@@ -119,6 +119,9 @@ test-consulta-sql: ## Pruebas de la lista en Postgres (requieren make db-up)
 
 api: ## Arranca el adaptador de consulta (demo, sin autenticación) en 127.0.0.1:$(LICIGT_API_PUERTO) (8000 por defecto)
 	@$(WITH_DB) PYTHONPATH=src $(PYTHON) -m uvicorn licigt.consulta.api:app --host 127.0.0.1 --port $(LICIGT_API_PUERTO)
+
+banco: ## Corre el banco de casos del rol 3 con los servicios reales (requiere db-up, importar y el LLM); guarda en data/consulta/banco
+	@$(WITH_DB) PYTHONPATH=src $(PYTHON) -m licigt.consulta.banco correr $(RUTA)
 
 web: ## Arranca la web de consulta en modo desarrollo (Vite; proxy de /api a 127.0.0.1:$(LICIGT_API_PUERTO))
 	@LICIGT_API_PUERTO=$(LICIGT_API_PUERTO) pnpm --dir web dev
