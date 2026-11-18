@@ -6,12 +6,12 @@
 |---|---|---:|---|---|---|---:|---:|---|
 | 399-IGSS-2026 | Bases | 432 | `437a8435922652fbb78aea651114680e` | `4182413774fa4149a9a15f4ecd0ef466` | `1f9aa9fdf38e8ce7780a00f37b49a9edda4ec9ef9426a979b2962127ff740444` | 36 / 36 | 189 | Completo |
 | 363-IGSS-2026 | Bases | 345 | `7008db8420d85f7c932817d7868eae8a` | `f1cb15bfe200440891134b14683dcadf` | `953eab12d975d203d1d4f27aed8e14c39581095d67ac91efbcda7a8934cb9426` | 36 / 36 | 190 | Completo |
-| 222-IGSS-2023 | Bases | 10527 | `69099f7184e65924a3e0aebf0ee238de` | `03791a3471c04c0f9cc260814564756e` | `93fc4e4fa0ef1376c2d2163f092f08236986ac72f5caf828dd7869de36a3ed2f` | 35 / 35 | 158 | Completo |
-| 222-IGSS-2023 | Modificación 1 | 10527 | `69099f7184e65924a3e0aebf0ee238de` | `d41480e5b0ce4c16bf18f66225ada2dc` | `4101799486c95dc6d109a10043c3907704a3fc8ff1af249f7c1dc6faa61e8434` | 4 / 4 | 8 (4 excluidos por `ruido_ocr`) | Requiere revisión |
-| 327-IGSS-2023 | Bases | Sin código | `b221164ba31257b89dbd66cf548983eb` | `0818d24d643a426b966ddaeb41072a00` | `759ac61bfc2282b8012358001d66ad364447f7dc2b4435fa66d511435db57ae3` | 37 / 37 | 154 | Completo |
+| 222-IGSS-2023 | Bases | 10527 | `69099f7184e65924a3e0aebf0ee238de` | `03791a3471c04c0f9cc260814564756e` | `93fc4e4fa0ef1376c2d2163f092f08236986ac72f5caf828dd7869de36a3ed2f` | 35 / 35 | 159 | Completo |
+| 222-IGSS-2023 | Modificación 1 | 10527 | `69099f7184e65924a3e0aebf0ee238de` | `d41480e5b0ce4c16bf18f66225ada2dc` | `4101799486c95dc6d109a10043c3907704a3fc8ff1af249f7c1dc6faa61e8434` | 4 / 4 | 9 (4 excluidos por `ruido_ocr`) | Requiere revisión |
+| 327-IGSS-2023 | Bases | Sin código | `b221164ba31257b89dbd66cf548983eb` | `0818d24d643a426b966ddaeb41072a00` | `759ac61bfc2282b8012358001d66ad364447f7dc2b4435fa66d511435db57ae3` | 37 / 37 | 155 | Completo |
 | 368-IGSS-2026 | Bases | 10583 | `db659f295e08533eb33d07b7b76d127a` | `70a60ca8b46c46099376a1c581734662` | `1161c9f8b49aac197857a6de891d2b9e5db2d91df71a1221bf8d6a96ffb2e8a0` | 36 / 36 | 191 | Completo |
 
-Los seis documentos suman **890 fragmentos indexables** y 4 excluidos (`ruido_ocr`, todos de la modificación de 222). Las fechas de las fichas del portal se conservan en `fecha_ficha`; `fecha_publicacion` queda sin dato porque no se verificó una fecha propia de publicación de cada PDF. La versión técnica de ingesta es 1 para cada `document_key`; la modificación 1 de 222 es un documento distinto, relacionado con sus bases.
+Con el paquete R5 (17 de noviembre de 2026), los seis documentos suman **893 fragmentos indexables** y 4 excluidos (`ruido_ocr`, todos de la modificación de 222). Las fechas de las fichas del portal se conservan en `fecha_ficha`; `fecha_publicacion` queda sin dato porque no se verificó una fecha propia de publicación de cada PDF. La versión técnica de ingesta es 1 para cada `document_key`; la modificación 1 de 222 es un documento distinto, relacionado con sus bases.
 
 ## Extracción de tablas (R3)
 
