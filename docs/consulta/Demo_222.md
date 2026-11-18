@@ -4,6 +4,20 @@ Pasos de F6 de [`Plan_rol_3.md`](Plan_rol_3.md).
 
 **Tercera medición, 17 de noviembre de 2026.** Código del commit 47ca879 (C19) y corpus R5, contra la API real en `127.0.0.1:8010`, con `curl` y con la web en modo API (`LICIGT_API_PUERTO=8010 VITE_MODO=api pnpm --dir web dev`). Sin `VITE_MODO=api`, el modo de desarrollo usa los ejemplos.
 
+**Cuarta medición, 18 de noviembre de 2026.** Código del commit `d347cd0` y corpus R6 (625 fragmentos), contra la API reiniciada en `127.0.0.1:8010`.
+
+- **Los 6 pasos dan el mismo resultado que en la tercera medición.** Tiempos: 9,7 s, 1,4 s, 5,6 s, 0,0 s, 0,0 s y 0,9 s.
+  - El paso 3 publica dos afirmaciones, cada una con su cita, con revisión humana y cobertura parcial.
+  - El paso 2 ya no marca `needs_human_review` por la alerta de cobertura.
+- **Propuesta de la lista (5,0 s):** 37 ítems, 31 requisitos y 6 fechas; piden revisión 11.
+  - Con las secciones corregidas en R6, los documentos de la plica del 2.7 y los literales del instructivo 6.1 salen como requisitos propios.
+  - Siguen saliendo como requisitos dos definiciones ("Apartado en el que se establecen…") y un tramo que empieza a media frase ("farmacéutica y concentración…").
+- **Las 10 preguntas:** responden 4, igual que con R5 (fecha, comparación, código IGSS y plica).
+  - La plica, antes abstenida por el conflicto, ahora responde.
+  - "Lugar de entrega" pasa a abstenerse.
+
+**Lo que sigue es la tercera medición (C19, corpus R5).**
+
 **Cómo se midió:**
 - Recuperación en GPU y `llama-server` con contexto 12288.
 - Los tiempos son de la petición completa, en una sola corrida, y varían entre corridas con el LLM local.
