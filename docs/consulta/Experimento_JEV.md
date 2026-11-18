@@ -104,3 +104,13 @@ Medida el 18 de noviembre con las 107 preguntas (60 de prueba y 47 de desarrollo
 - el P95 total dentro de 15 s: no cumple (29,3 s más 0,24 s).
 
 El incumplimiento de latencia es del flujo base, no de JEV: sin JEV el P95 ya es de 29,3 s. El criterio no se cambia después de ver el resultado. Si el flujo base baja de 15 s, la misma regla da "adoptar" sin tocarla. El P95 de 29 s queda como limitación medida del sistema frente a la meta del anteproyecto.
+
+### Nueva medición con la recuperación en GPU (18 de noviembre de 2026)
+
+Después de R2C, el reranker y bge-m3 corren en la GPU en fp16, y la búsqueda mejorada bajó de unos 13,6 s a 0,21 s (p50). El P95 del flujo se volvió a medir con `make reporte` (commit `0b2f143`, 62 preguntas, `data/plataforma/reporte/20261118T193250Z.md`).
+
+- **Total:** P50 3,5 s, P95 28,2 s y máximo 38,1 s.
+- **Por herramienta (P95):** `buscar_documentos` 24,5 s, `comparar_versiones` 18,6 s y `extraer_requisitos` 38,1 s (P50 17,2 s).
+- **Dónde está el tiempo:** en la generación del LLM local. Cada consulta manda en promedio 5 940 tokens de entrada y recibe 435 de salida, a unos 85 tokens por segundo; la regeneración, cuando la hay, duplica la llamada.
+
+**El veredicto no cambia:** no adoptar con el flujo actual, porque el P95 total (28,2 s más 0,24 s de JEV) sigue sobre la meta de 15 s. El cuello de botella dejó de ser la recuperación y pasó a ser la generación. Para bajar de 15 s habría que acortar la evidencia, limitar la salida o evitar la regeneración. Queda como trabajo futuro.
