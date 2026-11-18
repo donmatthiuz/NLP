@@ -9,6 +9,12 @@ import { Resultado } from './componentes/Resultado'
 import { ZonaFuentes } from './componentes/Fuentes'
 import { ListaVerificacion } from './componentes/ListaVerificacion'
 import { SelectorTema } from './componentes/Tema'
+import { Alert, AlertDescription } from './componentes/ui/alert'
+import { Button } from './componentes/ui/button'
+import { Card } from './componentes/ui/card'
+import { Label } from './componentes/ui/label'
+import { NativeSelect, NativeSelectOption } from './componentes/ui/native-select'
+import { Textarea } from './componentes/ui/textarea'
 import { mapaTipos } from './cobertura'
 import { EJEMPLOS } from './ejemplos'
 import { MENSAJE_SESION_TERMINADA, ROTULOS, alAclarar, estadoDe, textoSesion } from './estado'
@@ -17,6 +23,9 @@ import type { RespuestaEstructurada, Sesion } from './tipos'
 const MODO_EJEMPLOS = (import.meta.env.VITE_MODO ?? (import.meta.env.DEV ? 'ejemplos' : 'api')) === 'ejemplos'
 const EVENTO_ID = import.meta.env.VITE_EVENTO_ID ?? '222-IGSS-2023'
 const MAXIMO = 500
+// Contenedor de lectura: 60rem, 16 px de margen lateral y 24 px desde 40rem (DISENO.md, "Rejilla y ancho").
+const CONTENEDOR = 'mx-auto w-full max-w-lectura px-4 sm:px-6'
+const PRINCIPAL = `${CONTENEDOR} grid grid-cols-[minmax(0,1fr)] gap-6 py-6 lg:gap-8 lg:py-8`
 
 type Situacion =
   | { tipo: 'vacia' }
@@ -115,19 +124,21 @@ export default function App() {
 
   return (
     <>
-      {MODO_EJEMPLOS && <p className="aviso-modo">Modo ejemplos: respuestas fijas, no se consulta la API.</p>}
-      <header className="encabezado">
-        <div className="contenedor encabezado__interior">
-          <div>
-            <h1>LiciGT</h1>
-            <p className="encabezado__sub">Consulta de licitaciones</p>
-            <p className="encabezado__evento">Evento {EVENTO_ID}</p>
+      {MODO_EJEMPLOS && <p className="border-b border-border bg-muted px-4 py-2 text-sm">Modo ejemplos: respuestas fijas, no se consulta la API.</p>}
+      <header className="border-b border-border bg-card">
+        <div className={`${CONTENEDOR} flex flex-wrap items-start justify-between gap-4 py-4`}>
+          <div className="grid gap-1">
+            <div>
+              <h1>LiciGT</h1>
+              <p className="text-muted-foreground">Consulta de licitaciones</p>
+            </div>
+            <p className="font-semibold">Evento {EVENTO_ID}</p>
           </div>
-          <div className="encabezado__acciones">
+          <div className="flex flex-wrap items-center gap-3">
             {sesion && (
-              <p className="encabezado__sesion">
-                <span>{textoSesion(sesion)}</span>
-                <button type="button" className="boton boton--secundario" onClick={() => void salir()}>Cerrar sesión</button>
+              <p className="flex flex-wrap items-center gap-2 text-sm">
+                <span className="wrap-anywhere">{textoSesion(sesion)}</span>
+                <Button type="button" variant="outline" size="sm" onClick={() => void salir()}>Cerrar sesión</Button>
               </p>
             )}
             <SelectorTema />
@@ -135,63 +146,64 @@ export default function App() {
         </div>
       </header>
       {!conSesion ? (
-        <main className="contenedor">
+        <main className={PRINCIPAL}>
           {sesion === undefined
-            ? <p className="ayuda vacia" aria-busy="true">Comprobando la sesión…</p>
+            ? <p className="p-4 text-sm text-muted-foreground" aria-busy="true">Comprobando la sesión…</p>
             : <InicioSesion error={errorSesion} enviando={entrando} alEntrar={(u, c) => void entrar(u, c)} />}
         </main>
       ) : (
-      <main className="contenedor">
+      <main className={PRINCIPAL}>
         <DocumentosEvento carga={documentos} />
-        <form
-          className="consulta"
-          aria-label="Consulta"
-          onSubmit={(e) => { e.preventDefault(); void consultar() }}
-        >
-          {MODO_EJEMPLOS && (
-            <div className="campo">
-              <label htmlFor="ejemplo">Ejemplo</label>
-              <select id="ejemplo" value={ejemploId} onChange={(e) => elegirEjemplo(e.target.value)}>
-                {EJEMPLOS.map((e) => <option key={e.id} value={e.id}>{e.titulo}</option>)}
-              </select>
+        <Card asChild className="gap-4 p-4 sm:p-6">
+          <form
+            aria-label="Consulta"
+            onSubmit={(e) => { e.preventDefault(); void consultar() }}
+          >
+            {MODO_EJEMPLOS && (
+              <div className="grid gap-2">
+                <Label htmlFor="ejemplo">Ejemplo</Label>
+                <NativeSelect id="ejemplo" className="w-full" value={ejemploId} onChange={(e) => elegirEjemplo(e.target.value)}>
+                  {EJEMPLOS.map((e) => <NativeSelectOption key={e.id} value={e.id}>{e.titulo}</NativeSelectOption>)}
+                </NativeSelect>
+              </div>
+            )}
+            <div className="grid gap-2">
+              <Label htmlFor="pregunta">Pregunta sobre el evento</Label>
+              <Textarea
+                id="pregunta" ref={cajaRef} rows={3} maxLength={MAXIMO} value={texto}
+                aria-describedby="contador"
+                onChange={(e) => setTexto(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); void consultar() }
+                }}
+              />
             </div>
-          )}
-          <div className="campo">
-            <label htmlFor="pregunta">Pregunta sobre el evento</label>
-            <textarea
-              id="pregunta" ref={cajaRef} rows={3} maxLength={MAXIMO} value={texto}
-              aria-describedby="contador"
-              onChange={(e) => setTexto(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); void consultar() }
-              }}
-            />
-          </div>
-          <div className="consulta__pie">
-            <span id="contador" className="contador" aria-live={texto.length > 450 ? 'polite' : 'off'}>
-              {texto.length}/{MAXIMO}
-            </span>
-            <button type="submit" className="boton" disabled={cargando || !texto.trim()}>
-              {cargando ? 'Consultando…' : 'Consultar'}
-            </button>
-          </div>
-        </form>
+            <div className="flex items-center justify-end gap-4">
+              <span id="contador" className="text-xs text-muted-foreground" aria-live={texto.length > 450 ? 'polite' : 'off'}>
+                {texto.length}/{MAXIMO}
+              </span>
+              <Button type="submit" disabled={cargando || !texto.trim()}>
+                {cargando ? 'Consultando…' : 'Consultar'}
+              </Button>
+            </div>
+          </form>
+        </Card>
 
-        <p className="aviso-fijo">
+        <Alert variant="neutro" className="text-sm font-semibold">
           <IconoInfo />
-          <span>La respuesta se basa en los documentos cargados del evento</span>
-        </p>
-        <div role="status" className="oculto-visual">{anuncio}</div>
+          <AlertDescription>La respuesta se basa en los documentos cargados del evento</AlertDescription>
+        </Alert>
+        <div role="status" className="sr-only">{anuncio}</div>
 
         {situacion.tipo === 'vacia' && (
-          <p className="ayuda vacia">Escriba una pregunta sobre los documentos del evento. Cada dato de la respuesta trae su fuente.</p>
+          <p className="p-4 text-sm text-muted-foreground">Escriba una pregunta sobre los documentos del evento. Cada dato de la respuesta trae su fuente.</p>
         )}
-        {cargando && <p className="ayuda vacia" aria-busy="true">Consultando…</p>}
+        {cargando && <p className="p-4 text-sm text-muted-foreground" aria-busy="true">Consultando…</p>}
         {situacion.tipo === 'error' && (
-          <section className="error-consulta">
-            <h2>No se pudo completar la consulta</h2>
+          <Alert variant="destructive" className="gap-2 rounded-xl p-4">
+            <h2 className="text-destructive">No se pudo completar la consulta</h2>
             <p>{situacion.motivo}</p>
-          </section>
+          </Alert>
         )}
         {r && estado && (
           <>
@@ -213,8 +225,8 @@ export default function App() {
         <ListaVerificacion eventoId={EVENTO_ID} modoEjemplos={MODO_EJEMPLOS} tipos={tipos} soloLectura={sesion?.rol === 'lector'} />
       </main>
       )}
-      <footer className="pie">
-        <div className="contenedor">LiciGT, proyecto CC3103 (UVG). No presenta ofertas ni decide la vigencia de documentos.</div>
+      <footer className="border-t border-border py-6 text-sm text-muted-foreground">
+        <div className={CONTENEDOR}>LiciGT, proyecto CC3103 (UVG). No presenta ofertas ni decide la vigencia de documentos.</div>
       </footer>
     </>
   )

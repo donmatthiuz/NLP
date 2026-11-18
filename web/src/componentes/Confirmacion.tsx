@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef } from 'react'
+import { Button } from './ui/button'
 
 interface Props {
   titulo: string
@@ -27,17 +28,22 @@ export function Confirmacion({ titulo, lineas, textoConfirmar, guardando, alConf
   }, [])
 
   return (
-    <dialog ref={dialogo} className="confirmacion" aria-labelledby={id} onCancel={(e) => { e.preventDefault(); alCancelar() }}>
-      <h2 id={id} ref={tituloRef} tabIndex={-1}>{titulo}</h2>
-      <p className="ayuda">Nada se guarda hasta que confirme.</p>
-      <ul className="confirmacion__lineas">
-        {lineas.map((l, i) => <li key={i}>{l}</li>)}
+    <dialog
+      ref={dialogo} aria-labelledby={id} onCancel={(e) => { e.preventDefault(); alCancelar() }}
+      className="m-auto w-[min(36rem,calc(100vw-2rem))] max-w-none gap-4 rounded-xl border-2 border-foreground bg-card p-4 text-card-foreground shadow-dialogo backdrop:bg-velo open:grid sm:p-6"
+    >
+      <div className="grid gap-1">
+        <h2 id={id} ref={tituloRef} tabIndex={-1}>{titulo}</h2>
+        <p className="text-sm text-muted-foreground">Nada se guarda hasta que confirme.</p>
+      </div>
+      <ul className="grid max-h-[50vh] gap-2 overflow-auto">
+        {lineas.map((l, i) => <li key={i} className="border-l-3 border-input pl-3 wrap-anywhere">{l}</li>)}
       </ul>
-      <div className="confirmacion__acciones">
-        <button type="button" className="boton boton--secundario" onClick={alCancelar} disabled={guardando}>Cancelar</button>
-        <button type="button" className="boton" onClick={alConfirmar} disabled={guardando}>
+      <div className="flex flex-wrap justify-end gap-3">
+        <Button type="button" variant="outline" size="sm" onClick={alCancelar} disabled={guardando}>Cancelar</Button>
+        <Button type="button" size="sm" onClick={alConfirmar} disabled={guardando}>
           {guardando ? 'Guardando…' : textoConfirmar}
-        </button>
+        </Button>
       </div>
     </dialog>
   )

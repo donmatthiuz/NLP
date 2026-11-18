@@ -89,10 +89,10 @@ describe('tipo del documento antes del hash', () => {
 
   it('el panel muestra el doc_id y el tipo como título, y la versión no indicada como texto secundario', () => {
     const html = renderToStaticMarkup(createElement(ListaDocumentos, { documentos: EJEMPLO_DOCUMENTOS.documentos }))
-    expect(html).toContain(`<code class="mono">${bases.doc_id}</code>`)
-    expect(html).toContain('<span class="etiqueta">Bases</span>')
+    expect(html).toMatch(new RegExp(`<code class="[^"]*font-mono[^"]*">${bases.doc_id}</code>`))
+    expect(html).toMatch(/<span data-slot="badge" data-variant="default"[^>]*>Bases<\/span>/)
     expect(html).toContain('Versión oficial no indicada')
-    expect(html).toMatch(/etiqueta--suave[^>]*>Versión oficial no indicada/)
+    expect(html).toMatch(/data-variant="suave"[^>]*>Versión oficial no indicada/)
     expect(html).not.toContain('Páginas sin indexar: 4')
     expect(html).toContain('Hay páginas incompletas o ilegibles')
   })

@@ -1,7 +1,7 @@
 /*
-  Tema de LiciGT sobre shadcn/ui (Tailwind v4). Contrato: web/DISENO.md, "Base: Tailwind y shadcn/ui".
+  Tema de LiciGT sobre shadcn/ui (Tailwind v4). Contrato: web/DISENO.md, "Base: Tailwind v4 y shadcn/ui".
   Fuente única de los colores: las variables de shadcn (--background, --primary...) más las de estado.
-  variables.css solo las reexpone con los nombres viejos (--color-*) mientras base.css siga en uso.
+  Los componentes usan solo utilidades de Tailwind sobre estas variables; no hay CSS por bloques.
 */
 @import "tailwindcss";
 @import "tw-animate-css";
@@ -178,6 +178,8 @@
   --leading-titulo: 1.25;
   --container-lectura: 60rem;
   --shadow-dialogo: 0 8px 24px rgb(0 0 0 / 0.25);
+  /* Velo detrás del modal de confirmación (backdrop:bg-velo), igual en claro y oscuro. */
+  --color-velo: rgb(0 0 0 / 0.55);
 }
 
 @layer base {

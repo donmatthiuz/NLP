@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { Label } from './ui/label'
+import { NativeSelect, NativeSelectOption } from './ui/native-select'
 
 type Tema = 'sistema' | 'claro' | 'oscuro'
 const CLAVE = 'licigt-tema'
@@ -24,13 +26,13 @@ export function SelectorTema() {
     } catch { /* sin almacenamiento: sigue la elección en esta sesión */ }
   }
   return (
-    <div className="tema">
-      <label htmlFor="tema">Tema</label>
-      <select id="tema" value={tema} onChange={(e) => cambiar(e.target.value as Tema)}>
-        <option value="sistema">Sistema</option>
-        <option value="claro">Claro</option>
-        <option value="oscuro">Oscuro</option>
-      </select>
+    <div className="flex items-center gap-2">
+      <Label htmlFor="tema" className="text-sm">Tema</Label>
+      <NativeSelect id="tema" value={tema} onChange={(e) => cambiar(e.target.value as Tema)}>
+        <NativeSelectOption value="sistema">Sistema</NativeSelectOption>
+        <NativeSelectOption value="claro">Claro</NativeSelectOption>
+        <NativeSelectOption value="oscuro">Oscuro</NativeSelectOption>
+      </NativeSelect>
     </div>
   )
 }

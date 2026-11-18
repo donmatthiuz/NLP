@@ -3,7 +3,7 @@ import type { Estado, EstadoItem } from '../tipos'
 
 function Svg({ children }: { children: ReactNode }) {
   return (
-    <svg className="icono" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    <svg className="size-5 shrink-0" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
       strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
       {children}
     </svg>

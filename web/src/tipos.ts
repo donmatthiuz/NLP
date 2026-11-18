@@ -4,6 +4,8 @@ export interface Fuente {
   source: string
   page: number
   page_end: number | null
+  // Número impreso en la hoja; puede diferir de page (página física del PDF). Opcional en el backend.
+  printed_page?: number | null
   chunk_id: string
   version_ingesta: number
   version_oficial: string | null

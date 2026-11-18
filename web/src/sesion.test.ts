@@ -167,6 +167,20 @@ describe('lista con rol lector', () => {
       fila, soloLectura: true, idExplicacion: 'expl', alIncluir: () => {}, alMarcar: () => {}, alGuardarCambio: () => {}, alDescartar: () => {},
     }))
     expect(h).toMatch(/<fieldset[^>]*disabled=""[^>]*aria-describedby="expl"|<fieldset[^>]*aria-describedby="expl"[^>]*disabled=""/)
+    // Radix no se entera del fieldset: el RadioGroup recibe disabled y cada radio lo refleja.
+    const radios = h.match(/<button[^>]*role="radio"[^>]*>/g) ?? []
+    expect(radios).toHaveLength(3)
+    for (const r of radios) expect(r).toMatch(/disabled=""/)
+    expect(h).toMatch(/role="radiogroup"[^>]*data-disabled=""|data-disabled=""[^>]*role="radiogroup"/)
+  })
+
+  it('la casilla Incluir del lector también va deshabilitada', () => {
+    const fila = { clave: 'c', item: EJEMPLO_PROPUESTA.items[0], itemId: null, estado: 'pendiente' as const, estadoGuardado: null, incluir: true }
+    const html = (soloLectura: boolean) => renderToStaticMarkup(createElement(FilaItem, {
+      fila, soloLectura, alIncluir: () => {}, alMarcar: () => {}, alGuardarCambio: () => {}, alDescartar: () => {},
+    }))
+    expect(html(true)).toMatch(/<button(?=[^>]*role="checkbox")(?=[^>]*disabled="")[^>]*>/)
+    expect(html(false)).not.toMatch(/<button(?=[^>]*role="checkbox")(?=[^>]*disabled="")[^>]*>/)
   })
 
   it('con otro rol no los deshabilita por rol ni muestra la explicación', () => {

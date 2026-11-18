@@ -1,4 +1,9 @@
 import { useEffect, useId, useRef, useState } from 'react'
+import { Alert } from './ui/alert'
+import { Button } from './ui/button'
+import { Card } from './ui/card'
+import { Input } from './ui/input'
+import { Label } from './ui/label'
 
 interface Props {
   error: string | null
@@ -16,25 +21,27 @@ export function InicioSesion({ error, enviando, alEntrar }: Props) {
   useEffect(() => { titulo.current?.focus() }, [])
   useEffect(() => { if (error) setContrasena('') }, [error])
   return (
-    <form
-      className="sesion" aria-label="Inicio de sesión"
-      onSubmit={(e) => { e.preventDefault(); if (usuario && contrasena) alEntrar(usuario.trim(), contrasena) }}
-    >
-      <h2 ref={titulo} tabIndex={-1}>Iniciar sesión</h2>
-      {error && <p className="sesion__error" role="alert">{error}</p>}
-      <div className="campo">
-        <label htmlFor={idUsuario}>Usuario</label>
-        <input id={idUsuario} type="text" autoComplete="username" required maxLength={64} value={usuario}
-          onChange={(e) => setUsuario(e.target.value)} />
-      </div>
-      <div className="campo">
-        <label htmlFor={idContrasena}>Contraseña</label>
-        <input id={idContrasena} type="password" autoComplete="current-password" required maxLength={256} value={contrasena}
-          onChange={(e) => setContrasena(e.target.value)} />
-      </div>
-      <button type="submit" className="boton" disabled={enviando || !usuario || !contrasena}>
-        {enviando ? 'Ingresando…' : 'Iniciar sesión'}
-      </button>
-    </form>
+    <Card asChild className="mx-auto w-full max-w-sm gap-4 p-6 sm:mt-6">
+      <form
+        aria-label="Inicio de sesión"
+        onSubmit={(e) => { e.preventDefault(); if (usuario && contrasena) alEntrar(usuario.trim(), contrasena) }}
+      >
+        <h2 ref={titulo} tabIndex={-1}>Iniciar sesión</h2>
+        {error && <Alert variant="destructive" role="alert">{error}</Alert>}
+        <div className="grid gap-2">
+          <Label htmlFor={idUsuario}>Usuario</Label>
+          <Input id={idUsuario} type="text" autoComplete="username" required maxLength={64} value={usuario}
+            onChange={(e) => setUsuario(e.target.value)} />
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor={idContrasena}>Contraseña</Label>
+          <Input id={idContrasena} type="password" autoComplete="current-password" required maxLength={256} value={contrasena}
+            onChange={(e) => setContrasena(e.target.value)} />
+        </div>
+        <Button type="submit" className="self-start" disabled={enviando || !usuario || !contrasena}>
+          {enviando ? 'Ingresando…' : 'Iniciar sesión'}
+        </Button>
+      </form>
+    </Card>
   )
 }

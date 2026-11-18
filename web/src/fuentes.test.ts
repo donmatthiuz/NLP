@@ -46,9 +46,9 @@ describe('ítems de la lista', () => {
 
   it('la cita del ítem es la cita de su fuente y la etiqueta de la actividad queda fuera', () => {
     const html = itemHtml(2, tipos)
-    expect(html).toContain('<blockquote class="cita" lang="es" id=')
+    expect(html).toMatch(/<blockquote[^>]*lang="es"[^>]*id="/)
     expect(html).toMatch(/<blockquote[^>]*>31 de julio de 2023<\/blockquote>/)
-    expect(html).toMatch(/class="etiqueta etiqueta--suave">Recepción de ofertas<\/span>/)
+    expect(html).toMatch(/<span data-slot="badge" data-variant="suave"[^>]*>Recepción de ofertas<\/span>/)
   })
 
   it('en un requisito la cita es la descripción y no hay etiqueta de actividad', () => {
@@ -59,7 +59,40 @@ describe('ítems de la lista', () => {
   it('la casilla Incluir se anuncia con su ítem', () => {
     const html = itemHtml(2, tipos)
     const id = /<blockquote[^>]*id="([^"]+)"/.exec(html)![1]
-    expect(html).toMatch(new RegExp(`<input type="checkbox"[^>]*aria-describedby="${id}"`))
+    // Radix pinta la casilla como <button role="checkbox">; el aria-describedby debe llegar a ese mismo elemento.
+    expect(html).toMatch(new RegExp(`<button(?=[^>]*role="checkbox")(?=[^>]*aria-describedby="${id}")[^>]*>`))
+    expect((html.match(/role="checkbox"/g) ?? []).length).toBe(1)
+  })
+})
+
+describe('página del PDF y página impresa', () => {
+  const base = comparacion.sources[0]
+  const tarjeta = (f: typeof base, eventoId?: string) =>
+    renderToStaticMarkup(createElement(ZonaFuentes, { fuentes: [f], abstencion: false, conflicto: false, eventoId }))
+
+  it('sin printed_page muestra solo la página del PDF', () => {
+    const h = tarjeta({ ...base, page: 8, page_end: null })
+    expect(h).toContain('p. 8 del PDF')
+    expect(h).not.toContain('impresa')
+  })
+
+  it('con printed_page agrega la impresa y el enlace sigue en la página del PDF', () => {
+    const h = tarjeta({ ...base, page: 8, page_end: null, printed_page: 6 }, 'E1')
+    expect(h).toContain('p. 8 del PDF (impresa 6)')
+    expect(h).toContain('#page=8"')
+    expect(h).toContain('Ver copia archivada, p. 8 del PDF')
+    expect(h).not.toContain('#page=6')
+  })
+
+  it('un rango dice pp. y el ítem de la lista usa el mismo texto', () => {
+    const f = { ...base, page: 16, page_end: 17, printed_page: 14 }
+    expect(tarjeta(f)).toContain('pp. 16–17 del PDF (impresa 14)')
+    const item = { ...EJEMPLO_PROPUESTA.items[0], fuentes: [f] }
+    const lista = renderToStaticMarkup(createElement(FilaItem, {
+      fila: { clave: 'x', item, itemId: null, estado: 'pendiente', estadoGuardado: null, incluir: true },
+      alIncluir: () => {}, alMarcar: () => {}, alGuardarCambio: () => {}, alDescartar: () => {},
+    }))
+    expect(lista).toContain('pp. 16–17 del PDF (impresa 14)')
   })
 })
 

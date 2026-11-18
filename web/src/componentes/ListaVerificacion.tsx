@@ -9,16 +9,25 @@ import {
 import type { FilaLista } from '../lista'
 import type { EstadoItem, ItemLista, ItemPropuesto, PropuestaLista } from '../tipos'
 import { Confirmacion } from './Confirmacion'
-import { IconoItem } from './Iconos'
+import { CLASE_CITA, textoPagina } from './Fuentes'
+import { IconoInfo, IconoItem } from './Iconos'
+import { Alert, AlertDescription } from './ui/alert'
+import { Badge } from './ui/badge'
+import { Button } from './ui/button'
+import { Card } from './ui/card'
+import { Checkbox } from './ui/checkbox'
+import { Label } from './ui/label'
+import { RadioGroup, RadioGroupItem } from './ui/radio-group'
 
 const CATEGORIAS = { administrativa: 'Administrativa', legal: 'Legal', tecnica: 'Técnica', financiera: 'Financiera' }
 const CARACTERES = { fundamental: 'Fundamental', no_fundamental: 'No fundamental', no_indicado: 'No indicado' }
 const TIPOS = { requisito: 'Requisito', fecha: 'Fecha' }
+// Grupos de la lista: solo ordenan la vista; dentro de cada grupo se respeta el orden recibido.
+const GRUPOS = [{ tipo: 'requisito', titulo: 'Requisitos' }, { tipo: 'fecha', titulo: 'Fechas' }] as const
 
 // Con 403 recargar no ayuda: el rol no cambia.
 export const ofreceRecargar = (codigo: string) => codigo !== 'rol_no_permitido'
 
-const paginas = (p: number, fin: number | null) => (fin === null || fin === p ? `p. ${p}` : `pp. ${p}–${fin}`)
 const nombre = (i: ItemPropuesto) => `${TIPOS[i.tipo]}${i.categoria ? ` ${CATEGORIAS[i.categoria].toLowerCase()}` : ''}`
 
 type Confirmando =
@@ -49,51 +58,64 @@ export function FilaItem({ fila, tipos, soloLectura = false, idExplicacion, alIn
   const { etiqueta, cita } = partesItem(i)
   const guardado = fila.itemId !== null
   const pendiente = sinGuardar(fila)
+  const idLeyenda = useId()
   return (
-    <li className="item-lista" data-revision={i.requiere_revision}>
-      {i.requiere_revision && (
-        <p className="banda-revision">Requiere revisión: {i.motivo_revision}</p>
-      )}
-      <div className="item-lista__cuerpo">
-        <p className="item-lista__rotulos">
-          <span className="etiqueta">{TIPOS[i.tipo]}</span>
-          {i.categoria && <span className="etiqueta">{CATEGORIAS[i.categoria]}</span>}
-          <span className="etiqueta">{CARACTERES[i.caracter]}</span>
-          {etiqueta && <span className="etiqueta etiqueta--suave">{etiqueta}</span>}
-        </p>
-        <blockquote className="cita" lang="es" id={idCita}>{mostrarCita(cita)}</blockquote>
-        <p className="item-lista__origen">
-          <span className="mono">{rotuloDocumento(f.doc_id, tipos)}</span>, {paginas(f.page, f.page_end)}; versión de ingesta v{f.version_ingesta};
-          versión oficial: {f.version_oficial ?? 'No indicada'}
-        </p>
-        {guardado ? (
-          <fieldset className="estados" disabled={soloLectura} aria-describedby={soloLectura ? idExplicacion : undefined}>
-            <legend>Estado de «{nombre(i)}»</legend>
-            {ESTADOS_ITEM.map((e) => (
-              <label key={e} className="estados__opcion" data-activo={fila.estado === e}>
-                <input type="radio" name={grupo} checked={fila.estado === e} disabled={soloLectura} onChange={() => alMarcar(e)} />
-                <IconoItem estado={e} />
-                <span>{ROTULOS_ESTADO_ITEM[e]}</span>
-              </label>
-            ))}
-          </fieldset>
-        ) : (
-          <label className="incluir">
-            <input type="checkbox" checked={fila.incluir} onChange={alIncluir} aria-describedby={idCita} />
-            <span>Incluir</span>
-            <span className="etiqueta etiqueta--suave">No guardado</span>
-          </label>
+    <Card asChild className="gap-0 py-0 data-[revision=true]:border-2 data-[revision=true]:border-estado-revision">
+      <li data-revision={i.requiere_revision}>
+        {i.requiere_revision && (
+          <p className="border-b-2 border-estado-revision bg-estado-revision-fondo px-4 py-3 font-semibold text-foreground forced-colors:border-[CanvasText]">
+            Requiere revisión: {i.motivo_revision}
+          </p>
         )}
-        {pendiente && (
-          <div className="item-lista__cambio">
-            <span className="etiqueta etiqueta--aviso">Sin guardar</span>
-            <span className="ayuda">{ROTULOS_ESTADO_ITEM[fila.estadoGuardado!]} a {ROTULOS_ESTADO_ITEM[fila.estado]}</span>
-            <button type="button" className="boton boton--secundario" disabled={soloLectura} onClick={(e) => alGuardarCambio(e.currentTarget)}>Guardar cambio</button>
-            <button type="button" className="boton boton--secundario" onClick={alDescartar}>Descartar</button>
-          </div>
-        )}
-      </div>
-    </li>
+        <div className="grid min-w-0 gap-3 p-4">
+          <p className="flex flex-wrap gap-2">
+            <Badge>{TIPOS[i.tipo]}</Badge>
+            {i.categoria && <Badge>{CATEGORIAS[i.categoria]}</Badge>}
+            <Badge>{CARACTERES[i.caracter]}</Badge>
+            {etiqueta && <Badge variant="suave">{etiqueta}</Badge>}
+          </p>
+          <blockquote className={CLASE_CITA} lang="es" id={idCita}>{mostrarCita(cita)}</blockquote>
+          <p className="text-sm text-muted-foreground wrap-anywhere">
+            <span className="font-mono">{rotuloDocumento(f.doc_id, tipos)}</span>, {textoPagina(f)}; versión de ingesta v{f.version_ingesta};
+            versión oficial: {f.version_oficial ?? 'No indicada'}
+          </p>
+          {guardado ? (
+            <fieldset className="grid min-w-0 gap-2" disabled={soloLectura} aria-describedby={soloLectura ? idExplicacion : undefined}>
+              <legend id={idLeyenda} className="mb-2 text-sm text-muted-foreground">Estado de «{nombre(i)}»</legend>
+              <RadioGroup
+                name={grupo} value={fila.estado} disabled={soloLectura} aria-labelledby={idLeyenda}
+                onValueChange={(v) => alMarcar(v as EstadoItem)} className="flex flex-wrap gap-2"
+              >
+                {ESTADOS_ITEM.map((e) => (
+                  <Label key={e} data-activo={fila.estado === e}
+                    className="min-h-11 rounded-lg border border-input px-3 font-normal transition-colors hover:[&:not(:has(:disabled))]:bg-muted-hover has-disabled:text-muted-foreground data-[activo=true]:border-2 data-[activo=true]:border-foreground data-[activo=true]:bg-muted data-[activo=true]:font-semibold">
+                    <RadioGroupItem value={e} />
+                    <IconoItem estado={e} />
+                    <span>{ROTULOS_ESTADO_ITEM[e]}</span>
+                  </Label>
+                ))}
+              </RadioGroup>
+            </fieldset>
+          ) : (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <Label className="min-h-11 pr-2 font-normal">
+                <Checkbox checked={fila.incluir} onCheckedChange={alIncluir} disabled={soloLectura} aria-describedby={idCita} />
+                <span>Incluir</span>
+              </Label>
+              <Badge variant="suave">No guardado</Badge>
+            </div>
+          )}
+          {pendiente && (
+            <div className="flex flex-wrap items-center gap-3 border-t border-border pt-3">
+              <Badge variant="aviso">Sin guardar</Badge>
+              <span className="text-sm text-muted-foreground">{ROTULOS_ESTADO_ITEM[fila.estadoGuardado!]} a {ROTULOS_ESTADO_ITEM[fila.estado]}</span>
+              <Button type="button" variant="outline" size="sm" disabled={soloLectura} onClick={(e) => alGuardarCambio(e.currentTarget)}>Guardar cambio</Button>
+              <Button type="button" variant="outline" size="sm" onClick={alDescartar}>Descartar</Button>
+            </div>
+          )}
+        </div>
+      </li>
+    </Card>
   )
 }
 
@@ -191,44 +213,58 @@ export function ListaVerificacion({ eventoId, modoEjemplos, tipos, soloLectura =
     : [`${nombre(confirmando.fila.item)}: ${ROTULOS_ESTADO_ITEM[confirmando.fila.estadoGuardado!]} a ${ROTULOS_ESTADO_ITEM[confirmando.fila.estado]}`]
 
   return (
-    <section className="lista" aria-labelledby="titulo-lista">
+    <section className="grid gap-4" aria-labelledby="titulo-lista">
       <h2 id="titulo-lista" ref={titulo} tabIndex={-1}>Lista de verificación</h2>
-      <p className="aviso-fijo"><span>Los estados de la lista no certifican cumplimiento.</span></p>
-      <div className="lista__acciones">
-        <button type="button" className="boton boton--secundario" onClick={() => void proponer()} disabled={cargando || soloLectura}>Proponer lista</button>
-        <button
-          type="button" className="boton" disabled={porGuardar.length === 0 || guardando || soloLectura}
-          onClick={(e) => { origen.current = e.currentTarget; setConfirmando({ tipo: 'guardar', items: porGuardar }) }}
-        >
-          Guardar {porGuardar.length} {porGuardar.length === 1 ? 'ítem' : 'ítems'}
-        </button>
-      </div>
-      {soloLectura && <p id={idRol} className="ayuda">{MENSAJE_ROL}.</p>}
-      <div role="status" className="oculto-visual">{anuncio}</div>
-      {aviso && (
-        <div className={`lista__aviso lista__aviso--${aviso.tipo}`} role="alert">
-          <p>{aviso.texto}</p>
-          {aviso.tipo !== 'ok' && ofreceRecargar(aviso.codigo ?? '') && <button type="button" className="boton boton--secundario" onClick={() => void recargar()}>Recargar lista</button>}
+      <Alert variant="neutro" className="text-sm font-semibold">
+        <IconoInfo />
+        <AlertDescription>Los estados de la lista no certifican cumplimiento.</AlertDescription>
+      </Alert>
+      <div className="grid gap-2">
+        <div className="flex flex-wrap gap-3">
+          <Button type="button" variant="outline" size="sm" onClick={() => void proponer()} disabled={cargando || soloLectura}>Proponer lista</Button>
+          <Button
+            type="button" size="sm" disabled={porGuardar.length === 0 || guardando || soloLectura}
+            onClick={(e) => { origen.current = e.currentTarget; setConfirmando({ tipo: 'guardar', items: porGuardar }) }}
+          >
+            Guardar {porGuardar.length} {porGuardar.length === 1 ? 'ítem' : 'ítems'}
+          </Button>
         </div>
+        {soloLectura && <p id={idRol} className="text-sm text-muted-foreground">{MENSAJE_ROL}.</p>}
+      </div>
+      <div role="status" className="sr-only">{anuncio}</div>
+      {aviso && (
+        <Alert variant={aviso.tipo === 'conflicto' ? 'revision' : 'destructive'} role="alert" className="justify-items-start gap-3">
+          <p className={aviso.tipo === 'conflicto' ? 'font-semibold' : undefined}>{aviso.texto}</p>
+          {aviso.tipo !== 'ok' && ofreceRecargar(aviso.codigo ?? '') && <Button type="button" variant="outline" size="sm" onClick={() => void recargar()}>Recargar lista</Button>}
+        </Alert>
       )}
-      {abstencion && <p className="ayuda">{abstencion}</p>}
+      {abstencion && <p className="text-sm text-muted-foreground">{abstencion}</p>}
       {filas.length === 0 && !cargando && !abstencion && (
-        <p className="ayuda vacia">Todavía no hay ítems. Use «Proponer lista» para obtener una propuesta del evento; no se guarda nada hasta que usted lo confirme.</p>
+        <p className="p-4 text-sm text-muted-foreground">Todavía no hay ítems. Use «Proponer lista» para obtener una propuesta del evento; no se guarda nada hasta que usted lo confirme.</p>
       )}
-      {filas.length > 0 && (
-        <ul className="lista__items">
-          {filas.map((f) => (
-            <FilaItem
-              key={f.clave} fila={f} tipos={tipos} soloLectura={soloLectura} idExplicacion={idRol}
-              alIncluir={() => despachar({ tipo: 'alternarIncluir', clave: f.clave })}
-              alMarcar={(estado) => despachar({ tipo: 'marcar', clave: f.clave, estado })}
-              alGuardarCambio={(el) => { origen.current = el; setConfirmando({ tipo: 'cambio', fila: f }) }}
-              alDescartar={() => despachar({ tipo: 'descartarCambio', clave: f.clave })}
-            />
-          ))}
-        </ul>
-      )}
-      {pendientes.length > 0 && <p className="ayuda">{pendientes.length === 1 ? "Hay 1 cambio sin guardar" : `Hay ${pendientes.length} cambios sin guardar`}; cada uno se confirma por separado.</p>}
+      {GRUPOS.map(({ tipo, titulo: tituloGrupo }) => {
+        const delGrupo = filas.filter((f) => f.item.tipo === tipo)
+        if (delGrupo.length === 0) return null
+        return (
+          <div key={tipo} className="grid gap-3">
+            <h3 className="flex items-baseline gap-2 border-b border-border pb-1">
+              {tituloGrupo} <span className="text-sm font-normal text-muted-foreground">({delGrupo.length})</span>
+            </h3>
+            <ul className="grid gap-3">
+              {delGrupo.map((f) => (
+                <FilaItem
+                  key={f.clave} fila={f} tipos={tipos} soloLectura={soloLectura} idExplicacion={idRol}
+                  alIncluir={() => despachar({ tipo: 'alternarIncluir', clave: f.clave })}
+                  alMarcar={(estado) => despachar({ tipo: 'marcar', clave: f.clave, estado })}
+                  alGuardarCambio={(el) => { origen.current = el; setConfirmando({ tipo: 'cambio', fila: f }) }}
+                  alDescartar={() => despachar({ tipo: 'descartarCambio', clave: f.clave })}
+                />
+              ))}
+            </ul>
+          </div>
+        )
+      })}
+      {pendientes.length > 0 && <p className="text-sm text-muted-foreground">{pendientes.length === 1 ? "Hay 1 cambio sin guardar" : `Hay ${pendientes.length} cambios sin guardar`}; cada uno se confirma por separado.</p>}
       {confirmando && (
         <Confirmacion
           titulo={confirmando.tipo === 'guardar' ? `Guardar ${confirmando.items.length} ${confirmando.items.length === 1 ? 'ítem' : 'ítems'}` : 'Guardar el cambio de estado'}

@@ -14,59 +14,61 @@ Parte F6a del [encargo F6](../docs/consulta/delegacion/F6_interfaz_web.md), con 
 
 En orden del DOM, que es también el orden visual y el de lectura y tabulación:
 
-1. **Aviso de modo** (`.aviso-modo`), banda angosta arriba de todo, solo cuando aplica:
+1. **Aviso de modo**, banda angosta arriba de todo, solo cuando aplica:
    - con `VITE_MODO=ejemplos`: "Modo ejemplos: respuestas fijas, no se consulta la API.";
    - ya no hay aviso de modo demostración: la cabecera `X-LiciGT-Autenticacion` y el adaptador sin autenticación no existen; la web usa la sesión (ver "Sesión").
-2. **Encabezado** (`header.encabezado`):
+2. **Encabezado** (`header`):
    - nombre "LiciGT" y subtítulo "Consulta de licitaciones";
    - evento activo: `evento_id` en texto (por ejemplo, "Evento 222-IGSS-2023");
    - con sesión iniciada, a la derecha: usuario, empresa y rol en texto pequeño, junto al botón secundario "Cerrar sesión" (`DELETE /api/sesion`);
    - selector de tema (Sistema, Claro, Oscuro), compacto, a la derecha.
-3. **Consulta** (`form.consulta`, dentro de `main`):
+3. **Consulta** (`form` con `aria-label="Consulta"`, dentro de `main`, en una tarjeta):
    - en modo ejemplos, un selector "Ejemplo" con los cinco escenarios antes de la caja;
    - caja de pregunta con etiqueta visible "Pregunta sobre el evento", contador "N/500" y botón "Consultar".
-4. **Aviso fijo** (`.aviso-fijo`): "La respuesta se basa en los documentos cargados del evento". Siempre presente, también antes de la primera consulta y durante la carga. Va justo encima del resultado, no se cierra ni se oculta y no cambia con el estado.
-5. **Resultado** (`section.resultado[data-estado]`): cabecera de estado, banda de revisión humana si corresponde, texto de la respuesta, metadatos y avisos de cobertura.
-6. **Fuentes** (`section.fuentes`): tarjetas de fuente, o el contraste lado a lado cuando hay conflicto.
-7. **Lista de verificación** (`section.lista`): propuesta, guardado con confirmación y estados por ítem. Ver "Lista de verificación".
+4. **Aviso fijo**: "La respuesta se basa en los documentos cargados del evento". Siempre presente, también antes de la primera consulta y durante la carga. Va justo encima del resultado, no se cierra ni se oculta y no cambia con el estado.
+5. **Resultado** (`section[data-estado]`): cabecera de estado, banda de revisión humana si corresponde, texto de la respuesta, metadatos y avisos de cobertura.
+6. **Fuentes** (`section` con `h2`): tarjetas de fuente, o el contraste lado a lado cuando hay conflicto.
+7. **Lista de verificación** (`section` con `h2`): propuesta, guardado con confirmación y estados por ítem. Ver "Lista de verificación".
 8. **Pie** (`footer`): una línea con "LiciGT, proyecto CC3103 (UVG). No presenta ofertas ni decide la vigencia de documentos."
 
-El panel de documentos del evento (`section.documentos`) va entre el encabezado y la consulta. Ver "Documentos del evento".
+El panel de documentos del evento (`section` con `h2` "Documentos del evento") va entre el encabezado y la consulta. Ver "Documentos del evento".
 
 ## Sesión
 
 Desde que toda ruta `/api/*` (salvo `/api/sesion`) exige cookie, la web comprueba la sesión antes de mostrar nada. Solo con `VITE_MODO=api`; en modo ejemplos no hay sesión.
 
 - **Al cargar:** `GET /api/sesion`. Con 200 se muestra la aplicación; con 401, la pantalla de inicio de sesión; mientras tanto, "Comprobando la sesión…".
-- **Pantalla de inicio de sesión** (`form.sesion`, componente `InicioSesion`): encabezado de la página, título "Iniciar sesión", mensaje de error en `p.sesion__error` con `role="alert"` ("Usuario o contraseña no válidos", genérico, sin distinguir la causa), campos "Usuario" y "Contraseña" con `<label>` visible, y el botón "Iniciar sesión". Nada más. Ancho máximo 24 rem, una columna, válida desde 320 px; usa solo las variables CSS (campos con `--color-borde-control`, foco con `--color-foco`), por lo que respeta el tema claro y oscuro y el contraste medido.
+- **Pantalla de inicio de sesión** (`form` con `aria-label="Inicio de sesión"`, componente `InicioSesion`, en una tarjeta centrada): encabezado de la página, título "Iniciar sesión", mensaje de error en un `Alert` destructivo con `role="alert"` ("Usuario o contraseña no válidos", genérico, sin distinguir la causa), campos "Usuario" y "Contraseña" con `<label>` visible, y el botón "Iniciar sesión". Nada más. Ancho máximo 24 rem (`max-w-sm`), una columna, válida desde 320 px; usa solo las utilidades del tema (campos con `border-input`, foco con `--ring`), por lo que respeta el tema claro y oscuro y el contraste medido.
 - **Cookie y contraseña:** la cookie es `HttpOnly`: la web ni la lee ni la guarda. La contraseña vive solo en el estado del formulario; no va a `localStorage`, `sessionStorage` ni a la URL.
 - **401 a mitad de uso:** vuelve a la pantalla de inicio de sesión con el aviso "La sesión terminó. Inicie sesión de nuevo." en el `role="alert"`; la pregunta escrita sigue en el estado de `App` y reaparece al volver a entrar.
 - **403 y rol `lector`:** el servidor responde 403 si un `lector` intenta proponer, guardar o cambiar estado; la lista muestra "Su rol no permite modificar la lista". Con `rol: lector` los botones "Proponer lista", "Guardar N ítems", los estados y "Guardar cambio" se muestran deshabilitados, con esa misma frase visible debajo de los botones (no solo en el atributo `disabled`).
-- **Foco y detalles:** al entrar, el foco va a la caja de pregunta; al salir o al perder la sesión, al título "Iniciar sesión". Tras un intento fallido se vacía la contraseña. El error usa `--color-error` y `--color-error-fondo`. Con el lector, los estados van en un `fieldset disabled` descrito por la explicación, y con 403 no se ofrece "Recargar lista".
+- **Foco y detalles:** al entrar, el foco va a la caja de pregunta; al salir o al perder la sesión, al título "Iniciar sesión". Tras un intento fallido se vacía la contraseña. El error usa `--destructive` y `--destructive-fondo`. Con el lector, los estados van en un `fieldset disabled` descrito por la explicación, y con 403 no se ofrece "Recargar lista".
 - **Cerrar sesión:** `DELETE /api/sesion`; vuelve al inicio de sesión y limpia la pregunta.
 
 ## Documentos del evento
 
 Panel `section.documentos`, con `h2` "Documentos del evento", arriba de la consulta. Lo alimenta la ruta `GET /api/eventos/{evento_id}/documentos` (`DocumentoEvento`); `App` carga los documentos una sola vez y de ellos arma el mapa `doc_id` a tipo que usan las fuentes y la lista.
 
-- **Línea de resumen** (`.documentos__resumen`): "N documentos, sin información faltante" o "N documentos, M con información faltante" (en `--estado-revision` si hay faltantes); "No hay documentos cargados para este evento" si no hay ninguno. Cuenta como faltante una página sin indexar, un estado distinto de "completo" o una advertencia.
-- **Una tarjeta por documento** (`.documento`, con borde y fondo de revisión si le falta información), con:
+- **Línea de resumen**, debajo del `h2`: "N documentos, sin información faltante" o "N documentos, M con información faltante" (en `text-estado-revision` si hay faltantes, con `data-faltantes`); "No hay documentos cargados para este evento" si no hay ninguno. Cuenta como faltante una página sin indexar, un estado distinto de "completo" o una advertencia.
+- **Una tarjeta por documento** (`li` con `data-faltantes`; con borde de 2 px y fondo de revisión si le falta información), con:
   - título: etiqueta del tipo ("Bases", "Modificación", "Aclaración"), la versión oficial (si no existe, "Versión oficial no indicada" como texto secundario, sin ocupar el lugar del título) y "v" más la versión de ingesta;
-  - el `doc_id` en `--fuente-mono` y `--texto-sm`;
+  - el tipo y las versiones como `Badge` ("v1" y "Versión oficial no indicada" en la variante `suave`);
+  - el `doc_id` en `font-mono` y `text-sm`;
   - páginas y estado: "35 páginas, todas indexadas; estado: completo" o "4 páginas, 1 sin indexar (p. 4); estado: requiere revisión";
   - si hay advertencias del documento, el rótulo "Falta información" y la lista de esas advertencias. Las páginas sin indexar y el estado no se repiten ahí: ya están en la línea anterior.
-- **Carga:** "Cargando documentos…" (`aria-busy`). **Error:** "No se pudieron cargar los documentos." y el motivo, en `role="alert"`; la consulta sigue disponible y las citas muestran solo el hash.
+- **Carga:** "Cargando documentos…" (`aria-busy`). **Error:** "No se pudieron cargar los documentos." y el motivo, en un `Alert` destructivo con `role="alert"`; la consulta sigue disponible y las citas muestran solo el hash.
 - **Modo ejemplos:** documentos fijos del 222.
 
 ## Rejilla y ancho
 
-- Contenedor `.contenedor`: ancho completo hasta `--ancho-lectura` (60rem), centrado, con relleno lateral `--espacio-4` (16 px) y `--espacio-6` desde 40rem.
+- Contenedor de lectura (`mx-auto max-w-lectura px-4 sm:px-6`, constante `CONTENEDOR` de `App.tsx`): ancho completo hasta 60rem, centrado, con relleno lateral de 16 px y de 24 px desde 40rem. Lo comparten el encabezado, `main` y el pie.
 - Ancho mínimo soportado: 320 px CSS sin desplazamiento horizontal, también con zoom al 200 %. `chunk_id`, `doc_id` y URL cortan con `overflow-wrap: anywhere`.
 - Puntos de corte, de móvil hacia arriba:
   - base (320 px): todo apilado; el contraste de fuentes en conflicto va una debajo de otra;
-  - `40rem` (640 px): contraste en dos columnas iguales; metadatos de la tarjeta de fuente en dos columnas;
+  - `40rem` (640 px): contraste en dos columnas iguales;
+  - los metadatos de la tarjeta de fuente no siguen la ventana sino el ancho de la tarjeta (consulta de contenedor `@container` con `@md:grid-cols-2`, 28rem): en la lista de fuentes van en dos columnas y dentro de cada columna del contraste, que es angosta, en una;
   - `64rem` (1024 px): solo aumenta el aire vertical (`--espacio-8` entre zonas). No se añade barra lateral.
-- Las zonas se separan con `--espacio-6` (móvil) y `--espacio-8` (escritorio). Dentro de un panel, `--espacio-4`.
+- Las zonas se separan con `gap-6` (móvil) y `lg:gap-8` (escritorio). Dentro de un panel, `gap-4`.
 
 ## Estados del resultado
 
@@ -94,7 +96,7 @@ Cada estado lleva tres señales que no son color, más el color como refuerzo:
 
 - Los íconos son SVG en línea de 20 px con trazo `currentColor` y `aria-hidden="true"`; el rótulo de texto es el que lee el lector de pantalla.
 - El rótulo es el `h2` del panel, siempre visible, nunca solo en un `title` o en un tooltip.
-- El atributo `data-estado` del panel es el único gancho de estilo: `.resultado[data-estado="revision"]`, etcétera. Sin clases por color.
+- El atributo `data-estado` del panel es el único gancho de estilo: utilidades `data-[estado=revision]:border-estado-revision` en el panel y `group-data-[estado=revision]/resultado:bg-estado-revision-fondo` en la cabecera (constantes `PANEL` y `CABECERA` de `Resultado.tsx`). Sin clases por color.
 - En modo de alto contraste del sistema (`forced-colors: active`) se pierden los fondos, pero quedan el texto, el ícono y el estilo del borde.
 
 ### Panel de respuesta
@@ -102,7 +104,7 @@ Cada estado lleva tres señales que no son color, más el color como refuerzo:
 - Cabecera: ícono, rótulo "Respuesta".
 - Texto de `answer` tal cual, con `white-space: pre-line` para conservar saltos de línea. Tamaño `--texto-lg`.
 - **Datos literales:** las fechas, horas, montos y plazos salen literales de los documentos (por ejemplo, "06 de octubre de 2023, a las 11:00 horas"). La web no reformatea, no abrevia, no traduce a formato numérico ni resalta partes de `answer` por su cuenta. No parsea `answer`.
-- Metadatos en una línea (`dl` en línea): "Evento: 222-IGSS-2023", "Herramienta: Búsqueda en documentos", "Cobertura: parcial" o "Cobertura: sin faltantes detectados".
+- Metadatos en una línea (`dl` en línea, separado del texto por un filete superior): "Evento: 222-IGSS-2023", "Herramienta: Búsqueda en documentos", "Cobertura: parcial" o "Cobertura: sin faltantes detectados".
 - Nombres visibles de `tool_used`: `buscar_documentos` como "Búsqueda en documentos", `extraer_requisitos` como "Extracción de requisitos", `comparar_versiones` como "Comparación de versiones"; nulo como "Ninguna".
 - Después, los avisos de cobertura y las fuentes.
 
@@ -120,7 +122,7 @@ Cada estado lleva tres señales que no son color, más el color como refuerzo:
 - Cabecera: ícono, rótulo "Requiere revisión humana".
 - Con cero fuentes el motivo es neutro: "El sistema marcó esta consulta para revisión humana; revise los documentos originales." Sin ambigüedad ni vigencia.
 - El rótulo en negrita "Requiere revisión humana." va en la banda solo cuando el estado mostrado es otro (abstención, aclaración); en el estado de revisión ya está en el `h2` y no se repite.
-- **Banda de revisión** (`.banda-revision`), arriba del texto, a todo el ancho del panel, con fondo `--estado-revision-fondo`, borde inferior sólido y el texto: "Las fuentes difieren o un dato crítico es ambiguo. El sistema no decide cuál está vigente; revise los documentos originales."
+- **Banda de revisión**, arriba del texto, a todo el ancho del panel, con fondo `--estado-revision-fondo`, borde inferior sólido y el texto: "Las fuentes difieren o un dato crítico es ambiguo. El sistema no decide cuál está vigente; revise los documentos originales."
 - Luego `answer` tal cual, metadatos y avisos.
 - Si las fuentes vienen de dos o más `doc_id` distintos, la zona de fuentes se muestra como **contraste lado a lado** (ver "Contradicciones"). Si todas son del mismo documento, como lista normal.
 - La banda aparece siempre que `needs_human_review = true`, aunque el estado mostrado sea otro por la precedencia (por ejemplo, una abstención con revisión): la información nunca se esconde.
@@ -137,14 +139,14 @@ Cada estado lleva tres señales que no son color, más el color como refuerzo:
 
 - **Vacía:** aviso fijo y una línea de ayuda en el lugar del resultado: "Escriba una pregunta sobre los documentos del evento. Cada dato de la respuesta trae su fuente." Sin ejemplos de marketing ni ilustraciones.
 - **Cargando:** el botón cambia a "Consultando…" y queda deshabilitado; el resultado anterior se retira; `section.resultado` lleva `aria-busy="true"` y el área de estado anuncia "Consultando. Puede tardar unos segundos." Sin indicadores giratorios que distraigan; si se usa uno, respeta `prefers-reduced-motion`.
-- **Error de conexión o HTTP** (la API no responde, 422 o 500): panel `.error-consulta` con borde sólido `--color-error`, rótulo "No se pudo completar la consulta" y el código o motivo corto ("La API no respondió", "La pregunta no es válida (422)"). No se presenta como abstención, porque no lo es. Una falla de herramienta o del LLM llega como abstención desde la API y se muestra como abstención.
+- **Error de conexión o HTTP** (la API no responde, 422 o 500): `Alert` destructivo con borde sólido `--destructive`, rótulo "No se pudo completar la consulta" y el código o motivo corto ("La API no respondió", "La pregunta no es válida (422)"). No se presenta como abstención, porque no lo es. Una falla de herramienta o del LLM llega como abstención desde la API y se muestra como abstención.
 
 ## Avisos de cobertura y advertencias
 
-- Zona `.avisos` dentro del panel de resultado, debajo de los metadatos y antes de las fuentes. Nunca colapsada, nunca dentro de un acordeón ni de un tooltip.
+- Zona de avisos dentro del panel de resultado (se oculta con `empty:hidden` si no hay nada), debajo de los metadatos y antes de las fuentes. Nunca colapsada, nunca dentro de un acordeón ni de un tooltip.
 - Con `coverage_status = "parcial"`, primero un aviso destacado con ícono de documento incompleto (rectángulo con esquina doblada y línea discontinua), borde izquierdo de 4 px en `--estado-revision` y el texto: "Cobertura parcial: hay páginas o documentos del evento que no están indexados. La respuesta puede estar incompleta."
 - Con `coverage_status = "sin_faltantes_detectados"`, solo el metadato "Cobertura: sin faltantes detectados" y, al lado, "(no certifica que el expediente esté completo)" (`Contratos.md`, "Rol 3 hacia el usuario").
-- Cada elemento de `warnings` es un ítem de una lista (`ul`). Formato: rótulo legible y, debajo, el texto original tal cual en `--fuente-mono` y `--texto-sm`, para que el analista pueda reportarlo.
+- Cada elemento de `warnings` es un ítem de una lista (`ul`). Formato: rótulo legible y, debajo, el texto original tal cual en `font-mono` y `text-sm`, con un filete izquierdo decorativo, para que el analista pueda reportarlo.
 - Rótulos legibles para los prefijos conocidos (lo que va antes de `:`); cualquier otro código se muestra con el rótulo "Aviso del sistema" y su texto original:
 
 | Prefijo en `warnings` | Rótulo legible |
@@ -160,22 +162,22 @@ Cada estado lleva tres señales que no son color, más el color como refuerzo:
 
 ### Tarjeta de fuente
 
-Una `article.fuente` por cada elemento de `sources`, en el orden recibido, numeradas "[1]", "[2]"… La numeración solo ordena la lista; la web no afirma qué frase de `answer` respalda cada fuente.
+Una `article` (`Card asChild`) por cada elemento de `sources`, en el orden recibido, numeradas "[1]", "[2]"… La numeración solo ordena la lista; la web no afirma qué frase de `answer` respalda cada fuente.
 
 Contenido, en este orden:
 
-- **Título:** "[n] " más el tipo del documento y el `doc_id` ("[1] Bases · 03791a…"), en `--texto-base` y peso 600. Regla del tipo antes del hash: ver "Tipo del documento".
-- **Metadatos** (`dl`, dos columnas desde 40rem):
-  - "Página": "p. 8" si `page_end` es nulo o igual a `page`; "pp. 16–17" si es un rango;
+- **Título** (`h3`): "[n] " más el tipo del documento y el `doc_id` ("[1] Bases · 03791a…"), en `text-base` y peso 600. Regla del tipo antes del hash: ver "Tipo del documento".
+- **Metadatos** (`dl` en `text-sm`, rótulo en `text-muted-foreground` y valor en peso 600; dos columnas si la tarjeta mide 28rem o más):
+  - "Página": "p. 8 del PDF" si `page_end` es nulo o igual a `page`; "pp. 16–17 del PDF" si es un rango. Si la fuente trae `printed_page` (opcional en el backend: el número impreso en la hoja), se agrega "(impresa M)": "p. 8 del PDF (impresa 6)". La página del PDF manda siempre: es la que abre el enlace. Lo arma `textoPagina()` de `Fuentes.tsx`, que también usa el ítem de la lista;
   - "Versión de ingesta": "v" más `version_ingesta` (por ejemplo, "v1");
   - "Versión oficial": el texto de `version_oficial` o "No indicada" si es nulo;
-  - "Fragmento": `chunk_id` en `--fuente-mono` y `--texto-sm`, seleccionable.
-- **Cita literal:** `blockquote.cita` con borde izquierdo de 3 px en `--color-borde-control`, fondo `--color-superficie-2`, `lang="es"`, texto tal cual (sin recortar más allá de lo que trae el campo, sin reformatear fechas ni mayúsculas). Única excepción de pantalla: una cita de tabla llega como `título | texto` y la barra se lee como ": " (o un espacio tras un punto), igual en la tarjeta y en la lista; lo guardado no cambia.
-- **Accesos al original:** dos enlaces distintos, con rótulos que no se confunden:
-  - "Ver copia archivada, p. N" (solo con la API, nunca en modo ejemplos): copia que sirve el sistema, `/api/eventos/{evento}/documentos/{doc_id}/original#page=N`, con `target="_blank"` y `rel="noopener"`. El `doc_id` y la página salen de la fuente (el `doc_id` se codifica en la ruta), nunca de texto del usuario. El servidor solo sirve documentos de la empresa de la sesión y responde 404 en cualquier otro caso;
+  - "Fragmento": `chunk_id` en `font-mono` y `text-sm`, seleccionable.
+- **Cita literal:** `blockquote` (clases de `CLASE_CITA` en `Fuentes.tsx`) con borde izquierdo de 3 px en `border-input`, fondo `bg-muted`, texto de 16 px sin atenuar (destaca contra los metadatos en `text-sm`), `lang="es"`, texto tal cual (sin recortar más allá de lo que trae el campo, sin reformatear fechas ni mayúsculas). Única excepción de pantalla: una cita de tabla llega como `título | texto` y la barra se lee como ": " (o un espacio tras un punto), igual en la tarjeta y en la lista; lo guardado no cambia.
+- **Accesos al original**, separados de la cita por un filete superior: dos enlaces distintos, con rótulos que no se confunden:
+  - "Ver copia archivada, p. N del PDF" (solo con la API, nunca en modo ejemplos): copia que sirve el sistema, `/api/eventos/{evento}/documentos/{doc_id}/original#page=N`, con `target="_blank"` y `rel="noopener"`. El `doc_id` y la página salen de la fuente (el `doc_id` se codifica en la ruta), nunca de texto del usuario. El servidor solo sirve documentos de la empresa de la sesión y responde 404 en cualquier otro caso;
   - "Publicación en igssgt.org": si `source` empieza con `https://`, enlace a la publicación externa, sin número de página y sin modificar la URL (no se añade `#page=`); `target="_blank"` y `rel="noopener noreferrer"`. Ambos llevan la indicación accesible "abre en una pestaña nueva";
   - si `source` no es https: el texto "Publicación externa no disponible" y el `doc_id`, sin enlace.
-  - Estilo del primero: peso `--peso-fuerte`, color `--color-acento`, mismos tamaños que `.fuente__origen`.
+  - Estilo del primero: `font-semibold`, color `text-primary`, en `text-sm` como el segundo; los dos con `py-1` para el objetivo de 24 px.
 
 ### Tipo del documento
 
@@ -188,7 +190,7 @@ La versión de ingesta y la oficial se rotulan por separado siempre, porque el a
 Se activa cuando `needs_human_review = true` y las fuentes vienen de dos o más `doc_id` distintos.
 
 - Encima de las columnas, el título "Fuentes en conflicto" y la frase fija: "El sistema no decide cuál está vigente."
-- Una columna por `doc_id`, en el orden en que aparece por primera vez en `sources`. Cada columna tiene de cabecera el `doc_id` y su versión oficial ("Versión oficial: Modificación 1" o "No indicada"), y debajo sus tarjetas de fuente completas.
+- Una columna por `doc_id`, en el orden en que aparece por primera vez en `sources`. Cada columna es una `section` (`Card asChild`) con borde de 2 px en `border-input` y fondo `bg-background`, para que se lea como un contenedor de sus tarjetas; de cabecera, el documento y su versión oficial ("Versión oficial: Modificación 1" o "No indicada"), separados por un filete, y debajo sus tarjetas de fuente completas.
 - Columnas de igual ancho, mismo estilo, mismo peso visual. Prohibido: rotular una como "vigente", "actual", "nueva", "anterior" o "corregida"; ordenarlas por fecha; atenuar una; marcar una con el color de respuesta.
 - En móvil las columnas se apilan; cada una conserva su cabecera para que no se pierda de qué documento es cada cita.
 - Más de dos documentos: tantas columnas como quepan con un mínimo de 18rem; si no caben, se apilan.
@@ -197,22 +199,23 @@ Se activa cuando `needs_human_review = true` y las fuentes vienen de dos o más 
 
 Implementada en F6d sobre `PropuestaLista`, `ItemLista` y las rutas de proponer, guardar y cambiar estado:
 
-- **Posición:** `section.lista` después de las fuentes, con título `h2` "Lista de verificación".
-- **Aviso fijo de la lista**, siempre visible arriba de la lista: "Los estados de la lista no certifican cumplimiento." (`DESIGN.md`, "Interfaz de usuario").
+- **Posición:** `section` después de las fuentes, con título `h2` "Lista de verificación".
+- **Aviso fijo de la lista** (`Alert variant="neutro"` con `IconoInfo`, como el aviso fijo de la consulta), siempre visible arriba de la lista: "Los estados de la lista no certifican cumplimiento." (`DESIGN.md`, "Interfaz de usuario").
+- **Agrupada:** los ítems se agrupan por tipo, primero "Requisitos (N)" y luego "Fechas (N)", cada grupo con un `h3` y un filete inferior; dentro de cada grupo se respeta el orden recibido. Un grupo sin ítems no se muestra. La agrupación es solo de pantalla: `lista.ts` no cambia.
 - **Estados del ítem**, con texto e ícono, no solo color:
   - "Pendiente": círculo vacío;
   - "Preparado": círculo lleno a la mitad;
   - "Revisado": círculo con marca de verificación.
 - **Cada ítem** muestra categoría, carácter ("Fundamental", "No fundamental", "No indicado"), la cita, el documento, la página y las dos versiones, con la misma tarjeta de fuente reducida. Detalle:
-  - la cita del ítem (`blockquote.cita`) es la de su fuente (`fuentes[0].cita`), con el mismo tratamiento de ` | ` que la tarjeta de fuente; en los ítems de fecha, la etiqueta de la actividad ("Recepción de ofertas") va fuera de la cita, como `.etiqueta--suave` junto a los rótulos;
-  - el origen empieza con el tipo y el hash ("Bases · 03791a…"), luego página y las dos versiones. Los ítems con revisión pendiente llevan la banda de revisión con su motivo, y los ítems en conflicto aparecen los dos, sin elegir.
-- **Cambios locales:** marcar un ítem solo cambia el estado en pantalla y añade el rótulo "Sin guardar" junto al ítem. Nada se guarda al marcar.
+  - la cita del ítem (`blockquote` con `CLASE_CITA`) es la de su fuente (`fuentes[0].cita`), con el mismo tratamiento de ` | ` que la tarjeta de fuente; en los ítems de fecha, la etiqueta de la actividad ("Recepción de ofertas") va fuera de la cita, como `Badge variant="suave"` junto a los rótulos;
+  - el origen empieza con el tipo y el hash ("Bases · 03791a…"), luego la página con el mismo texto que la tarjeta de fuente ("p. 16 del PDF", con "(impresa M)" si llega) y las dos versiones. Los ítems con revisión pendiente llevan la banda de revisión con su motivo, y los ítems en conflicto aparecen los dos, sin elegir.
+- **Cambios locales:** marcar un ítem solo cambia el estado en pantalla y añade, al pie del ítem y tras un filete, el rótulo "Sin guardar" (`Badge variant="aviso"`), el cambio ("Pendiente a Preparado") y los botones "Guardar cambio" y "Descartar". Nada se guarda al marcar.
 - **Confirmación explícita:**
-  - un botón aparte, "Guardar cambios (N)" o "Guardar N ítems", abre un `dialog` modal nativo con el resumen de lo que se va a guardar, una línea por ítem ("Requisito X: Pendiente a Preparado");
+  - un botón aparte, "Guardar cambios (N)" o "Guardar N ítems", abre un `dialog` modal nativo (`Confirmacion.tsx`: tarjeta con borde de 2 px en `border-foreground`, `shadow-dialogo`, velo `backdrop:bg-velo`, centrado con `m-auto` porque la preflight de Tailwind quita el margen, y `open:grid` para no pisar el `display: none` del diálogo cerrado) con el resumen de lo que se va a guardar, una línea por ítem ("Requisito X: Pendiente a Preparado");
   - el modal tiene "Confirmar y guardar" y "Cancelar"; el foco entra en el título del modal, queda atrapado dentro y vuelve al botón de origen al cerrar; `Escape` cancela;
   - sin confirmación no hay petición de escritura.
 - **Conflicto (409):** mensaje "Otro usuario cambió este ítem. Recargue la lista antes de guardar." El cambio local no se aplica.
-- **Propuesta:** botón "Proponer lista"; los ítems propuestos llevan una casilla "Incluir" para descartar antes de guardar, enlazada con `aria-describedby` a la cita de su ítem para que se anuncie con él. La cita no se edita.
+- **Propuesta:** botón "Proponer lista"; los ítems propuestos llevan una casilla "Incluir" (`Checkbox` de Radix dentro de una `Label` de 44 px) para descartar antes de guardar, enlazada con `aria-describedby` a la cita de su ítem para que se anuncie con él, y el rótulo "No guardado". La cita no se edita.
 
 ## Base: Tailwind v4 y shadcn/ui
 
@@ -224,10 +227,8 @@ Desde W2 ([encargo](../docs/consulta/delegacion/W2_rediseno_con_shadcn.md)) la i
   - alias `@/componentes`, `@/componentes/ui`, `@/utilidades` y `@/hooks`. No se usa `src/lib`: el `.gitignore` de la raíz ignora `lib/`;
   - el alias `@` apunta a `src` en `tsconfig.json`, `tsconfig.app.json` y `vite.config.ts`.
 - **Sin fuentes externas:** se quitó la fuente Geist que trae el preset; la pila es la del sistema (`--font-sans`) y la demo sigue funcionando sin red.
-- **Archivos de estilo:**
-  - `src/estilos/tema.css`: entrada de Tailwind, variante `dark`, tokens en claro y oscuro, mapeo a utilidades (`@theme`) y capa base con las reglas de interacción;
-  - `src/estilos/variables.css` y `src/estilos/base.css`: puente temporal. `variables.css` reexpone los nombres viejos (`--color-fondo`, `--espacio-4`...) sobre las variables de shadcn, sin repetir colores, para que el CSS por bloques siga funcionando hasta la fase B. Al migrar los componentes se borran los dos.
-- **Componentes de `src/componentes/ui/`:** son código propio, no una dependencia. Ya vienen ajustados a este contrato (ver "Reglas de interacción"); si se regenera alguno con la CLI, hay que volver a aplicar esos ajustes.
+- **Archivo de estilo:** solo `src/estilos/tema.css`: entrada de Tailwind, variante `dark`, tokens en claro y oscuro, mapeo a utilidades (`@theme`) y capa base con las reglas de interacción. El puente de la fase A (`variables.css` y `base.css`, con el CSS por bloques) se borró en la fase B: los componentes usan solo utilidades.
+- **Componentes de `src/componentes/ui/`:** son código propio, no una dependencia. Ya vienen ajustados a este contrato (ver "Reglas de interacción"); si se regenera alguno con la CLI, hay que volver a aplicar esos ajustes. Uno de ellos: el estilo `radix-nova` trae variantes `data-checked:` y `data-horizontal:`, pero `radix-ui` 1.8.1 marca el estado con `data-state="checked"` y la orientación con `data-orientation`; `checkbox`, `radio-group` y `separator` usan `data-[state=checked]:` y `data-[orientation=…]:` (sin eso, la casilla marcada no se pintaba).
 
 ## Tema
 
@@ -347,8 +348,9 @@ La escala de espacio de Tailwind (`--spacing: 0.25rem`) coincide con la del cont
 | `--ancho-lectura` | `max-w-lectura` | `60rem` |
 | `--alto-control` | `min-h-11` | `2.75rem` (44 px) |
 | `--sombra-dialogo` | `shadow-dialogo` | `0 8px 24px rgb(0 0 0 / 0.25)` |
+| (velo del modal) | `backdrop:bg-velo` (`--color-velo`) | `rgb(0 0 0 / 0.55)`, igual en claro y oscuro |
 
-- Puntos de corte: `sm:` es `40rem` y `lg:` es `64rem`, los dos de "Rejilla y ancho". No se usan `md:`, `xl:` ni `2xl:`.
+- Puntos de corte: `sm:` es `40rem` y `lg:` es `64rem`, los dos de "Rejilla y ancho". No se usan `md:`, `xl:` ni `2xl:`. La única consulta de contenedor es `@md:` (28rem) en la tarjeta de fuente.
 - Sin sombras salvo `shadow-dialogo`, para el modal de confirmación. Las tarjetas de shadcn traían `ring-1`; aquí llevan borde.
 - Transiciones: solo color y fondo (`transition-colors`), y ninguna con `prefers-reduced-motion: reduce` (la capa base las anula). El desplazamiento de 1 px al pulsar un botón va con `motion-safe:`.
 
@@ -378,56 +380,62 @@ Componentes instalados en `src/componentes/ui/`: `button`, `input`, `textarea`, 
 Variantes propias, que sustituyen a las de shadcn que no se usan:
 
 - `Button`: `default` (primario), `outline` (secundario), `ghost` y `link`; tamaños `default` (`px-6`), `sm` (`px-4`, mismo alto) e `icon`.
-- `Badge`: `default` (`.etiqueta`), `aviso` (`.etiqueta--aviso`) y `suave` (`.etiqueta--suave`).
-- `Alert`: `default`, `neutro` (aviso fijo), `revision` (cobertura parcial) y `destructive` (errores).
-- `Card`: acepta `asChild` para ser el `article` de una fuente o la `section` de una columna o del resultado.
+- `Badge`: `default` (rótulo), `aviso` ("Sin guardar", "Falta información") y `suave` (actividad, "No guardado", versiones).
+- `Alert`: `default`, `neutro` (avisos fijos), `revision` (cobertura parcial y conflicto 409) y `destructive` (errores).
+- `Card`: acepta `asChild` para ser el `article` de una fuente, la `section` de una columna o del resultado, el `form` de la consulta o del inicio de sesión y el `li` de un documento o de un ítem.
 
-| Componente nuestro | Bloque actual | Base de shadcn | Notas para la fase B |
+Estado tras la fase B: todo componente usa esta tabla; los bloques CSS de la segunda columna ya no existen (se borraron con `base.css`).
+
+| Componente nuestro | Bloque anterior | Implementación | Notas |
 |---|---|---|---|
 | Aviso de modo | `.aviso-modo` | utilidades (`bg-muted text-sm border-b`) | banda, no es un `Alert` |
-| Encabezado | `.encabezado` | utilidades, `Button variant="outline"` para "Cerrar sesión" | no es fijo al desplazar |
+| Encabezado | `.encabezado` | utilidades (`bg-card border-b`), `Button variant="outline" size="sm"` para "Cerrar sesión" | no es fijo al desplazar |
 | Selector de tema (`Tema.tsx`) | `.tema` | `Label` + `NativeSelect` | se queda nativo: tres opciones y teclado del sistema; misma lógica de `localStorage` |
+| Formulario de consulta | `.consulta` | `Card asChild` sobre `form` | agrupa ejemplo, pregunta, contador y botón |
 | Selector de ejemplo | `.campo select` | `Label` + `NativeSelect` a todo el ancho | solo en modo ejemplos |
 | Caja de pregunta | `.consulta textarea` | `Label` + `Textarea` (`rows={3}`, `maxLength={500}`) | contador en `text-xs`, con `aria-describedby` |
 | Botón primario | `.boton` | `Button` | "Consultar", "Iniciar sesión", "Guardar…", "Confirmar y guardar" |
-| Botón secundario | `.boton--secundario` | `Button variant="outline"` | "Escribir la aclaración", "Proponer lista", "Cancelar", "Cerrar sesión" |
+| Botón secundario | `.boton--secundario` | `Button variant="outline"` (`size="sm"` en la lista, el modal y el encabezado) | "Escribir la aclaración", "Proponer lista", "Cancelar", "Cerrar sesión" |
 | Aviso fijo | `.aviso-fijo` | `Alert variant="neutro"` + `IconoInfo`, `text-sm font-semibold` | sin `role`; nunca se cierra |
-| Panel de resultado | `.resultado[data-estado]` | `Card asChild` sobre `section` | `data-estado` sigue siendo el único gancho: `data-[estado=revision]:border-estado-revision`, etc.; cabecera con el fondo del estado |
-| Rótulo de estado | `h2` + `IconoEstado` | `CardHeader` | íconos propios de `Iconos.tsx` (las formas son parte del contrato), no de lucide |
-| Banda de revisión | `.banda-revision` | utilidades (`bg-estado-revision-fondo border-b-2`) | a todo el ancho del panel; no es un `Alert` |
-| Metadatos | `.metadatos` (`dl`) | utilidades | se mantiene el `dl` |
+| Panel de resultado | `.resultado[data-estado]` | `Card asChild` sobre `section` | `data-estado` sigue siendo el único gancho: `data-[estado=revision]:border-estado-revision`, etc.; cabecera con el fondo del estado por `group-data-[estado=…]/resultado:` |
+| Rótulo de estado | `h2` + `IconoEstado` | `header` con utilidades (no `CardHeader`, cuyo relleno no encaja con la banda) | íconos propios de `Iconos.tsx` (las formas son parte del contrato), no de lucide |
+| Banda de revisión | `.banda-revision` | utilidades (`bg-estado-revision-fondo border-b-2`) | a todo el ancho del panel; no es un `Alert`; la misma banda en el ítem de la lista |
+| Metadatos | `.metadatos` (`dl`) | utilidades | se mantiene el `dl`; los dos puntos los pone `after:content-[':']` |
 | Aviso de cobertura | `.aviso-cobertura` | `Alert variant="revision"` + `IconoCobertura` | sin `role` |
 | Lista de `warnings` | `.avisos__lista` | utilidades | texto original en `font-mono text-sm` |
-| Tarjeta de fuente | `.fuente` | `Card asChild` sobre `article` | `CardTitle` como `h3`; cita en `blockquote` con `border-l-3 border-input bg-muted` |
-| Enlaces al original | `.fuente__origen a` | `a` nativo (o `Button variant="link" asChild`) | los rótulos y atributos no cambian |
+| Tarjeta de fuente | `.fuente` | `Card asChild` sobre `article`, `@container` | título en `h3` simple (no `CardTitle`, que es un `div`); cita con `CLASE_CITA` |
+| Enlaces al original | `.fuente__origen a` | `a` nativo | los atributos no cambian; el rótulo agrega "del PDF" |
 | Contraste lado a lado | `.contraste`, `.contraste__columna` | rejilla (`sm:grid-cols-[repeat(auto-fit,minmax(18rem,1fr))]`) + `Card asChild` sobre `section` | las dos columnas con la misma variante y el mismo peso |
 | Error de consulta | `.error-consulta` | `Alert variant="destructive"` con su `h2` | la consulta sigue disponible |
-| Inicio de sesión | `.sesion` | `Label` + `Input` + `Button`; error con `Alert variant="destructive" role="alert"` | ancho máximo 24 rem |
-| Documentos del evento | `.documentos`, `.documento` | `Card` por documento; `Badge` para tipo, versión y "Falta información" (`aviso`) | con faltantes: `border-2 border-estado-revision bg-estado-revision-fondo` |
-| Ítem de la lista | `.item-lista` | `Card` | con revisión: borde `estado-revision` |
+| Inicio de sesión | `.sesion` | `Card asChild` sobre `form` + `Label` + `Input` + `Button`; error con `Alert variant="destructive" role="alert"` | ancho máximo 24 rem, centrado |
+| Documentos del evento | `.documentos`, `.documento` | `Card asChild` sobre `li` por documento; `Badge` para tipo, versión y "Falta información" (`aviso`) | con faltantes: `border-2 border-estado-revision bg-estado-revision-fondo` |
+| Grupos de la lista | (nuevo) | `h3` con filete inferior y el número de ítems | "Requisitos (N)" y "Fechas (N)" |
+| Ítem de la lista | `.item-lista` | `Card asChild` sobre `li` | con revisión: borde de 2 px `estado-revision` |
 | Rótulos del ítem | `.etiqueta` | `Badge` (`default`, `aviso`, `suave`) | "Sin guardar" es `aviso` |
 | Casilla "Incluir" | `.incluir input` | `Label` + `Checkbox` | ver "Notas de Radix" debajo de la tabla |
-| Estados del ítem | `.estados`, `.estados__opcion` | `RadioGroup` + `RadioGroupItem`, cada opción en una `Label` con borde de 44 px | ícono de estado (`IconoItem`) y texto; la opción activa con `border-2 border-foreground` |
+| Estados del ítem | `.estados`, `.estados__opcion` | `fieldset` + `RadioGroup` + `RadioGroupItem`, cada opción en una `Label` con borde de 44 px | ícono de estado (`IconoItem`) y texto; la opción activa con `border-2 border-foreground bg-muted font-semibold` (`data-activo`) |
 | Avisos de la lista | `.lista__aviso` | `Alert variant="destructive"` o `"revision"` (conflicto 409), con `role="alert"` | |
-| Confirmación | `dialog.confirmacion` | `dialog` nativo con clases de tarjeta (`bg-card border-2 rounded-xl shadow-dialogo`) + `Button` | sin `Dialog` de Radix |
-| Separadores | bordes de `.encabezado` y `.pie` | `Separator` donde no haya un contenedor con borde | decorativo (`--border`) |
-| Pie | `.pie` | utilidades (`text-sm text-muted-foreground`) | |
+| Confirmación | `dialog.confirmacion` | `dialog` nativo con clases de tarjeta (`bg-card border-2 rounded-xl shadow-dialogo backdrop:bg-velo`) + `Button` | sin `Dialog` de Radix |
+| Separadores | bordes de `.encabezado` y `.pie` | bordes y filetes con utilidades (`border-b`, `border-t`) | `Separator` queda instalado pero sin uso: cada filete separa partes de un contenedor que ya existe |
+| Pie | `.pie` | utilidades (`text-sm text-muted-foreground border-t`) | |
 
-Notas de Radix para la fase B:
+Notas de Radix (aplicadas en la fase B):
 
-- `Checkbox` y `RadioGroupItem` pintan un `<button>` con `role="checkbox"` o `role="radio"`, no un `<input>`. El `aria-describedby` hacia la cita se pone en el `Checkbox` y llega al botón. La prueba de `fuentes.test.ts` que busca `<input type="checkbox"…aria-describedby…>` tendrá que buscar `role="checkbox"` con el mismo `aria-describedby`, sin debilitarse.
-- Un `fieldset disabled` deshabilita los botones de Radix de forma nativa, pero Radix no se entera (no pone `data-disabled`). Con el rol `lector`, pasar también `disabled` al `RadioGroup` y al `Checkbox`.
-- `RadioGroup` usa foco itinerante: una sola parada de tabulación por grupo y flechas entre opciones, como un grupo de radios nativo.
+- `Checkbox` y `RadioGroupItem` pintan un `<button>` con `role="checkbox"` o `role="radio"`, no un `<input>`. El `aria-describedby` hacia la cita se pone en el `Checkbox` y llega al botón. La prueba de `fuentes.test.ts` busca un `<button>` con `role="checkbox"` y ese mismo `aria-describedby` en la misma etiqueta, y que haya una sola casilla.
+- Un `fieldset disabled` deshabilita los botones de Radix de forma nativa, pero Radix no se entera (no pone `data-disabled`). Con el rol `lector` se pasa también `disabled` al `RadioGroup` y al `Checkbox`; `sesion.test.ts` comprueba que los tres radios llevan `disabled`, que el grupo lleva `data-disabled` y que la casilla del lector va deshabilitada.
+- `RadioGroup` usa foco itinerante: una sola parada de tabulación por grupo y flechas entre opciones, como un grupo de radios nativo. El grupo se nombra con `aria-labelledby` hacia la `legend` del `fieldset`.
+- Una `label` que envuelve el `<button>` de Radix lo activa al pulsarla (el botón es un elemento etiquetable), así que toda la opción de 44 px es pulsable.
 
 Clases y nombres:
 
-- Mientras dure el puente, los bloques en español (`.fuente`, `.resultado`...) siguen en `base.css`. En la fase B se sustituyen por los componentes y utilidades de la tabla, y lo que quede sin usar se borra.
-- El estado sigue en atributos (`data-estado`, `data-faltantes`, `data-revision`, `aria-*`), nunca en clases por color.
+- No quedan bloques CSS en español: cada componente usa utilidades de Tailwind sobre las variables del tema. Las combinaciones que se repiten viven en constantes del módulo que las usa (`CONTENEDOR` y `PRINCIPAL` en `App.tsx`, `PANEL` y `CABECERA` en `Resultado.tsx`, `CLASE_CITA` en `Fuentes.tsx`).
+- El estado sigue en atributos (`data-estado`, `data-faltantes`, `data-revision`, `data-activo`, `aria-*`), nunca en clases por color.
+- Texto solo para lectores de pantalla con `sr-only` (antes `.oculto-visual`).
 - Se combinan clases con `cn` (paquete `cn`; `@/utilidades/cn` lo reexporta).
 
 ## Pruebas
 
-Pruebas de la web: Vitest sobre la lógica pura (`estado`, `lista`, `cobertura`) y sobre el HTML de las fuentes, la lista, el panel y el resultado con `renderToStaticMarkup`; el resto se valida con `tsc`, el build y la compuerta (`design-ui-finish-gate-reviewer`) contra este archivo, en vivo, en claro y oscuro, a 1366 y 320 px.
+Pruebas de la web: Vitest sobre la lógica pura (`estado`, `lista`, `cobertura`) y sobre el HTML de las fuentes, la lista, el panel y el resultado con `renderToStaticMarkup`. Las de render buscan atributos estables (`data-slot`, `data-variant`, `role`, `lang`, `aria-*`), no clases de Tailwind, salvo `font-mono` en el `doc_id`; el resto se valida con `tsc`, el build y la compuerta (`design-ui-finish-gate-reviewer`) contra este archivo, en vivo, en claro y oscuro, a 1366 y 320 px.
 
 ## Accesibilidad
 
@@ -440,7 +448,7 @@ Meta: WCAG 2.1 nivel AA.
 - **Lectores de pantalla:**
   - los íconos llevan `aria-hidden="true"`; el estado lo dice el texto;
   - la cita va en `blockquote` y su tarjeta es un `article` con `aria-labelledby` hacia su título;
-  - el enlace al original incluye la página y "abre en una pestaña nueva" en su nombre accesible;
+  - el enlace al original incluye la página del PDF y "abre en una pestaña nueva" en su nombre accesible;
   - en el contraste, cada columna es una `section` con `aria-labelledby` hacia su cabecera de documento;
   - el contador de caracteres se asocia a la caja con `aria-describedby`.
 - **Contraste:** ver la tabla medida. El estado nunca depende solo del color (texto, ícono y borde).
@@ -485,10 +493,10 @@ Los valores entre `<>` son marcadores: F6b los toma reales de `entregables/recup
 | Fuentes (1)                                                          |
 | +------------------------------------------------------------------+ |
 | | [1] <doc_id de las bases>                                        | |
-| | Página: pp. 26–27            Versión de ingesta: v<n>            | |
+| | Página: pp. 26–27 del PDF    Versión de ingesta: v<n>            | |
 | | Versión oficial: <texto>     Fragmento: <chunk_id>               | |
 | | | «<cita literal del fragmento>»                                 | |
-| | Ver copia archivada, p. 26 · Publicación en igssgt.org           | |
+| | Ver copia archivada, p. 26 del PDF · Publicación en igssgt.org   | |
 | +------------------------------------------------------------------+ |
 +----------------------------------------------------------------------+
 | LiciGT, proyecto CC3103 (UVG). No presenta ofertas ni decide ...     |
@@ -595,24 +603,37 @@ Sin aviso destacado; si hay `warnings`, se listan igual.
 
 ```text
 | Lista de verificación                               <h2>             |
-| | Los estados de la lista no certifican cumplimiento.                |
+| | (i) Los estados de la lista no certifican cumplimiento.            |
 |                                                                      |
-| ( ) Pendiente   Técnica · Fundamental        [ Pendiente  v ]        |
-|     «<cita>» · <doc_id> · p. 16 · v<n> · <versión oficial>           |
-| (/) Preparado   Legal · No indicado          [ Preparado  v ] Sin guardar
-|     «<cita>» · <doc_id> · p. 26 · v<n> · <versión oficial>           |
+| [ Proponer lista ] [ Guardar 0 ítems ]                               |
 |                                                                      |
-|                                         [ Guardar cambios (1) ]      |
+| Requisitos (2)                                      <h3>             |
+| -------------------------------------------------------------------- |
+| +------------------------------------------------------------------+ |
+| | [Requisito] [Técnica] [Fundamental]                              | |
+| | | <cita>                                                         | |
+| | Bases · <doc_id>, p. 16 del PDF; versión de ingesta v<n>; ...    | |
+| | Estado de «Requisito técnica»                                    | |
+| | [(o) ( ) Pendiente] [( ) (/) Preparado] [( ) (v) Revisado]       | |
+| | ---------------------------------------------------------------- | |
+| | [Sin guardar] Pendiente a Preparado [Guardar cambio] [Descartar] | |
+| +------------------------------------------------------------------+ |
+| Fechas (2)                                          <h3>             |
+| +==================================================================+ |
+| |## Requiere revisión: <motivo> ##################################| |
+| | [Fecha] [No indicado] [Recepción de ofertas]                     | |
+| | | 31 de julio de 2023                                            | |
+| | ...                                                              | |
+| +==================================================================+ |
 |                                                                      |
-|   +-- Confirmar cambios ------------------------------------------+  |
-|   | Se guardará 1 cambio:                                         |  |
-|   | - <ítem>: Pendiente a Preparado                               |  |
-|   | Los estados no certifican cumplimiento.                       |  |
+|   +-- Guardar el cambio de estado --------------------------------+  |
+|   | Nada se guarda hasta que confirme.                            |  |
+|   | | <ítem>: Pendiente a Preparado                               |  |
 |   |                          [ Cancelar ] [ Confirmar y guardar ] |  |
 |   +---------------------------------------------------------------+  |
 ```
 
-`( )`, `(/)` y `(v)` son los íconos de pendiente, preparado y revisado. El modal es el `dialog` nativo.
+`( )`, `(/)` y `(v)` son los íconos de pendiente, preparado y revisado; `(o)` es el radio de Radix marcado. La opción activa lleva borde de 2 px y texto en peso 600. El modal es el `dialog` nativo.
 
 ## Criterios para la compuerta (F6e)
 

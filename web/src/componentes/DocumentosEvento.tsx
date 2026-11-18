@@ -3,6 +3,9 @@ import { ErrorConsulta, ErrorNoAutenticado, documentosApi } from '../api'
 import { advertenciasDe, faltantesDe, resumenCobertura, rotuloEstadoDocumento, rotuloTipoDocumento, textoPaginas } from '../cobertura'
 import { EJEMPLO_DOCUMENTOS } from '../ejemplos'
 import type { DocumentoEvento, DocumentosEvento as Documentos } from '../tipos'
+import { Alert } from './ui/alert'
+import { Badge } from './ui/badge'
+import { Card } from './ui/card'
 
 export type Carga = { tipo: 'cargando' } | { tipo: 'error'; motivo: string } | { tipo: 'listo'; datos: Documentos }
 
@@ -25,27 +28,30 @@ export function useDocumentosEvento(eventoId: string, modoEjemplos: boolean, hab
 
 export function ListaDocumentos({ documentos }: { documentos: DocumentoEvento[] }) {
   return (
-    <ul className="documentos__lista">
+    <ul className="grid gap-3">
       {documentos.map((d) => {
         const faltantes = advertenciasDe(d)
         return (
-          <li key={d.doc_id} className="documento" data-faltantes={faltantesDe(d).length > 0}>
-            <p className="documento__titulo">
-              <span className="etiqueta">{rotuloTipoDocumento(d.tipo_documento)}</span>
-              {d.version_oficial ? <span>{d.version_oficial}</span> : <span className="etiqueta etiqueta--suave">Versión oficial no indicada</span>}
-              <span className="etiqueta etiqueta--suave">v{d.version_ingesta}</span>
-            </p>
-            <p className="documento__id"><code className="mono">{d.doc_id}</code></p>
-            <p className="documento__datos">
-              {textoPaginas(d)}; estado: {rotuloEstadoDocumento(d.estado).toLowerCase()}
-            </p>
-            {faltantes.length > 0 && (
-              <div className="documento__faltantes">
-                <p className="etiqueta etiqueta--aviso">Falta información</p>
-                <ul>{faltantes.map((f) => <li key={f}>{f}</li>)}</ul>
-              </div>
-            )}
-          </li>
+          <Card asChild key={d.doc_id}
+            className="gap-2 px-4 py-3 data-[faltantes=true]:border-2 data-[faltantes=true]:border-estado-revision data-[faltantes=true]:bg-estado-revision-fondo">
+            <li data-faltantes={faltantesDe(d).length > 0}>
+              <p className="flex flex-wrap items-center gap-2 font-semibold">
+                <Badge>{rotuloTipoDocumento(d.tipo_documento)}</Badge>
+                {d.version_oficial ? <span>{d.version_oficial}</span> : <Badge variant="suave">Versión oficial no indicada</Badge>}
+                <Badge variant="suave">v{d.version_ingesta}</Badge>
+              </p>
+              <p><code className="font-mono text-sm wrap-anywhere">{d.doc_id}</code></p>
+              <p className="text-sm text-muted-foreground">
+                {textoPaginas(d)}; estado: {rotuloEstadoDocumento(d.estado).toLowerCase()}
+              </p>
+              {faltantes.length > 0 && (
+                <div className="grid justify-items-start gap-2">
+                  <Badge variant="aviso">Falta información</Badge>
+                  <ul className="list-disc pl-6 text-sm font-semibold">{faltantes.map((f) => <li key={f}>{f}</li>)}</ul>
+                </div>
+              )}
+            </li>
+          </Card>
         )
       })}
     </ul>
@@ -55,12 +61,16 @@ export function ListaDocumentos({ documentos }: { documentos: DocumentoEvento[] 
 export function DocumentosEvento({ carga }: { carga: Carga }) {
   const resumen = carga.tipo === 'listo' ? resumenCobertura(carga.datos.documentos) : null
   return (
-    <section className="documentos" aria-labelledby="titulo-documentos">
-      <h2 id="titulo-documentos">Documentos del evento</h2>
-      {carga.tipo === 'cargando' && <p className="ayuda" aria-busy="true">Cargando documentos…</p>}
-      {carga.tipo === 'error' && <p className="ayuda" role="alert">No se pudieron cargar los documentos. {carga.motivo}</p>}
-      {resumen && (
-        <p className="documentos__resumen" data-faltantes={resumen.conFaltantes > 0}>{resumen.texto}</p>
+    <section className="grid gap-3" aria-labelledby="titulo-documentos">
+      <div className="grid gap-1">
+        <h2 id="titulo-documentos">Documentos del evento</h2>
+        {resumen && (
+          <p className="text-sm font-semibold data-[faltantes=true]:text-estado-revision" data-faltantes={resumen.conFaltantes > 0}>{resumen.texto}</p>
+        )}
+      </div>
+      {carga.tipo === 'cargando' && <p className="text-sm text-muted-foreground" aria-busy="true">Cargando documentos…</p>}
+      {carga.tipo === 'error' && (
+        <Alert variant="destructive" role="alert">No se pudieron cargar los documentos. {carga.motivo}</Alert>
       )}
       {carga.tipo === 'listo' && carga.datos.documentos.length > 0 && <ListaDocumentos documentos={carga.datos.documentos} />}
     </section>
