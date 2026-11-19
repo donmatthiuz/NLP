@@ -1,6 +1,6 @@
 # Entrega de ingesta para Recuperación y RAG
 
-[`empresa_demo.zip`](empresa_demo.zip) es el corpus de prueba listo para incluir en Git para el rol 2: seis PDF oficiales del IGSS correspondientes a cinco eventos, con 890 fragmentos indexables (las tablas de descripción salen como filas `| numeral | título | texto |`; ver `Corpus_IGSS.md`). `empresa_demo` es una empresa ficticia. La carpeta `data/` contiene el registro de trabajo local y sigue excluida de Git; el ZIP es el entregable que se comparte en el repositorio.
+[`empresa_demo.zip`](empresa_demo.zip) es el corpus de prueba listo para incluir en Git para el rol 2: seis PDF oficiales del IGSS correspondientes a cinco eventos, con 625 fragmentos indexables en el paquete R6 vigente (las tablas de descripción salen como filas `| numeral | título | texto |`; ver `Corpus_IGSS.md`). `empresa_demo` es una empresa ficticia. La carpeta `data/` contiene el registro de trabajo local y sigue excluida de Git; el ZIP es el entregable que se comparte en el repositorio.
 
 Dentro del ZIP, todas las rutas de archivos son **relativas a la raíz del ZIP**:
 
@@ -34,4 +34,4 @@ La prueba de aceptación abre el ZIP en una carpeta temporal, comprueba hashes y
 python -m unittest discover -s src/licigt/recuperacion/tests -v
 ```
 
-La modificación del evento 222 tiene las páginas 3 y 4 legibles por OCR (Tesseract 4.1.1, `spa`): 16 fragmentos indexables y 4 excluidos como `ruido_ocr`; la página 4 solo dejó ruido, así que el inventario la lista en `paginas_no_indexadas` (`[4]`). El PDF menciona un anexo de 11 hojas que no forma parte del archivo entregado, por lo que el documento sigue en `requiere_revision`. Consultar el [inventario del corpus](../../docs/ingesta/Corpus_IGSS.md) antes de evaluar respuestas sobre esa modificación.
+La modificación del evento 222 tiene las páginas 3 y 4 recuperadas por OCR (Tesseract 4.1.1, `spa`), pero las páginas OCR no se funden: quedan 7 fragmentos indexables, entre ellos el párrafo de la aprobación de la página 3, y 28 excluidos como `ruido_ocr`. La página 4 solo dejó ruido, así que el inventario la lista en `paginas_no_indexadas` (`[4]`). El PDF menciona un anexo de 11 hojas que no forma parte del archivo entregado, por lo que el documento sigue en `requiere_revision`. Consultar el [inventario del corpus](../../docs/ingesta/Corpus_IGSS.md) antes de evaluar respuestas sobre esa modificación.

@@ -1,6 +1,6 @@
 # Pendientes del proyecto LiciGT
 
-**Estado al 16 de noviembre de 2026.** Lista viva de lo que falta, con foco en el rol 3. Los detalles por rol están en [Pendientes_rol_1](ingesta/Pendientes_rol_1.md), [Recuperacion](recuperacion/Recuperacion.md#pendientes) y [Plan_rol_3](consulta/Plan_rol_3.md). Los documentos originales del curso están en la carpeta de tareas de OneDrive (`tareas/proyecto`): instrucciones en PDF, plantilla `.docx`, diapositivas del docente, `advisor-summary.md` y diagramas (`diagrams/`, con su `.drawio` y generador).
+**Estado al 18 de noviembre de 2026**, tras la revisión retrospectiva ([Revision_retrospectiva](consulta/Revision_retrospectiva.md)). Lista viva de lo que falta, con foco en el rol 3. Las casillas marcadas llevan el commit donde se hicieron. Los detalles por rol están en [Pendientes_rol_1](ingesta/Pendientes_rol_1.md), [Recuperacion](recuperacion/Recuperacion.md#pendientes) y [Plan_rol_3](consulta/Plan_rol_3.md). Los documentos originales del curso están en la carpeta de tareas de OneDrive (`tareas/proyecto`): instrucciones en PDF, plantilla `.docx`, diapositivas del docente, `advisor-summary.md` y diagramas (`diagrams/`, con su `.drawio` y generador).
 
 ## Decisiones
 
@@ -12,17 +12,17 @@ Resueltas:
 Abiertas:
 
 - [x] **Contratos:** definidos en [Contratos](consulta/Contratos.md). Con el rol 2 se verificó contra el código; con el rol 4 no había contrato y se adopta una propuesta (contexto con `tenant_id`, `usuario` y `rol`; auditoría por función inyectada). Todo corre en local.
-- [ ] **Avisar a los roles:** al rol 2, las tres diferencias de su documentación (alerta `evento_con_modificaciones`, firma de `comparar_versiones`, ids de documento); al rol 4, la propuesta de contexto y auditoría; al anteproyecto, los parámetros de `comparar_versiones`.
-- [ ] **JEV, detalle:** la adaptación está en [JEV](consulta/JEV.md) (qué decisiones cubre, preguntas y cookbooks). Falta definir el conjunto etiquetado y contra qué se compara. Si se mantiene la comparación con reglas y LLM del resumen para el asesor, la adopción por resultados sigue siendo válida. Actualizar el anteproyecto (sección 11), que hoy no lo menciona, y el diagrama.
-- [ ] **Tamaño del banco:** el mínimo del curso es 20 casos (sección 8 de las instrucciones); el resumen para el asesor proponía 50. Sugerencia: 20 a 25.
+- [x] **Avisar a los roles:** hecho en los `Avisos_del_rol_N.md` de cada módulo; el rol 2 respondió las diferencias de documentación el 16 de noviembre (`4a002a0`) y la sesión y la auditoría del rol 4 se entregaron en P1 (`946d228`). Abierto: reflejar en el anteproyecto los parámetros de `comparar_versiones` ([Cambios_pendientes](anteproyecto/Cambios_pendientes.md)).
+- [x] **JEV, detalle:** la adaptación está en [JEV](consulta/JEV.md). El conjunto etiquetado y la comparación con reglas y con la variante LLM están hechos y medidos (`bfc5a4a`, `afc6b07`, `e837ea2`; [Experimento_JEV](consulta/Experimento_JEV.md)): el sistema entregado usa reglas. Abierto: actualizar el anteproyecto (sección 11), que no lo menciona, y el diagrama.
+- [x] **Tamaño del banco:** banco común de 20 casos (`f4e58d8`) y banco del rol 3 de 23 (`6b9910e`).
 - [x] **Ejecución:** todo local salvo JEV, que va por API alojada. Equipo: RTX 5070 de 12 GB, 64 GB de RAM, i7-14700KF.
-- [ ] **LLM generador local:** elegir un modelo que quepa en la VRAM que deje el rol 2 y cumpla la latencia P95 de 15 s. Verificar que el stack de CUDA en WSL2 soporte la RTX 5070.
-- [ ] **Ragas y Langfuse:** no son requisito. Ragas calcula métricas de RAG (fidelidad, precisión del contexto) con un LLM juez; Langfuse es una plataforma de trazas. El curso exige métricas y auditoría, que se pueden cubrir con scripts propios y el registro del rol 4.
-- [ ] **Stack propuesto:** backend FastAPI (Python y Pydantic, igual que el RAG) y frontend React con Vite y TypeScript. Acordarlo con el rol 4, que es dueño de la API. NestJS añadiría una tercera capa sin necesidad. Streamlit descartado.
-- [ ] **JEV, acceso:** por API alojada de TypeSafe (decidido). Pendiente: documentación de la API que pasará el usuario, custodia de la clave y confirmar que solo se envían textos públicos.
+- [x] **LLM generador local:** Qwen3.5-9B en `llama-server` con Docker y GPU (`b729647`, `7d84ba0`). Cabe junto a la recuperación y funciona en la RTX 5070. No cumple la latencia: P95 de 18,5 s con un usuario y 45,1 s con cinco (meta 15 s).
+- [x] **Ragas y Langfuse:** no se adoptaron; las métricas se calculan con código propio (`make reporte`, `926863b`) y la auditoría es la del rol 4. No son requisito. Ragas calcula métricas de RAG (fidelidad, precisión del contexto) con un LLM juez; Langfuse es una plataforma de trazas. El curso exige métricas y auditoría, que se pueden cubrir con scripts propios y el registro del rol 4.
+- [x] **Stack propuesto (adoptado):** backend FastAPI (Python y Pydantic, igual que el RAG) y frontend React con Vite y TypeScript. Acordarlo con el rol 4, que es dueño de la API. NestJS añadiría una tercera capa sin necesidad. Streamlit descartado.
+- [x] **JEV, acceso:** por API alojada de TypeSafe, con la llave en `keys/` que ningún agente lee, y solo la pregunta y fragmentos de documentos públicos ([JEV](consulta/JEV.md#datos-que-salen-del-equipo)).
 - [ ] **Langfuse:** trazas de cada paso; podría alimentar la auditoría. Su autoalojamiento es pesado y exige sanear datos antes de enviarlos.
 - [x] **Parametrización:** `.env.example` sin secretos, `keys/` con un archivo por llave, contraseña de la base generada por `make keys-init`, modelos en `models/` vía `HF_HOME`, `Makefile` como puerta de entrada. La procedencia de los PDF ya la registra el rol 1 en `procedencia/<doc_id>.json`.
-- [ ] **Revisiones de modelos:** anotar la revisión exacta de cada modelo en la tabla de `docs/recuperacion/Recuperacion.md` tras la primera descarga (`make models-status`); el rol 2 debe fijarla con `revision=` (ver sus avisos). El LLM local y JEV se anotan cuando se elijan.
+- [x] **Revisiones de modelos:** fijadas con `revision=` en `REVISION` (`4a002a0`) y listadas, con las del LLM local y JEV (`jev-1.14.0`), en la bibliografía del [documento técnico](informe/Documento_tecnico.md).
 - [ ] **Almacenamiento:** MinIO o Google Cloud Storage (ver Pendientes_rol_1).
 - [ ] Respuestas del asesor a las preguntas de validación del resumen (documentos privados, LLM externo, tiempo de revisión con usuarios reales).
 - [x] **Sin memoria de conversación** (decisión del 17 de noviembre): cada pregunta se responde por sí sola, con el evento como único contexto. El curso propone un "prompt estructurado sin memoria" como línea base (instrucciones, fase 2) y no exige memoria; el banco cubre las preguntas compuestas y la ambigüedad dentro de una sola pregunta. Se declara como limitación y trabajo futuro en el informe. Si se hiciera, la reescritura de preguntas de seguimiento sería del rol 3, y el historial del rol 4.
@@ -49,9 +49,9 @@ Los cambios concretos por sección están en [Cambios_pendientes](anteproyecto/C
 
 ### Documento técnico (10 a 15 páginas)
 
-- [ ] No existe. Debe incluir resumen ejecutivo, problema, usuarios, fuentes, estado del arte, arquitectura, banco de pruebas, métricas, auditoría de seguridad, limitaciones, trabajo futuro, conclusiones y bibliografía.
-- [ ] Declaración del uso de herramientas de IA y su grado de intervención (sección 15 de las instrucciones).
-- [ ] Citar formalmente librerías, modelos y referencias.
+- [x] Existe en [Documento_tecnico](informe/Documento_tecnico.md) (`e2eead7`, actualizado con la revisión retrospectiva) con todas las secciones pedidas. Abierto: su longitud (el curso pide 10 a 15 páginas) y el formato final de entrega.
+- [x] Declaración del uso de herramientas de IA y su grado de intervención: sección 13 del documento técnico.
+- [x] Citar formalmente librerías, modelos y referencias: sección 14 del documento técnico.
 
 ### Presentación final (15 minutos)
 
@@ -63,54 +63,64 @@ Los cambios concretos por sección están en [Cambios_pendientes](anteproyecto/C
 
 ### Entrega de código
 
-- [ ] README raíz con instalación y ejecución reproducible.
-- [ ] Dependencias unificadas y entorno sin credenciales.
-- [ ] Scripts de benchmark automatizados.
+- [x] README raíz con instalación y ejecución reproducible (E2, `345445c`; verificado en un clon limpio).
+- [x] Dependencias unificadas y entorno sin credenciales (E2, `345445c`). Abierto: las versiones no están fijadas con exactitud.
+- [x] Scripts de benchmark automatizados: `make reporte`, `make banco` y `make evaluar` (`926863b`).
 
 ## Evaluación y seguridad (rol 4, con apoyo de todos)
 
-- [ ] Banco de pruebas con los campos `id`, `question`, `expected_behavior`, `expected_sources`, `expected_pages`, `answerable` y `risk_level`.
-- [ ] Composición mínima: 5 directas, 3 paráfrasis, 3 identificadores exactos, 3 compuestas, 2 ambiguas, 2 sin respuesta y 2 de versión o vigencia.
-- [ ] Casos de herramientas: ejecución nominal, selección errónea, parámetros fuera de rango, confirmación humana e indisponibilidad.
-- [ ] Reservar un evento para evaluación y calibrar umbrales con otro conjunto.
-- [ ] Verificar si los dos casos de vigencia tienen respaldo auténtico (evento 222) o reportar la brecha.
-- [ ] Suite de seguridad de al menos ocho pruebas, cada una con amenaza, componente, comportamiento esperado, resultado y mitigación.
-- [ ] Autenticación, permisos, auditoría sanitizada y despliegue de Postgres.
-- [ ] Medición de latencia P95, tokens y costo; reporte reproducible de métricas.
-- [ ] Medición exploratoria del tiempo de revisión manual frente a asistido.
+- [x] Banco de pruebas con los campos `id`, `question`, `expected_behavior`, `expected_sources`, `expected_pages`, `answerable` y `risk_level` (`f4e58d8`). Los `expected_pages` son páginas físicas del PDF.
+- [x] Composición mínima: 5 directas, 3 paráfrasis, 3 identificadores exactos, 3 compuestas, 2 ambiguas, 2 sin respuesta y 2 de versión o vigencia (`f4e58d8`).
+- [x] Casos de herramientas: ejecución nominal, selección errónea, parámetros fuera de rango, confirmación humana e indisponibilidad (`6b9910e`).
+- [ ] Reservar un evento para evaluación y calibrar umbrales con otro conjunto. No se cumplió: los casos de desarrollo cubren los cinco eventos. Declarado en el documento técnico, sección 7.
+- [x] Verificar si los dos casos de vigencia tienen respaldo auténtico (evento 222): el revisor confirmó la evidencia de los 20 casos del banco común (`f4e58d8`).
+- [x] Suite de seguridad de al menos ocho pruebas: 8 de 8 en el reporte (`926863b`).
+- [x] Autenticación, permisos y auditoría sanitizada (P1, `946d228`; auditoría seudonimizada y rol sin superusuario en P2, `9b22d02`). Abierto: el despliegue de Postgres fuera de la máquina local; hoy corre con `make db-up`.
+- [x] Medición de latencia P95, tokens y costo; reporte reproducible (`926863b`; con 5 usuarios, E3, `987b2f6`).
+- [ ] Medición exploratoria del tiempo de revisión manual frente a asistido. No se hizo.
 
 ## Rol 1: ingesta
 
 Resumen; el detalle está en [Pendientes_rol_1](ingesta/Pendientes_rol_1.md).
 
-- [ ] OCR de las páginas 3 y 4 de la modificación 1 del evento 222 y reextracción desde el PDF original.
-- [ ] Corregir la clasificación del conector automático.
-- [ ] `tabla_markdown` vacío y `seccion` con pies de página.
-- [ ] Registro de eventos de ingesta para el rol 4.
+- [x] OCR de las páginas 3 y 4 de la modificación 1 del evento 222 y reextracción desde el PDF original (R1, `4bd2d7f`). La página 4 queda sin indexar y el anexo de 11 hojas no está publicado.
+- [x] Corregir la clasificación del conector automático (`8df7c95`).
+- [x] `tabla_markdown` vacío (R3, `87c5d90`) y `seccion` con pies de página (R6, `7c117d9`).
+- [x] Filtro de ruido del OCR en toda la ingesta (R7, `3c8a4c9`).
+- [ ] Registro de eventos de ingesta para el rol 4: existe `evento_de_carga` (`a3ce147`), pero la API no lo guarda en la auditoría.
 
 ## Rol 2: recuperación
 
-- [ ] Calibrar umbrales con el banco del rol 4 y un evento reservado.
-- [ ] Reimportar cuando cambie el ZIP del rol 1.
-- [ ] Confirmar el contrato de `buscar` y `comparar_versiones` con el rol 3.
+- [ ] Calibrar umbrales con el banco del rol 4 y un evento reservado. El umbral de 0,005 se calibró con desarrollo y se declara; no abstiene en las 4 preguntas sin respuesta del banco común.
+- [x] Reimportar cuando cambie el ZIP del rol 1: hecho con el paquete R6 (625 fragmentos indexables); se repite con cada ZIP nuevo.
+- [x] Confirmar el contrato de `buscar` y `comparar_versiones` con el rol 3 (`4a002a0`).
+- [x] Cierre del rol 2: GPU con respaldo a CPU, `resolver_evento` y `obtener_fragmentos` (R2C, `c7d0dcc`).
 
 ## Rol 3: consulta y herramientas (mío)
 
 El plan por fases está en [Plan_rol_3](consulta/Plan_rol_3.md). Orden sugerido:
 
-- [ ] F0. Confirmar contrato con el rol 2, acordar el `Contexto` con el rol 4 y elegir el LLM.
-- [ ] F1. Esquemas Pydantic de respuesta, herramientas y lista de verificación, con pruebas.
-- [ ] F2. Validación de entrada y enrutador de intención con JEV como probabilidad de separación (y reglas como línea base); límite de 3 llamadas y una regeneración.
-- [ ] F3. Herramientas `buscar_documentos`, `extraer_requisitos` y `comparar_versiones`, de solo lectura.
-- [ ] F4. Prompt aumentado, abstención y validador determinista de citas.
-- [ ] F5. Lista de verificación con confirmación explícita del usuario.
-- [ ] F6. Interfaz mínima y demo con el evento 222.
-- [ ] F7. Casos de herramientas y seguridad para el banco del rol 4.
+- [x] F0. Contrato con el rol 2, `Contexto` con el rol 4 y LLM elegido (`4a002a0`, `946d228`).
+- [x] F1. Esquemas Pydantic de respuesta, herramientas y lista de verificación (`626d806`).
+- [x] F2. Validación de entrada y enrutador de intención (`b05bc37`). Reglas por defecto: JEV y el LLM se midieron y no se adoptan.
+- [x] F3. Herramientas `buscar_documentos`, `extraer_requisitos` y `comparar_versiones`, de solo lectura (`53d448d`).
+- [x] F4. Prompt aumentado, abstención y validador determinista de citas (`3a52016`; diez pasadas del adversario). Con cobertura veraz y presupuesto de tiempo en C21 (`4d997dd`).
+- [x] F5. Lista de verificación con confirmación explícita del usuario (`edb2496`, `ecb37e0`, `182bbdf`).
+- [x] F6. Interfaz web y demo con el evento 222 (`13f3e22`, `6098603`, `1c07617`; W1 `85ad53f`, W2 `0b2f143`). Abierto: una quinta medición de la demo con sesión.
+- [x] F7. Casos de herramientas y seguridad para el banco, y experimento de JEV (`60c24fe`, `bfc5a4a`, `1b85e08`).
 - [ ] Repasar las notas de la semana 15.1 (grounding, abstención, versionado), 2.2 (guardrails) y 7.1 (agentes) para justificar decisiones en el documento y la defensa.
-- [ ] **Revisión retrospectiva al cierre de los roles 1 y 3** (pedido del usuario, 18 de noviembre). Cuando los dos roles estén completos:
+- [x] **Revisión retrospectiva** (pedido del usuario, 18 de noviembre): hecha en [Revision_retrospectiva](consulta/Revision_retrospectiva.md) (`f333c19`). Quedó planteada así:
   - aplicar a todo lo hecho el mismo criterio que a los cambios nuevos: cinco porqués con evidencia, diseño, buenas prácticas y visión del sistema completo;
   - el alcance son los encargos R1 a R5, C1 a C20, F1 a F7, B1, el experimento de JEV y las decisiones de `Pendientes.md` y `Plan_rol_3.md`;
   - el resultado, en `docs/consulta/Revision_retrospectiva.md`, dice por decisión si está bien, mal o es mejorable, con su evidencia y qué se hace: mantener, corregir o declarar como limitación;
   - lo que no tenga respuesta se escala al usuario con contexto y plan;
-  - en esa misma pasada se actualizan las casillas de `Plan_rol_3.md`, `Pendientes_rol_1.md` y de este archivo, que hoy no reflejan lo hecho.
+  - en esa misma pasada se actualizaron las casillas de `Plan_rol_3.md`, `Pendientes_rol_1.md` y de este archivo.
+  - Correcciones aplicadas: R7 (`3c8a4c9`), J2 (`afc6b07`), E3 (`987b2f6`), P2 (`9b22d02`), C21 (`4d997dd`), F7b y F7c (`e837ea2`) y `make web` en modo API (`8584c73`).
+  - Declaradas como limitación en el documento técnico: lo que la revisión marcó como "declarar".
+- [ ] **Abiertos tras la retrospectiva:**
+  - volver a entregar el anteproyecto con [Cambios_pendientes](anteproyecto/Cambios_pendientes.md) aplicado (16 de 17 cambios sin aplicar);
+  - el repositorio sigue con el material del docente en su historial: hacerlo privado le corresponde a su dueño;
+  - acortar el documento técnico al rango que pide el curso;
+  - la quinta medición de la demo con sesión y la preparación de la demo con `make usuarios-demo`;
+  - el P95 sigue sobre 15 s.
 - [ ] Carácter de los literales del numeral 2.7 (listado de documentos): hoy salen `no_indicado` porque `caracter_de_seccion` solo lee la sección del propio fragmento. Saber si cada documento es fundamental exige cruzarlo con lo que dicen los numerales 2.8 y 2.9 del mismo evento. Mientras tanto se declara como limitación: la lista no inventa el carácter.

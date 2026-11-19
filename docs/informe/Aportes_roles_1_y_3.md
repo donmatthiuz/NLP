@@ -1,5 +1,7 @@
 # Aporte de los roles 1 y 3 al documento técnico
 
+> **Documento desactualizado.** Este borrador es anterior a la revisión retrospectiva del 18 de noviembre de 2026 y sus cifras fueron superadas (por ejemplo, el P95 de 29,3 s y el banco del rol 3 de 20 de 23 casos; el reporte final da 18,5 s y 19 de 23). Lo vigente es el [documento técnico](Documento_tecnico.md), el [reporte de evaluación](../plataforma/Reporte_evaluacion.md) y [`Revision_retrospectiva.md`](../consulta/Revision_retrospectiva.md). Se conserva como registro del trabajo de los roles 1 y 3; no lo cites para cifras.
+
 Borrador de las secciones de ingesta (rol 1) y consulta (rol 3) para que el equipo las integre al documento técnico del curso. La documentación completa del proyecto está en el [anteproyecto](../anteproyecto/Anteproyecto.md); las decisiones vigentes, en [`DESIGN.md`](../../DESIGN.md). Cada cifra indica el archivo del repositorio donde está medida. Las metas del anteproyecto se presentan como metas, no como resultados.
 
 ## 1. Ingesta de los PDF del IGSS

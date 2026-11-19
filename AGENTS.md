@@ -24,7 +24,7 @@ Proyecto final CC3103 (UVG): sistema RAG que analiza licitaciones de medicamento
 - La fuente de los agentes con rol es `.agentes/`; `.claude/agents` y `.opencode/agents` son enlaces simbólicos hacia `../.agentes`.
 - `proponente-casos` redacta casos de prueba etiquetados con la [`Guía de etiquetado`](docs/consulta/Guia_de_etiquetado.md); se corre en Codex con `codex exec -s read-only --ephemeral`.
 - `revisor-casos` revisa esos casos de forma independiente: etiqueta a ciegas, sin ver las etiquetas ni el razonamiento del proponente. Se corre en Claude con `claude -p --agent revisor-casos`, en sesión aislada y con otra familia de modelos que el proponente.
-- `adversario` diseña ataques etiquetados y, en auditoría, intenta refutar una entrega contra su encargo y las reglas de aquí; se corre en OpenCode con Kimi, con un modelo distinto del que implementó el código auditado.
+- `adversario` diseña ataques etiquetados y, en auditoría, intenta refutar una entrega contra su encargo y las reglas de aquí; en auditoría se corre como subagente Claude Opus, con un modelo distinto del que implementó el código auditado (Sonnet); los casos de ataque se generaron en OpenCode (Kimi no estuvo disponible y se usó DeepSeek, declarado).
 - Los tres son de solo lectura: no editan archivos, no leen `keys/`, no llaman APIs externas ni ejecutan el sondeo de JEV; sus salidas son JSON que el usuario guarda.
 - Los desacuerdos entre proponente y revisor los adjudica el usuario; esa adjudicación cuenta como segunda revisión declarada.
 - Agentes de diseño, para diagramas y para la interfaz web:

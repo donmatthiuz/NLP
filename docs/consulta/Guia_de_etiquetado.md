@@ -1,6 +1,6 @@
 # Guía de etiquetado de preguntas
 
-**Estado al 16 de noviembre de 2026.** Definiciones de clase para etiquetar preguntas del enrutador y fechas candidatas de F3b. La usan `proponente-casos`, `revisor-casos` (modo ciego) y el usuario (adjudicación). Es la única fuente de las definiciones: si no cubre un caso, se devuelve como hueco y no se inventa una regla. El diseño del conjunto etiquetado está en [I4](investigacion/I4_evaluacion_y_jev.md) y los requisitos de evaluación, en la [sección 12 del anteproyecto](../anteproyecto/Anteproyecto.md).
+**Estado al 18 de noviembre de 2026.** Definiciones de clase para etiquetar preguntas del enrutador y fechas candidatas de F3b. La usan `proponente-casos`, `revisor-casos` (modo ciego) y el usuario (adjudicación). Es la única fuente de las definiciones: si no cubre un caso, se devuelve como hueco y no se inventa una regla. El diseño del conjunto etiquetado está en [I4](investigacion/I4_evaluacion_y_jev.md) y los requisitos de evaluación, en la [sección 12 del anteproyecto](../anteproyecto/Anteproyecto.md).
 
 ## Etiqueta del enrutador
 
@@ -66,6 +66,10 @@ Una fecha candidata se etiqueta con la actividad del cronograma a la que corresp
 | `ninguna` | Fecha de un documento o requisito, como el pago operado de una solvencia patronal, ajena a las actividades del cronograma. |
 
 Además del par actividad, se etiqueta el respaldo: si el pasaje dice expresamente esa fecha para esa actividad, o si solo aparece la fecha sin vínculo expreso. Una fecha de un documento o requisito nunca lleva actividad del cronograma, y una caída de JEV nunca se toma como "no respaldada".
+
+## Páginas esperadas
+
+Los `expected_pages` y las `paginas` de `expected_sources` son **páginas físicas del PDF** (la que cuenta el visor desde 1), no el número impreso en la hoja, que puede diferir. Es la misma página que el sistema cita en `page`; el número impreso viaja aparte en `printed_page`. Un pasaje se verifica contra `chunks.jsonl` con la página física.
 
 ## Partición
 

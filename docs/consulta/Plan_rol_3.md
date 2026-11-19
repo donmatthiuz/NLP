@@ -1,8 +1,8 @@
 # Plan del rol 3: consulta y herramientas
 
-**Estado al 17 de noviembre de 2026.** Este plan cubre las [responsabilidades del rol 3](../roles/Asignacion_de_roles.md#rol-3--consulta-y-herramientas) y sigue las secciones [9. Arquitectura](../anteproyecto/Anteproyecto.md#9-arquitectura), [10. Citas y abstención](../anteproyecto/Anteproyecto.md#citas-y-abstención) y [11. Herramientas y agentes](../anteproyecto/Anteproyecto.md#11-herramientas-y-agentes) del anteproyecto. El código irá en [`src/licigt/consulta`](../../src/licigt/consulta/README.md).
+**Estado al 18 de noviembre de 2026.** Este plan cubre las [responsabilidades del rol 3](../roles/Asignacion_de_roles.md#rol-3--consulta-y-herramientas) y sigue las secciones [9. Arquitectura](../anteproyecto/Anteproyecto.md#9-arquitectura), [10. Citas y abstención](../anteproyecto/Anteproyecto.md#citas-y-abstención) y [11. Herramientas y agentes](../anteproyecto/Anteproyecto.md#11-herramientas-y-agentes) del anteproyecto. El código irá en [`src/licigt/consulta`](../../src/licigt/consulta/README.md).
 
-> **Avance:** el módulo está vacío (solo README). Contratos definidos en [Contratos](Contratos.md). Cada fase sigue el [flujo de trabajo](Flujo_de_trabajo.md): cinco porqués y visto bueno antes de delegar.
+> **Avance:** las fases F0 a F7 están hechas, con la revisión retrospectiva aplicada ([Revision_retrospectiva](Revision_retrospectiva.md)). Los resultados medidos están en el [reporte de evaluación](../plataforma/Reporte_evaluacion.md) y en el [documento técnico](../informe/Documento_tecnico.md). Lo que sigue abierto está en [Pendientes](../Pendientes.md). Cada fase siguió el [flujo de trabajo](Flujo_de_trabajo.md): cinco porqués y visto bueno antes de delegar.
 
 ## Qué exigen las instrucciones del curso que toca este rol
 
@@ -21,45 +21,45 @@
 ## Fases
 
 ### F0. Contrato e integración — 0.5 días
-- [ ] Confirmar con el rol 2 el contrato de `buscar` y `comparar_versiones` (pendiente que figura en `Recuperacion.md`).
-- [ ] Acordar con el rol 4 cómo llega el `Contexto` autenticado. Mientras no exista, usar un `Contexto` simulado solo en pruebas.
+- [x] Confirmar con el rol 2 el contrato de `buscar` y `comparar_versiones`: confirmado el 16 de noviembre en [Recuperacion](../recuperacion/Recuperacion.md#respuestas-a-los-avisos-del-rol-3-1611) (`4a002a0`).
+- [x] Acordar con el rol 4 cómo llega el `Contexto` autenticado: sale de la cookie firmada de la sesión (P1, `946d228`; `consulta/api.py` lo construye). Los dobles de `Contexto` quedan solo en pruebas.
 - [x] LLM generador local en la RTX 5070 de 12 GB (compartida con el rol 2); JEV por API alojada, con la clave en el archivo que indica `LICIGT_JEV_API_KEY_FILE`. Nunca en el repo.
 
 ### F1. Esquemas — 1 día
 
-> **Hecho el 16 de noviembre.** Implementó Codex con el encargo; la auditoría del gestor añadió tres correcciones con pruebas: ids de documento vacíos se rechazaban mal, enteros y booleanos sin coerción (la salida del modelo no puede colar `true` como página 1 ni `"7"` como `k`) y `warnings` sin textos vacíos. 22 pruebas en verde con `make test-consulta`.
+> **Hecho el 16 de noviembre (`626d806`).** Implementó Codex con el encargo; la auditoría del gestor añadió tres correcciones con pruebas: ids de documento vacíos se rechazaban mal, enteros y booleanos sin coerción (la salida del modelo no puede colar `true` como página 1 ni `"7"` como `k`) y `warnings` sin textos vacíos. 22 pruebas en verde con `make test-consulta`.
 
-- [ ] Modelos Pydantic de la respuesta: `answer`, `sources` (`doc_id`, `source`, `page`, `chunk_id`, versión, cita), `abstained`, `tool_used`, `needs_human_review`, `evento_id`, `coverage_status`, `warnings`.
-- [ ] Modelos de parámetros de las tres herramientas con los límites del anteproyecto: `query` de hasta 500 caracteres, `k` entre 1 y 10, categorías administrativa, legal, técnica y financiera, y mismo evento en `comparar_versiones`.
-- [ ] Pruebas: parámetros fuera de rango se rechazan; `tenant_id` nunca es un campo aceptado.
+- [x] Modelos Pydantic de la respuesta: `answer`, `sources` (`doc_id`, `source`, `page`, `chunk_id`, versión, cita), `abstained`, `tool_used`, `needs_human_review`, `evento_id`, `coverage_status`, `warnings`.
+- [x] Modelos de parámetros de las tres herramientas con los límites del anteproyecto: `query` de hasta 500 caracteres, `k` entre 1 y 10, categorías administrativa, legal, técnica y financiera, y mismo evento en `comparar_versiones`.
+- [x] Pruebas: parámetros fuera de rango se rechazan; `tenant_id` nunca es un campo aceptado.
 - Encargo: [F1_esquemas](delegacion/F1_esquemas.md). Por decisión del 16 de noviembre, los modelos de la lista de verificación pasan a F5 y los de lectura del rol 2 a F3, donde se usan por primera vez.
 
 ### F2. Validación de entrada, ambigüedad, enrutador y JEV — 2 días
 
-Encargo: [F2_entrada_enrutador](delegacion/F2_entrada_enrutador.md). Decisiones del 16 de noviembre: JEV real entra en F2 (hay clave y presupuesto); el LLM solo queda conectado por interfaz hasta elegir el modelo; los límites de frecuencia se simulan y el límite de 3 llamadas y 1 regeneración se implementa como presupuesto listo para F3 y F4; fuera de dominio por temas prohibidos más la suficiencia de la recuperación; la comprobación de que el evento pertenece al usuario la hacen el SQL del rol 2 y el contexto del rol 4, no F2; pedir aclaración es un campo propio del contrato.
+Hecho (`b05bc37`). Encargo: [F2_entrada_enrutador](delegacion/F2_entrada_enrutador.md). Decisiones del 16 de noviembre: JEV real entra en F2 (hay clave y presupuesto); el LLM solo queda conectado por interfaz hasta elegir el modelo; los límites de frecuencia se simulan y el límite de 3 llamadas y 1 regeneración se implementa como presupuesto listo para F3 y F4; fuera de dominio por temas prohibidos más la suficiencia de la recuperación; la comprobación de que el evento pertenece al usuario la hacen el SQL del rol 2 y el contexto del rol 4, no F2; pedir aclaración es un campo propio del contrato.
 
-- [ ] Juicios de entrada por reglas: longitud, inyección, temas prohibidos y pregunta concreta.
-- [ ] Enrutador con interfaz común: variantes de reglas, JEV (con degradación a reglas) y LLM sin cliente.
-- [ ] Preguntas y umbrales de JEV en un solo módulo; cliente con clave por archivo, modelo fijado, reintentos explícitos y limitador.
-- [ ] Tabla de decisión: abstener, aclarar o usar herramienta.
-- [ ] Presupuesto de 3 llamadas y 1 regeneración.
-- [ ] Sondeo manual reglas frente a JEV con la API real.
+- [x] Juicios de entrada por reglas: longitud, inyección, temas prohibidos y pregunta concreta.
+- [x] Enrutador con interfaz común: variantes de reglas, JEV (con degradación a reglas) y LLM. El LLM quedó sin cliente en F2 y J2 lo conectó (`afc6b07`).
+- [x] Preguntas y umbrales de JEV en un solo módulo; cliente con clave por archivo, modelo fijado, reintentos explícitos y limitador.
+- [x] Tabla de decisión: abstener, aclarar o usar herramienta.
+- [x] Presupuesto de 3 llamadas y 1 regeneración.
+- [x] Sondeo manual reglas frente a JEV con la API real (`fcbe8ce`, `8b433c7`).
 
 ### F3a. Lectura del rol 2 y herramientas de búsqueda y comparación — 1 día
 
-Encargo: [F3a_herramientas](delegacion/F3a_herramientas.md). En paralelo con F2.
+Hecho (`53d448d`). Encargo: [F3a_herramientas](delegacion/F3a_herramientas.md). En paralelo con F2.
 
-- [ ] Modelos tolerantes de lectura y `fuente_desde_fragmento`.
-- [ ] `buscar_documentos` con filtro por tipo que no quita la otra fuente de un conflicto.
-- [ ] `comparar_versiones` que además pide alertas con `buscar()`, filtra por ids y pide revisión humana al comparar con una modificación o aclaración.
-- [ ] Errores controlados, sin excepciones hacia afuera.
+- [x] Modelos tolerantes de lectura y `fuente_desde_fragmento`.
+- [x] `buscar_documentos` con filtro por tipo que no quita la otra fuente de un conflicto.
+- [x] `comparar_versiones` que además pide alertas con `buscar()`, filtra por ids y pide revisión humana al comparar con una modificación o aclaración.
+- [x] Errores controlados, sin excepciones hacia afuera.
 
 ### F3b. `extraer_requisitos` — 1.5 días
 
-Depende del cliente de JEV de F2. Diseño acordado (cookbook oficial de fechas de JEV, "seleccionar en vez de generar"; notas de la semana 2 sobre expresiones regulares; puntos débiles de JEV con fechas):
+Hecho (`53d448d`; las fechas por reglas, `e837ea2`). Diseño acordado (cookbook oficial de fechas de JEV, "seleccionar en vez de generar"; notas de la semana 2 sobre expresiones regulares; puntos débiles de JEV con fechas):
 
-- [ ] Evidencia por categoría con `buscar()` y consultas fijas por categoría en un solo lugar.
-- [ ] Fechas candidatas con expresiones regulares (meses en español), cada una con su `chunk_id`.
+- [x] Evidencia por categoría con `buscar()` y consultas fijas por categoría en un solo lugar.
+- [x] Fechas candidatas con expresiones regulares (meses en español), cada una con su `chunk_id`.
 - [x] La actividad de cada candidata la asignan reglas deterministas, solo en filas de tabla, en la propuesta de lista; el código normaliza, valida y compara fechas. JEV (`Choice` más `Noul` compañero) se probó y no se adoptó (F7b, [Experimento_JEV.md](Experimento_JEV.md)).
 - [x] Una fecha que no se pudo asignar queda `no_verificada`; si su texto menciona una actividad (coincidencia ambigua) pide revisión humana con el aviso `fecha_ambigua`. En el chat las candidatas salen como no verificadas.
 
@@ -74,7 +74,7 @@ Decisiones del 16 de noviembre, tras los cinco porqués ([encargo](delegacion/F3
 
 ### F4. Generación y validación de salida — 2 días
 
-Cerrada tras siete pasadas del adversario ([Auditoria_F4](Auditoria_F4.md)).
+Cerrada tras diez pasadas del adversario ([Auditoria_F4](Auditoria_F4.md)); después, C21 (`4d997dd`) hizo veraz `coverage_status` y añadió topes de tokens y presupuesto de tiempo.
 - [x] Prompt aumentado: instrucciones del sistema, evidencia y pregunta separadas; la evidencia se marca como datos no confiables.
 - [x] El modelo cita por `chunk_id`; instrucción de abstención explícita y manejo de la trampa "si no está en el contexto, dilo".
 - [x] Validador determinista posterior: esquema, que cada `chunk_id` exista, pertenezca al evento y al usuario, coincidencia de página, versión y texto citado.
@@ -83,7 +83,7 @@ Cerrada tras siete pasadas del adversario ([Auditoria_F4](Auditoria_F4.md)).
 
 ### F5. Lista de verificación — 1 día
 
-Hecha con un repositorio en memoria ([F5](delegacion/F5_lista_de_verificacion.md)). El SQL de Postgres queda para F5b.
+Hecha con un repositorio en memoria (`edb2496`, [F5](delegacion/F5_lista_de_verificacion.md)); el SQL de Postgres se hizo en F5b (`ecb37e0`) y la propuesta sin LLM en C14 (`182bbdf`).
 - [x] Modelos de la lista de verificación: ítem con cita, categoría, carácter fundamental o no, estado (pendiente, preparado, revisado) y cambio de estado con usuario, momento y confirmación explícita.
 - [x] Derivar la propuesta de ítems de la respuesta citada de `extraer_requisitos`.
 - [x] Guardar solo tras confirmación explícita del usuario (acción crítica que no ejecuta el modelo).
@@ -91,7 +91,7 @@ Hecha con un repositorio en memoria ([F5](delegacion/F5_lista_de_verificacion.md
 
 ### F6. Interfaz web y demo
 
-Hecha (F6 a F6f): la compuerta de diseño dio PASS el 17 de noviembre y la demo está medida en [Demo_222](Demo_222.md). El adaptador de API vive en `src/licigt/consulta/api.py`.
+Hecha (F6 a F6f): la compuerta de diseño dio PASS el 17 de noviembre (HOLD en `c08c3ce` y luego PASS) y la demo está medida en [Demo_222](Demo_222.md). La migración a shadcn/ui (W2, `0b2f143`) tuvo su propia compuerta con PASS el 18 de noviembre, registrada en [Revision_retrospectiva](Revision_retrospectiva.md#registros-que-faltaban); las capturas no se versionaron. El adaptador de API vive en `src/licigt/consulta/api.py`.
 - [x] Interfaz web desde el inicio: React, Vite y TypeScript, con pnpm, sobre FastAPI. Decisión del 16 de noviembre. El curso solo exige la demo en vivo ([I3](investigacion/I3_lista_e_interfaz.md)); la vista web la promete el anteproyecto (`Anteproyecto.md:146`, `:222`).
 - [x] Muestra respuesta, fuentes, página, versión, advertencias, revisión humana y aclaración, y confirma la lista explícitamente.
 - [x] Puede empezar en paralelo con F4, contra respuestas de ejemplo que cumplan `RespuestaEstructurada`.
@@ -99,17 +99,18 @@ Hecha (F6 a F6f): la compuerta de diseño dio PASS el 17 de noviembre y la demo 
 - [x] Demo con el evento 222: una consulta respondible, una sin evidencia, la comparación del cronograma (bases frente a modificación 1), una aclaración, una inyección contra la lista y la falla real de OCR de las páginas 3 y 4.
 
 ### F7. Pruebas con el rol 4
-- [x] Casos de herramientas para el banco: ejecución nominal, selección errónea, parámetros fuera de rango, confirmación humana e indisponibilidad del servicio. Medidos con `make banco` (21 de 23 cumplen; [informe](../informe/Aportes_roles_1_y_3.md), banco del rol 3).
+- [x] Casos de herramientas para el banco: ejecución nominal, selección errónea, parámetros fuera de rango, confirmación humana e indisponibilidad del servicio. Medidos con `make banco` y `make reporte`: 19 de 23 cumplen en el reporte final ([reporte](../plataforma/Reporte_evaluacion.md)); [Documento_tecnico](../informe/Documento_tecnico.md), sección 8.
 - [x] Casos de seguridad que tocan este rol (6 de 6 bloqueados tras C20): inyección directa, cita falsa, fabricación de un requisito ausente y solicitud de acción no autorizada. Propuesta de casos en [I4](investigacion/I4_evaluacion_y_jev.md).
 - [x] **Experimento de JEV** ([resultado](Experimento_JEV.md): no adoptar con el flujo actual, por latencia), una mejora que el curso no exige:
   - las preguntas de prueba nuevas (unas 60) las redacta un agente proponente, las revisa un agente revisor independiente y el usuario da el visto bueno;
   - un agente adversario aporta los casos engañosos ([I5](investigacion/I5_agentes_agnosticos.md));
   - las 47 preguntas del sondeo quedan solo para desarrollo.
-- [ ] **Criterio para adoptar JEV** (decisión del 16 de noviembre; reemplaza al del resumen para el asesor):
+- [x] **Criterio para adoptar JEV** (decisión del 16 de noviembre; reemplaza al del resumen para el asesor):
   - no aumenta los errores críticos;
   - McNemar con p < 0.05 sobre las mismas preguntas;
   - P95 dentro de los 15 s del anteproyecto;
   - motivo del cambio: con 60 casos, una diferencia de 0.05 no se distingue del ruido, y los 300 ms no tenían respaldo medido.
+  - Aplicado sin cambios al enrutador de JEV, a la variante LLM (J2, `afc6b07`) y, con su propia regla, a las fechas de la lista (F7b y F7c, `e837ea2`). Con el P95 de 18,5 s del reporte final, el enrutador no se adopta. Ver [Experimento_JEV](Experimento_JEV.md).
 
 ## Pruebas
 
@@ -117,16 +118,15 @@ Hecha (F6 a F6f): la compuerta de diseño dio PASS el 17 de noviembre y la demo 
 - El enrutador elige la herramienta esperada en el conjunto de desarrollo y respeta el límite de llamadas.
 - El validador rechaza una cita inexistente, de otro evento o con texto que no coincide.
 - Con `suficiente=false` la respuesta es `abstained=true`.
-- El evento 222 produce `needs_human_review=true` y `coverage_status` parcial.
+- El evento 222 produce `needs_human_review=true` y `coverage_status` parcial (por la página 4 sin indexar; desde C21 la cobertura sale solo del inventario).
 
 ## Dependencias y decisiones pendientes
 
-- **Rol 2:** confirmar contrato de F5 de su plan.
-- **Rol 4:** `Contexto` autenticado, auditoría, banco de pruebas y dónde se despliega Postgres.
-- **Equipo:** modelo generador y presupuesto de latencia (meta P95 de 15 s con documentos indexados).
-- **Rol 1:** el OCR de las páginas 3 y 4 de la modificación del evento 222 afecta la comparación de versiones.
+- **Rol 2:** resuelta; `resolver_evento` y `obtener_fragmentos` se entregaron en R2C (`c7d0dcc`) y se usan desde I1 (`2fd5bee`).
+- **Rol 4:** resuelta; sesión, auditoría y banco común (P1, `946d228`; E1, `926863b`; banco común, `f4e58d8`). Abierto: dónde se despliega Postgres fuera de la máquina local.
+- **Equipo:** modelo generador elegido (Qwen3.5-9B). La meta de latencia P95 de 15 s no se cumple: 18,5 s con un usuario y 45,1 s con 5 simultáneos.
+- **Rol 1:** el OCR de la página 3 de la modificación del 222 se hizo (R1); la página 4 y el anexo de 11 hojas siguen sin indexar y se declaran.
 
 ## Pendientes del anteproyecto que dependen de este rol
 
-- La tabla de roles de la sección 15 del anteproyecto está desactualizada frente a `Asignacion_de_roles.md`.
-- Falta incluir los carnets de Edwin Jose y Gustavo Cruz.
+- Abiertos: la tabla de roles de la sección 15 del anteproyecto, los carnets de Edwin Jose y Gustavo Cruz y el resto de [Cambios_pendientes](../anteproyecto/Cambios_pendientes.md), sin aplicar. El usuario decidió volver a entregar el anteproyecto con esos cambios.

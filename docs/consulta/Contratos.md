@@ -56,9 +56,9 @@ Lo que recibimos, tal como lo devuelve el código hoy.
 
 ## Rol 4 hacia rol 3
 
-Existe solo el acuerdo 3 de integración (el contexto viene de la sesión autenticada) y la clase `Contexto(tenant_id, usuario)` que ya usa el rol 2. Propuesta adoptada:
+El contexto viene de la sesión autenticada (P1, `946d228`) y la clase `Contexto(tenant_id, usuario)` es la que usa el rol 2. Propuesta adoptada, tal como quedó:
 
-- **Contexto de acceso:** objeto inmutable con `tenant_id`, `usuario` y `rol`. Lo crea el rol 4 desde la sesión. El rol 3 solo lee estos atributos y los pasa tal cual a `buscar()`. No existe ningún parámetro de herramienta, pregunta ni salida del modelo que pueda fijar el `tenant_id`.
+- **Contexto de acceso:** objeto inmutable con `tenant_id` y `usuario` (el `Contexto` de `recuperacion/busqueda.py`). El `rol` (`analista` o `lector`) no está en `Contexto`: vive en la `Sesion` del rol 4, que lo exige en las rutas (403 sin permiso). Lo crea el rol 4 desde la sesión (`consulta/api.py` lo construye con `tenant_id` y `usuario` de la cookie). El rol 3 solo lee estos atributos y los pasa tal cual a `buscar()`. No existe ningún parámetro de herramienta, pregunta ni salida del modelo que pueda fijar el `tenant_id`.
 - **Pruebas:** usan un contexto de mentira con esos tres atributos; no dependen del rol 4.
 - **Auditoría:** el rol 3 emite un evento por solicitud a una función `auditar(evento)` que le inyecta el rol 4 (por defecto, no hace nada). Campos: `momento`, `usuario`, `tenant_id`, `evento_id`, `intencion`, `herramienta`, `chunk_ids`, `abstained`, `needs_human_review`, `validacion`, `latencia_ms`, `error`. No incluye texto de PDF ni la pregunta completa.
 - **Límites y validación:** el rol 3 aplica los límites de herramienta (3 llamadas, 1 regeneración) y valida su propia salida. El rol 4 puede repetir esas validaciones en la API como segunda barrera.
@@ -71,12 +71,12 @@ Respuesta estructurada (Pydantic):
 | Campo | Tipo | Regla |
 |---|---|---|
 | `answer` | texto | Respuesta redactada. Si se abstiene, es el texto fijo de abstención. |
-| `sources` | lista | Cada una con `doc_id`, `source`, `page`, `page_end`, `printed_page`, `chunk_id`, `version_ingesta`, `version_oficial` y `cita`. `printed_page` es opcional (`null` si la página no trae número impreso): el número impreso en la hoja, que puede diferir de `page`, la página física del PDF por la que navega el enlace. el validador de F4 no lo compara; la revalidación de la lista sí, para que no se guarde un printed_page alterado. La versión se separa en dos porque el anteproyecto pide no confundir la carga con la modificación oficial. Al menos una fuente si no hay abstención. |
+| `sources` | lista | Cada una con `doc_id`, `source`, `page`, `page_end`, `printed_page`, `chunk_id`, `version_ingesta`, `version_oficial` y `cita`. `printed_page` es opcional (`null` si la página no trae número impreso): el número impreso en la hoja, que puede diferir de `page`, la página física del PDF por la que navega el enlace. El validador de F4 no lo compara; la revalidación de la lista sí, para que no se guarde un printed_page alterado. La versión se separa en dos porque el anteproyecto pide no confundir la carga con la modificación oficial. Al menos una fuente si no hay abstención. |
 | `abstained` | booleano | Verdadero cuando la evidencia no permite responder. |
 | `tool_used` | texto o nulo | `buscar_documentos`, `extraer_requisitos`, `comparar_versiones` o nulo. |
 | `needs_human_review` | booleano | Contradicción, ambigüedad o condición crítica. |
 | `evento_id` | texto | Evento consultado. |
-| `coverage_status` | texto | `parcial` o `sin_faltantes_detectados` (no certifica expediente completo). |
+| `coverage_status` | texto | `parcial` o `sin_faltantes_detectados` (no certifica expediente completo). Desde C21 (`4d997dd`) sale solo del inventario (alerta `cobertura_incompleta`); el descarte de afirmaciones se señala con el aviso `afirmaciones_descartadas`, no con este campo. |
 | `warnings` | lista de texto | Documentos ausentes, problemas de extracción, conflictos. |
 | `needs_clarification` | booleano | Verdadero cuando la pregunta es ambigua y se pide aclaración en lugar de responder o abstenerse. |
 | `clarification_question` | texto o nulo | La pregunta de vuelta al analista; en ese caso también es `answer` y no hay fuentes ni herramienta. |

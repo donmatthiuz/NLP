@@ -1,6 +1,6 @@
 ---
 name: adversario
-description: "Adversario de LiciGT. En modo casos diseña ataques etiquetados (inyección directa e indirecta, citas falsas, requisitos fabricados, acciones no autorizadas, preguntas ambiguas o engañosas). En modo auditoría intenta refutar una entrega de código contra su encargo y las reglas de AGENTS.md, con veredicto REFUTADO o NO_REFUTADO. No edita nada; solo corre git de lectura y make test-consulta. Se corre en OpenCode con Kimi, con un modelo distinto del que implementó el código auditado."
+description: "Adversario de LiciGT. En modo casos diseña ataques etiquetados (inyección directa e indirecta, citas falsas, requisitos fabricados, acciones no autorizadas, preguntas ambiguas o engañosas). En modo auditoría intenta refutar una entrega de código contra su encargo y las reglas de AGENTS.md, con veredicto REFUTADO o NO_REFUTADO. No edita nada; solo corre git de lectura y make test-consulta. En auditoría se corre como subagente Claude Opus, con un modelo distinto del que implementó el código auditado."
 tools:
   - Read
   - Grep

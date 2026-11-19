@@ -1,6 +1,6 @@
 # Avisos del rol 1 para el rol 4
 
-Lo que ingesta propone al rol 4 (API, auditoría). Sin cambios en el contrato del rol 4 hasta que lo acepte.
+**Estado al 18 de noviembre de 2026:** abierto. El rol 4 no guarda `evento_de_carga` en su auditoría y la API no llama al conector de ingesta. Lo que ingesta propone al rol 4 (API, auditoría). Sin cambios en el contrato del rol 4 hasta que lo acepte.
 
 ## Evento de carga
 

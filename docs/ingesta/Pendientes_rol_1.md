@@ -1,12 +1,12 @@
 # Pendientes del rol 1: ingesta de documentos
 
-**Estado al 18 de noviembre de 2026** (puntos 1, 2 y 4 actualizados con las rondas R1 a R5 y C20; la revisión completa queda para la revisión retrospectiva de `docs/Pendientes.md`). Este documento registra el trabajo que falta para completar la ingesta prevista en el [anteproyecto](../anteproyecto/Anteproyecto.md#flujo-de-ingesta) y las [responsabilidades del rol 1](../roles/Asignacion_de_roles.md#rol-1--ingesta-y-documentos). La elección del almacenamiento de despliegue corresponde al equipo; aquí se documentan MinIO y la alternativa Google Cloud Storage (GCS).
+**Estado al 18 de noviembre de 2026**, tras la revisión retrospectiva ([Revision_retrospectiva](../consulta/Revision_retrospectiva.md)) y las rondas R1 a R7 y C20. Este documento registra el trabajo que falta para completar la ingesta prevista en el [anteproyecto](../anteproyecto/Anteproyecto.md#flujo-de-ingesta) y las [responsabilidades del rol 1](../roles/Asignacion_de_roles.md#rol-1--ingesta-y-documentos). La elección del almacenamiento de despliegue corresponde al equipo; aquí se documentan MinIO y la alternativa Google Cloud Storage (GCS).
 
 ## Lo que ya funciona
 
 - Se descargaron e ingirieron seis PDF oficiales de cinco eventos del IGSS. El [inventario](Corpus_IGSS.md) registra origen, SHA-256, `doc_id`, estado y páginas.
 - La ingesta valida PDF y procedencia, guarda originales sin sobrescribir, extrae y segmenta texto, conserva metadatos por página y señala páginas de calidad insuficiente e instrucciones sospechosas.
-- El [paquete para el rol 2](../../entregables/recuperacion/README.md) contiene PDF, manifiestos y 1003 fragmentos indexables con rutas internas relativas. Su prueba de aceptación verifica integridad, referencias y una consulta de ejemplo.
+- El [paquete para el rol 2](../../entregables/recuperacion/README.md) contiene PDF, manifiestos y 625 fragmentos indexables (paquete R6) con rutas internas relativas. Su prueba de aceptación verifica integridad, referencias y una consulta de ejemplo.
 - Existe un adaptador de MinIO en [`storage.py`](../../src/licigt/ingesta/storage.py). No se ha verificado contra una instancia de despliegue.
 
 ## Pendientes propios del rol 1
@@ -16,7 +16,7 @@
 - [x] Instalar o habilitar Tesseract con el idioma `spa` y extraer de nuevo las páginas 3 y 4 de la modificación 1. Hecho en R1: la página 3 aporta `:00006` a `:00008` y la 4 queda como `ruido_ocr` ([Corpus_IGSS](Corpus_IGSS.md), "Límite de cobertura"). La página 3 contiene una aprobación de cambios; actualmente no genera fragmentos.
 - [x] Añadir una operación de **reextracción del PDF original** (hecho en R1: `reextraer.py`) que preserve `doc_id`, `version_ingesta` y SHA-256 y actualice páginas, alertas y fragmentos. [`reprocess()`](../../src/licigt/ingesta/pipeline.py) solo vuelve a segmentar el texto previamente guardado: no ejecuta OCR. Repetir `ingest()` con el mismo PDF devuelve la carga existente por deduplicación.
 - [x] Buscar el anexo oficial de 11 hojas (no se encontró; la cobertura incompleta queda explícita en el paquete y en el panel de documentos de la web) mencionado en la página 4 y cargarlo como documento relacionado si se encuentra. Si no aparece, mantener explícita la cobertura incompleta; OCR por sí solo no demuestra que el expediente esté completo.
-- [x] Revisar el texto OCR contra las imágenes de las páginas, volver a generar el ZIP y ejecutar las pruebas de ingesta y de entrega (R1; el ZIP vigente es el de R5).
+- [x] Revisar el texto OCR contra las imágenes de las páginas, volver a generar el ZIP y ejecutar las pruebas de ingesta y de entrega (R1; el ZIP vigente es el de R6).
 - [x] Aplicar el filtro `ruido_ocr` en toda la ingesta (R7). `MIN_PALABRAS_OCR` y `PALABRA` viven ahora en `pipeline.py` y `make_chunks` deja no indexable, con estado `ruido_ocr`, todo fragmento de una página con `method != "text"` que tenga menos de 20 palabras de 4 o más letras. Así lo heredan `ingest()`, `reprocess()` y `reextraer` (que ya no tiene su copia del umbral), y la CLI y el conector no indexan sellos ni firmas de un escaneo nuevo. El ZIP del repo no cambia. Pruebas en `test_ruido_ocr.py`.
 
 **Hecho cuando:** el inventario refleja qué páginas son legibles y qué anexos se cargaron; cada nuevo fragmento cita el PDF y la página correctos. Si el anexo falta, el paquete conserva la advertencia para que el sistema se abstenga cuando la pregunta dependa de él.
@@ -39,10 +39,18 @@
 
 ### 4. Revisar calidad y estrategia de segmentación con el rol 2 — prioridad media
 
-- [ ] Muestrear en los PDF reales citas de requisitos, fechas, códigos IGSS y tablas; comparar cada fragmento con la página original. La prueba actual comprueba consistencia del paquete, pero no evalúa exhaustivamente si la extracción entendió cada tabla.
+- [x] Muestrear en los PDF reales citas de requisitos, fechas, códigos IGSS y tablas; comparar cada fragmento con la página original. Hecho antes y después de R6 con 30 fragmentos (`d347cd0`; [documento técnico](../informe/Documento_tecnico.md), sección 4). Los juicios por fragmento no están versionados en el repositorio y la muestra no es exhaustiva: sigue sin evaluarse cada tabla.
 - [x] Acordar con el rol 2 la línea base de ventanas de 120 tokens y el tokenizer del modelo. Medido el 18 de noviembre con los tokenizadores de las revisiones fijadas: en los 893 fragmentos, p50 de 61 tokens, p95 de 410 y máximo de 615; `bge-m3` y `bge-reranker-v2-m3` aceptan 8192, así que nada se trunca. La línea base usa ventanas de 120 tokens a propósito (`ventanas_base`). Los fragmentos actuales usan hasta 600 palabras con solapamiento de 90 como aproximación para la versión mejorada; se debe comprobar que el modelo de embeddings no trunque pasajes silenciosamente.
 
-**Hecho cuando:** se documentan ejemplos revisados y ambas estrategias de segmentación tienen tamaño medido con el tokenizer elegido.
+**Hecho cuando:** se documentan ejemplos revisados y ambas estrategias de segmentación tienen tamaño medido con el tokenizer elegido. Cumplido en lo medido; falta versionar los juicios del muestreo.
+
+### 5. Limitaciones declaradas por la revisión retrospectiva — sin acción de código
+
+- R2: la versión de `poppler` no está fijada y podría cambiar los cortes del corpus reproducible.
+- R6: el OCR de la página 3 de la modificación del 222 no se funde, y se pierden como evidencia la fecha de la resolución y dos órdenes de trámite (decisión del usuario).
+- C20: el patrón de dos señales tiene un falso positivo conocido (un cargo "Asistente" cerca de "omite").
+- Ids posicionales: la tabla de R3 fue parcial, R4 no tiene tabla y las listas guardadas en PostgreSQL no se migran.
+- Ingesta de varias empresas: no resuelta (clave primaria global de los documentos).
 
 ## Almacenamiento para el despliegue: decisión pendiente con el rol 4
 

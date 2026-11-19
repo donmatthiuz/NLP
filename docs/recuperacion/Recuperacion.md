@@ -1,6 +1,6 @@
 # Recuperación y RAG: implementación
 
-**Estado al 15 de noviembre de 2026.** Este documento describe lo que ya funciona del [plan del rol 2](Plan_rol_2.md). El uso y el contrato para el rol 3 están en el [README del módulo](../../src/licigt/recuperacion/README.md).
+**Estado al 18 de noviembre de 2026.** Este documento describe lo que ya funciona del [plan del rol 2](Plan_rol_2.md), con el cierre R2C (`c7d0dcc`) y la revisión retrospectiva. El uso y el contrato para el rol 3 están en el [README del módulo](../../src/licigt/recuperacion/README.md).
 
 ## Índices
 
@@ -13,7 +13,7 @@ Las dos variantes comparten la tabla `fragmentos`, distinguidas por la columna `
 
 ## Búsqueda
 
-1. **Acceso:** se aplica `WHERE tenant_id AND evento_id` y, en la misma transacción, `SET LOCAL ROLE licigt_app` con `app.tenant_id`. Así la seguridad por fila bloquea a otra empresa aunque falte el `WHERE`, y hay una prueba que lo comprueba.
+1. **Acceso:** se aplica `WHERE tenant_id AND evento_id` y, en la misma transacción, `SET LOCAL ROLE licigt_app` con `app.tenant_id`. Así la seguridad por fila bloquea a otra empresa aunque falte el `WHERE`, y hay una prueba que lo comprueba. Desde P2 (`9b22d02`) la API, el banco y el reporte se conectan como `licigt_api`, que no es superusuario ni tiene `BYPASSRLS`; antes lo hacían como `licigt`, que sí saltaba la política, y la seguridad por fila dependía de que el código llamara siempre a `_sesion`.
 2. **Línea base:** devuelve el top-5 por coseno.
 3. **Mejorada:**
    - Toma 20 candidatos semánticos y 20 léxicos. En la parte léxica, los términos se combinan con OR y el puntaje sube un punto cuando coincide un código IGSS o un numeral.
@@ -79,6 +79,22 @@ HF_HOME=$PWD/models HF_HUB_OFFLINE=1 LICIGT_EVALUAR_PUNTAJES=1 \
 
 Con `LICIGT_RECUPERACION_DISPOSITIVO=cpu` o `cuda` se elige el dispositivo.
 
+## Banco común y banco del rol 3 (reporte final)
+
+Corrida `20261119T042331Z` ([reporte](../plataforma/Reporte_evaluacion.md)), con la recuperación en GPU fp16.
+
+| Conjunto | Variante | Hit@5 | MRR@5 | Abstención correcta | P95 de búsqueda |
+|---|---|---|---|---|---|
+| Banco común (20) | Base | 0,625 | 0,516 | 1/4 | 0,012 s |
+| Banco común (20) | Mejorada | 0,875 | 0,512 | 0/4 | 0,222 s |
+| Banco del rol 3 (23) | Base | 0,667 | 0,215 | 3/14 | 0,011 s |
+| Banco del rol 3 (23) | Mejorada | 1,000 | 0,541 | 1/14 | 0,274 s |
+
+- **El umbral no abstiene:** en las 4 preguntas sin respuesta del banco común la suficiencia da verdadero (puntajes de 0,85 a 0,97 del reranker), así que la recuperación abstiene en 0 de 4. Las abstenciones de punta a punta de esas preguntas las logran la generación y el validador de citas.
+- **Fallos de recuperación:** `comun-006` y `comun-009` no recuperan el fragmento relevante entre los cinco primeros (Hit@5 falso) y terminan en abstención. Son fallos de recuperación y no del modelo generador.
+- **Significancia:** 14 contra 10 aciertos de 16 respondibles; los 4 casos discordantes favorecen a la mejorada y ninguno a la base (McNemar exacto, p = 0,125). El MRR@5 es igual en las dos variantes. No hay ablación de la fusión ni del reranker por separado.
+- **Sin evento reservado:** los casos de desarrollo cubren los cinco eventos, así que la calibración del umbral no se hizo con un evento limpio.
+
 ## Dispositivo y precisión (R2C)
 
 - `LICIGT_RECUPERACION_DISPOSITIVO` (`auto`, `cuda` o `cpu`; `auto` por defecto) y `LICIGT_RECUPERACION_DTYPE` (`float16` o `float32`; vacío significa `float16` en CUDA y `float32` en CPU) se aplican a MiniLM, bge-m3 y el reranker (`indice.cargar`). Usan `device=` y `model_kwargs={"dtype": ...}` (en transformers 4 la clave es `torch_dtype`; el código elige según la versión). Firmas consultadas en la documentación de sentence-transformers y transformers con Context7.
@@ -123,16 +139,18 @@ Con `LICIGT_RECUPERACION_DISPOSITIVO=cpu` o `cuda` se elige el dispositivo.
   - MiniLM: `e8f8c21`
   - bge-m3: `5617a9f`
   - bge-reranker-v2-m3: `953dc6f`
-- **VRAM medida** con `torch.cuda.max_memory_allocated`, en fp32: buscar con las dos variantes, con bge-m3, el reranker y MiniLM cargados, llega a un pico de **4.85 GiB** (4.99 GiB reservados). Con fp16 debería bajar a la mitad, pero no está medido.
+- **VRAM medida** con `torch.cuda.max_memory_allocated`, en fp32: buscar con las dos variantes, con bge-m3, el reranker y MiniLM cargados, llega a un pico de **4.85 GiB** (4.99 GiB reservados). En fp16 se midió después, en R2C: 2486 MiB (sección "Dispositivo y precisión").
 - **Filtro `tipo_documento`:** no se agrega por ahora. Se acepta el valor por defecto del rol 3, que filtra después de recibir los resultados.
 
 ## Pendientes
 
-- [ ] Calibrar los umbrales con el banco común del rol 4 y un evento reservado. La calibración de desarrollo con `casos_desarrollo.json` es solo para ajustar parámetros, no es evaluación final.
+- [ ] Calibrar los umbrales con el banco común del rol 4 y un evento reservado. Sigue abierto: la calibración de desarrollo con `casos_desarrollo.json` es solo para ajustar parámetros, no es evaluación final, y no hay evento reservado limpio (los casos de desarrollo cubren los cinco eventos).
 - [ ] Rol 1:
-  - La página 4 de la modificación 1 sigue sin indexar (la 3 ya tiene texto en el paquete R6), esa evidencia falta.
-  - `tabla_markdown` viene vacío.
-  - En algunos fragmentos `seccion` contiene el pie de página (`Extensión: 99175`), lo que impide detectar conflictos en esos casos.
-  - Cuando cambie el ZIP hay que volver a ejecutar `importar`, que no duplica datos.
-- [ ] Rol 4: dónde se despliega Postgres y la integración del `Contexto` con la sesión autenticada.
-- [ ] Rol 3: confirmar el contrato de `buscar` y `comparar_versiones`.
+  - La página 4 de la modificación 1 sigue sin indexar (la 3 ya tiene texto en el paquete R6); esa evidencia falta. Abierto, declarado.
+  - [x] `tabla_markdown` viene lleno desde R3 (`87c5d90`).
+  - [x] `seccion` ya no contiene el pie de página desde R6 (`7c117d9`).
+  - Cuando cambie el ZIP hay que volver a ejecutar `importar`, que no duplica datos. Hecho con el paquete R6.
+- [ ] Rol 4: dónde se despliega Postgres fuera de la máquina local. [x] La integración del `Contexto` con la sesión autenticada se hizo en P1 (`946d228`).
+- [x] Rol 3: contrato de `buscar` y `comparar_versiones` confirmado (`4a002a0`).
+- [x] `resolver_evento`, `obtener_fragmentos` y `warnings` en `cobertura_incompleta` (R2C, `c7d0dcc`).
+- [ ] Declarado en la retrospectiva: el Hit@5 de la mejorada sobre la base no es significativo en el banco común (p = 0,125) y falta una ablación.
