@@ -41,13 +41,14 @@ make importar                         # paquete de ingesta a Postgres; la primer
 make empresa-b                        # empresa ficticia empresa_b con el evento 363, para probar el aislamiento (segundos)
 make usuarios-demo                    # clave de sesión y usuarios de la demo en keys/plataforma (segundos)
 make api                              # API en 127.0.0.1:8000 (LICIGT_API_PUERTO)
-make web                              # web en http://127.0.0.1:5173, con proxy de /api (otra terminal)
+make web                              # web en http://127.0.0.1:5173 en modo API, con proxy de /api (otra terminal)
 ```
 
 - `make llm-estado` muestra el binario, el modelo, la VRAM y el servidor; `make llm-detener` detiene el contenedor del modo Docker; `make db-down` detiene Postgres sin borrar datos.
 - `make importar` lee `entregables/recuperacion/empresa_demo.zip`. Ese paquete lo produce la ingesta (rol 1); no se edita a mano.
 - Las contraseñas de la demo quedan en `keys/plataforma/contrasenas_demo.txt`. `make usuarios-demo` no las imprime: ábrelo tú. Usuarios: `analista_demo` y `lector_demo` (empresa_demo) y `analista_b` (empresa_b).
 - Si el volumen de Postgres se creó con otra contraseña, `make db-password-sync` la alinea con la de `keys/` sin borrar datos.
+- `make web-ejemplos` levanta la web con respuestas fijas de ejemplo, sin API, base ni LLM (versión sin servicios). Para la demo completa: `make api` y `make web`, con los usuarios de `make usuarios-demo`.
 - `make web-build` compila la web (`tsc` y `vite build`). `make buscar Q="fecha de recepción de ofertas"` prueba la recuperación sin la API.
 - El enrutador usa `reglas` por defecto (`LICIGT_ENRUTADOR` en `.env`). Solo `jev` y los objetivos `sondeo-jev` y `experimento-jev` llaman a JEV y piden `keys/jev/api.key`; todo lo demás funciona sin llaves de proveedores.
 

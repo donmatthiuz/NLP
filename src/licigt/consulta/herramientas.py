@@ -11,7 +11,6 @@ from .esquemas import (
     BuscarDocumentosParams, Categoria, CompararVersionesParams, ExtraerRequisitosParams, NombreHerramienta,
 )
 from .fechas_reglas import verificar_fechas as verificar_por_reglas
-from .jev import ClienteJev
 from .lectura import (
     TIPOS_ALERTA_CONOCIDOS, Alerta, DocumentoComparado, FragmentoRecuperado, es_tabla,
     ResultadoBusqueda, ResultadoComparacion,
@@ -261,10 +260,10 @@ def armar_candidatas(fragmentos: list[FragmentoRecuperado]):
 
 
 def extraer_requisitos(ctx, params: ExtraerRequisitosParams, recuperador: Recuperador,
-                       cliente_jev: ClienteJev | None = None, verificar_fechas: bool = False) -> ResultadoHerramienta:
+                       verificar_fechas: bool = False) -> ResultadoHerramienta:
     """Reúne requisitos y fechas; compara actividades sin decidir la vigencia documental.
 
-    `cliente_jev` se acepta por compatibilidad y no se usa. Con `verificar_fechas` (la propuesta de lista, que es lo que
+    Con `verificar_fechas` (la propuesta de lista, que es lo que
     midió F7b) las fechas de filas de tabla se verifican por reglas (fechas_reglas.py); sin él quedan `no_verificada`."""
     consultas = ([(params.categoria, CONSULTAS_POR_CATEGORIA[params.categoria])]
                  if params.categoria is not None else list(CONSULTAS_POR_CATEGORIA.items()))

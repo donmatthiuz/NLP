@@ -26,6 +26,7 @@ Pasos de F6 de [`Plan_rol_3.md`](Plan_rol_3.md).
 
 - `make db-up`, `make importar` y `make llm-servidor`.
 - `make api LICIGT_API_PUERTO=8010` y `make web LICIGT_API_PUERTO=8010` si el 8000 está ocupado. Por defecto los dos usan el 8000.
+- Desde el 18 de noviembre de 2026 `make web` arranca en modo API (`VITE_MODO=api`); `make web-ejemplos` sirve respuestas fijas sin servicios. Los usuarios salen de `make usuarios-demo`.
 - La web usa el evento `222-IGSS-2023`.
 - Al abrir la web, el panel "Documentos del evento" ya muestra:
   - las bases: 35 páginas, todas indexadas;

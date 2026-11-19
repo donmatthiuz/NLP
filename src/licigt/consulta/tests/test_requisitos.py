@@ -256,9 +256,9 @@ class FechasEnTablaTests(unittest.TestCase):
             self.assertIn(palabra, consulta)
 
 class ExtraerRequisitosTests(unittest.TestCase):
-    def extraer(self, recuperador=None, jev=None, verificar=True, **params):
+    def extraer(self, recuperador=None, verificar=True, **params):
         return extraer_requisitos(self.ctx, ExtraerRequisitosParams(evento_id="222", **params),
-                                 recuperador or RecuperadorFalso(), cliente_jev=jev, verificar_fechas=verificar)
+                                 recuperador or RecuperadorFalso(), verificar_fechas=verificar)
 
     def setUp(self):
         self.ctx = {"tenant_id": "empresa_privada", "usuario": "usuario_privado"}
@@ -309,11 +309,10 @@ class ExtraerRequisitosTests(unittest.TestCase):
         self.assertEqual((fecha.estado, fecha.actividad, fecha.prob_actividad, fecha.prob_respaldo),
                          ("no_verificada", None, None, None))
 
-    def test_f7c_ningun_cliente_jev_se_usa(self):
-        jev = JevFalso()
-        resultado = self.extraer(jev=jev)
-        self.assertEqual(jev.llamadas, [])
-        self.assertNotIn("jev_no_disponible", resultado.warnings)
+    def test_f7c_extraer_requisitos_no_acepta_cliente_jev(self):
+        with self.assertRaises(TypeError):
+            extraer_requisitos(self.ctx, ExtraerRequisitosParams(evento_id="222"), RecuperadorFalso(), cliente_jev=JevFalso())
+        self.assertNotIn("jev_no_disponible", self.extraer().warnings)
 
     def test_caso_222_compara_recepcion_y_excluye_solvencias(self):
         resultado = self.extraer()

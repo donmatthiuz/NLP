@@ -164,7 +164,7 @@ def _ejecutar(ctx, evento_id, evento_salida, pregunta, herramienta, presupuesto,
             resultado = comparar_versiones(ctx, params, observado)
         elif herramienta == "extraer_requisitos":
             params = ExtraerRequisitosParams(evento_id=evento_id, categoria=categoria, pregunta=pregunta)
-            resultado = extraer_requisitos(ctx, params, observado, cliente_jev=cliente_jev)
+            resultado = extraer_requisitos(ctx, params, observado)
         else:
             error = "sin_herramienta"
             return respuesta

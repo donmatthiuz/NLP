@@ -38,7 +38,7 @@ EVENTO ?= 222-IGSS-2023
 
 .PHONY: help setup env-init keys-init keys-status key-set db-up db-down db-password-sync db-password-rotar db-rol-app \
         importar evaluar buscar models-status claude opencode codex test-consulta test-ingesta test-recuperacion corpus \
-        diagramas llm-descargar llm-servidor llm-estado llm-detener deps-consulta sondeo-jev api banco experimento-jev experimento-llm fechas-preparar fechas-reglas experimento-jev-fechas fechas-comparar web web-build lista-schema test-consulta-sql \
+        diagramas llm-descargar llm-servidor llm-estado llm-detener deps-consulta sondeo-jev api banco experimento-jev experimento-llm fechas-preparar fechas-reglas experimento-jev-fechas fechas-comparar web web-ejemplos web-build lista-schema test-consulta-sql \
         usuarios-demo empresa-b test-plataforma reporte deps
 
 help: ## Muestra esta ayuda
@@ -178,8 +178,11 @@ api: ## Arranca la API de consulta con sesión por cookie (requiere make usuario
 banco: ## Corre el banco de casos del rol 3 con los servicios reales (requiere db-up, importar y el LLM); guarda en data/consulta/banco
 	@$(WITH_DB) PYTHONPATH=src $(PYTHON) -m licigt.consulta.banco correr $(RUTA)
 
-web: ## Arranca la web de consulta en modo desarrollo (Vite; proxy de /api a 127.0.0.1:$(LICIGT_API_PUERTO))
-	@LICIGT_API_PUERTO=$(LICIGT_API_PUERTO) pnpm --dir web dev
+web: ## Arranca la web de consulta en modo API (Vite; proxy de /api a 127.0.0.1:$(LICIGT_API_PUERTO); requiere make api)
+	@VITE_MODO=api LICIGT_API_PUERTO=$(LICIGT_API_PUERTO) pnpm --dir web dev
+
+web-ejemplos: ## Arranca la web con respuestas fijas de ejemplo, sin API ni servicios
+	@VITE_MODO=ejemplos pnpm --dir web dev
 
 web-build: ## Compila la web de consulta (tsc y vite build)
 	@pnpm --dir web build
