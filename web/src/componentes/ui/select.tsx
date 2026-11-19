@@ -31,7 +31,7 @@ function SelectContent({ className, children, ...props }: React.ComponentProps<t
         data-slot="select-content"
         position="popper" sideOffset={6} align="start" collisionPadding={16}
         className={cn(
-          "z-50 max-h-[var(--radix-select-content-available-height)] w-[var(--radix-select-trigger-width)] max-w-[var(--radix-select-content-available-width)] overflow-hidden rounded-lg border border-input bg-popover text-popover-foreground shadow-lg",
+          "z-50 max-h-[var(--radix-select-content-available-height)] w-[var(--radix-select-trigger-width)] max-w-[var(--radix-select-content-available-width)] overflow-hidden rounded-lg border border-input bg-popover text-popover-foreground",
           className
         )}
         {...props}
@@ -53,7 +53,7 @@ function SelectItem({ className, children, ...props }: React.ComponentProps<type
     <SelectPrimitive.Item
       data-slot="select-item"
       className={cn(
-        "relative flex min-h-11 cursor-default items-center rounded-md py-2 pr-9 pl-3 text-base wrap-anywhere select-none data-disabled:opacity-60 data-highlighted:bg-accent data-highlighted:text-accent-foreground data-[state=checked]:font-semibold",
+        "relative flex min-h-11 cursor-pointer items-center rounded-md py-2 pr-9 pl-3 text-base wrap-anywhere select-none data-disabled:cursor-not-allowed data-disabled:opacity-60 data-highlighted:bg-muted-hover data-highlighted:text-accent-foreground data-[state=checked]:font-semibold",
         className
       )}
       {...props}

@@ -231,7 +231,7 @@ Implementada en F6d sobre `PropuestaLista`, `ItemLista` y las rutas de proponer,
 
 Desde W2 ([encargo](../docs/consulta/delegacion/W2_rediseno_con_shadcn.md)) la interfaz parte de un estándar: shadcn/ui sobre primitivas de Radix y Tailwind CSS v4. Cambia la implementación; las reglas de contenido de este archivo (estados, avisos, fuentes, contraste lado a lado, lista, sesión, accesibilidad) siguen iguales.
 
-- **Paquetes:** `tailwindcss` y `@tailwindcss/vite` 4.3.5; `shadcn` 4.23.0 (CLI y `shadcn/tailwind.css`); `tw-animate-css` 1.4.0; `radix-ui` 1.8.1; `class-variance-authority` 0.7.1; `cn` 0.5.2 (sustituye a `clsx` más `tailwind-merge`); `lucide-react` 1.75.0 (solo los íconos internos de shadcn). Se instalan con `pnpm`; los componentes se añaden con `pnpm dlx shadcn@latest add <nombre>`.
+- **Paquetes:** `tailwindcss` y `@tailwindcss/vite` 4.3.5; `shadcn` 4.23.0 (CLI y `shadcn/tailwind.css`); `tw-animate-css` 1.4.0; `radix-ui` 1.8.1; `class-variance-authority` 0.7.1; `cn` 0.5.2 (sustituye a `clsx` más `tailwind-merge`); `lucide-react` 1.75.0 (íconos internos de shadcn y los de sol y luna del botón de tema). Se instalan con `pnpm`; los componentes se añaden con `pnpm dlx shadcn@latest add <nombre>`.
 - **Configuración:**
   - `components.json`: estilo `radix-nova`, base Radix (no Base UI, que es el valor por defecto de la CLI desde julio de 2026), sin RTL, CSS en `src/estilos/tema.css`;
   - alias `@/componentes`, `@/componentes/ui`, `@/utilidades` y `@/hooks`. No se usa `src/lib`: el `.gitignore` de la raíz ignora `lib/`;
@@ -383,7 +383,7 @@ Viven en la capa base de `tema.css` y en los componentes de `src/componentes/ui/
 
 ## Componentes: mapa a shadcn/ui
 
-Componentes instalados en `src/componentes/ui/`: `button`, `input`, `textarea`, `label`, `native-select`, `checkbox`, `radio-group`, `card`, `badge`, `alert` y `separator`. No se instalan:
+Componentes instalados en `src/componentes/ui/`: `button`, `input`, `textarea`, `label`, `select` (Radix), `checkbox`, `radio-group`, `card`, `badge`, `alert` y `separator`. No se instalan:
 
 - `tooltip`: este contrato prohíbe que el estado o un aviso vivan solo en un tooltip, y nada lo necesita;
 - `dialog`: la confirmación sigue siendo el `dialog` modal nativo (foco al título, atrapado, vuelta al botón de origen, `Escape` cancela), con el aspecto de una tarjeta.
