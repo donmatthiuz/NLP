@@ -16,7 +16,7 @@ Abiertas:
 - [x] **JEV, detalle:** la adaptación está en [JEV](consulta/JEV.md). El conjunto etiquetado y la comparación con reglas y con la variante LLM están hechos y medidos (`bfc5a4a`, `afc6b07`, `e837ea2`; [Experimento_JEV](consulta/Experimento_JEV.md)): el sistema entregado usa reglas. Abierto: actualizar el anteproyecto (sección 11), que no lo menciona, y el diagrama.
 - [x] **Tamaño del banco:** banco común de 20 casos (`f4e58d8`) y banco del rol 3 de 23 (`6b9910e`).
 - [x] **Ejecución:** todo local salvo JEV, que va por API alojada. Equipo: RTX 5070 de 12 GB, 64 GB de RAM, i7-14700KF.
-- [x] **LLM generador local:** Qwen3.5-9B en `llama-server` con Docker y GPU (`b729647`, `7d84ba0`). Cabe junto a la recuperación y funciona en la RTX 5070. No cumple la latencia: P95 de 18,5 s con un usuario y 45,1 s con cinco (meta 15 s).
+- [x] **LLM generador local:** Qwen3.5-9B en `llama-server` con Docker y GPU (`b729647`, `7d84ba0`). Cabe junto a la recuperación y funciona en la RTX 5070. No cumple la latencia: P95 de 32,0 s con un usuario y 37,5 s con cinco en la corrida oficial `20261119T061552Z` (GPU compartida; la corrida previa `20261119T042331Z` dio 18,5 s, solo como referencia de sensibilidad al hardware; meta 15 s).
 - [x] **Ragas y Langfuse:** no se adoptaron; las métricas se calculan con código propio (`make reporte`, `926863b`) y la auditoría es la del rol 4. No son requisito. Ragas calcula métricas de RAG (fidelidad, precisión del contexto) con un LLM juez; Langfuse es una plataforma de trazas. El curso exige métricas y auditoría, que se pueden cubrir con scripts propios y el registro del rol 4.
 - [x] **Stack propuesto (adoptado):** backend FastAPI (Python y Pydantic, igual que el RAG) y frontend React con Vite y TypeScript. Acordarlo con el rol 4, que es dueño de la API. NestJS añadiría una tercera capa sin necesidad. Streamlit descartado.
 - [x] **JEV, acceso:** por API alojada de TypeSafe, con la llave en `keys/` que ningún agente lee, y solo la pregunta y fragmentos de documentos públicos ([JEV](consulta/JEV.md#datos-que-salen-del-equipo)).
@@ -33,7 +33,7 @@ Abiertas:
 
 Los cambios concretos por sección están en [Cambios_pendientes](anteproyecto/Cambios_pendientes.md).
 
-- [ ] Completar los carnets de Edwin Jose y Gustavo Cruz (sección 1).
+- [x] Completar los carnets de Edwin Jose y Gustavo Cruz (sección 1).
 - [ ] Actualizar la tabla de roles de la sección 15 con la asignación de [Asignacion_de_roles](roles/Asignacion_de_roles.md).
 - [ ] Revisar las fechas relativas del plan de trabajo frente a la fecha real de entrega.
 - [ ] Comparar las 16 secciones contra la plantilla `.docx` y entregar en el formato que pida el docente (el repo tiene `.md` y `.pdf`).
@@ -120,7 +120,7 @@ El plan por fases está en [Plan_rol_3](consulta/Plan_rol_3.md). Orden sugerido:
 - [ ] **Abiertos tras la retrospectiva:**
   - volver a entregar el anteproyecto con [Cambios_pendientes](anteproyecto/Cambios_pendientes.md) aplicado (16 de 17 cambios sin aplicar);
   - el repositorio sigue con el material del docente en su historial: hacerlo privado le corresponde a su dueño;
-  - acortar el documento técnico al rango que pide el curso;
   - la quinta medición de la demo con sesión y la preparación de la demo con `make usuarios-demo`;
-  - el P95 sigue sobre 15 s.
+  - el P95 sigue sobre 15 s (32,0 s en la corrida oficial);
+  - las métricas con usuarios del documento técnico (sección "Métricas con usuarios") quedan pendientes de la medición.
 - [ ] Carácter de los literales del numeral 2.7 (listado de documentos): hoy salen `no_indicado` porque `caracter_de_seccion` solo lee la sección del propio fragmento. Saber si cada documento es fundamental exige cruzarlo con lo que dicen los numerales 2.8 y 2.9 del mismo evento. Mientras tanto se declara como limitación: la lista no inventa el carácter.

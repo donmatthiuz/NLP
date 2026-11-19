@@ -93,7 +93,12 @@ Cada módulo tiene su propio README en `src/licigt/<módulo>/README.md`.
 
 ## Limitaciones conocidas
 
-- Latencia: el P95 medido ronda los 25 s frente a la meta de 15 s del anteproyecto (en la última medición con 107 preguntas contra la API fue de 29,3 s).
-- El LLM local es de 9B parámetros (Qwen3.5-9B cuantizado), que cabe en la GPU de desarrollo pero limita la calidad de redacción.
-- Cobertura parcial en el evento 222: las páginas 3 y 4 de la Modificación 1 son escaneos que no se extrajeron; el sistema lo avisa y pide revisión humana.
+Cifras de la corrida oficial `20261119T061552Z` (commit `3085334`, [`Reporte_evaluacion.md`](docs/plataforma/Reporte_evaluacion.md)). Se tomó con la GPU de escritorio compartida (RTX de 12 GB en Windows y WSL2): el LLM generó a una mediana de 62,5 tokens por segundo, contra 86 en la corrida previa `20261119T042331Z` (P95 de 18,5 s, solo como referencia de sensibilidad al hardware, no como resultado).
+
+- Latencia: el P95 total es de 32,0 s con un usuario (`buscar_documentos` 18,5 s, `comparar_versiones` 15,1 s, `extraer_requisitos` 39,1 s) y de 37,5 s con 5 simultáneos, sin violaciones de aislamiento. No cumple la meta de 15 s del anteproyecto. Costo: 0,75 llamadas al LLM, 3 938 tokens de entrada y 286 de salida por consulta.
+- Banco del rol 3: cumplen 19 de 23. Banco común: cumplen 11 de 20 (4 abstenciones indebidas, 2 fallos de recuperación, 3 de enrutador y 1 espera agotada del generador). Suite de seguridad: 8 de 8, que no implica seguridad universal.
+- Recuperación (mejorada): Hit@5 de 1,000 y MRR@5 de 0,900 en desarrollo; Hit@5 de 0,875 y MRR@5 de 0,512 en el banco común.
+- El LLM local es de 9B parámetros (Qwen3.5-9B cuantizado), que cabe en la GPU de desarrollo pero limita la calidad de redacción: a veces se abstiene con evidencia suficiente.
+- Cobertura parcial en el evento 222: la página 4 de la Modificación 1 es un escaneo cuyo OCR solo da ruido y no se indexa, y el anexo de 11 hojas que menciona no viene en el PDF publicado; el sistema lo avisa y pide revisión humana.
+- Sin medir: fidelidad factual, cobertura de requisitos y tiempo de revisión con usuarios.
 - Detalle y cifras en [`docs/informe/`](docs/informe/) y [`docs/Pendientes.md`](docs/Pendientes.md).

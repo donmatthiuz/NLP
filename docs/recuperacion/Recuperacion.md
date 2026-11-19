@@ -81,14 +81,14 @@ Con `LICIGT_RECUPERACION_DISPOSITIVO=cpu` o `cuda` se elige el dispositivo.
 
 ## Banco común y banco del rol 3 (reporte final)
 
-Corrida `20261119T042331Z` ([reporte](../plataforma/Reporte_evaluacion.md)), con la recuperación en GPU fp16.
+Corrida oficial `20261119T061552Z` ([reporte](../plataforma/Reporte_evaluacion.md)), con la recuperación en GPU fp16.
 
 | Conjunto | Variante | Hit@5 | MRR@5 | Abstención correcta | P95 de búsqueda |
 |---|---|---|---|---|---|
-| Banco común (20) | Base | 0,625 | 0,516 | 1/4 | 0,012 s |
-| Banco común (20) | Mejorada | 0,875 | 0,512 | 0/4 | 0,222 s |
-| Banco del rol 3 (23) | Base | 0,667 | 0,215 | 3/14 | 0,011 s |
-| Banco del rol 3 (23) | Mejorada | 1,000 | 0,541 | 1/14 | 0,274 s |
+| Banco común (20) | Base | 0,625 | 0,516 | 1/4 | 0,008 s |
+| Banco común (20) | Mejorada | 0,875 | 0,512 | 0/4 | 0,268 s |
+| Banco del rol 3 (23) | Base | 0,667 | 0,215 | 3/14 | 0,010 s |
+| Banco del rol 3 (23) | Mejorada | 1,000 | 0,541 | 1/14 | 0,656 s |
 
 - **El umbral no abstiene:** en las 4 preguntas sin respuesta del banco común la suficiencia da verdadero (puntajes de 0,85 a 0,97 del reranker), así que la recuperación abstiene en 0 de 4. Las abstenciones de punta a punta de esas preguntas las logran la generación y el validador de citas.
 - **Fallos de recuperación:** `comun-006` y `comun-009` no recuperan el fragmento relevante entre los cinco primeros (Hit@5 falso) y terminan en abstención. Son fallos de recuperación y no del modelo generador.

@@ -110,7 +110,7 @@ Hecha (F6 a F6f): la compuerta de diseño dio PASS el 17 de noviembre (HOLD en `
   - McNemar con p < 0.05 sobre las mismas preguntas;
   - P95 dentro de los 15 s del anteproyecto;
   - motivo del cambio: con 60 casos, una diferencia de 0.05 no se distingue del ruido, y los 300 ms no tenían respaldo medido.
-  - Aplicado sin cambios al enrutador de JEV, a la variante LLM (J2, `afc6b07`) y, con su propia regla, a las fechas de la lista (F7b y F7c, `e837ea2`). Con el P95 de 18,5 s del reporte final, el enrutador no se adopta. Ver [Experimento_JEV](Experimento_JEV.md).
+  - Aplicado sin cambios al enrutador de JEV, a la variante LLM (J2, `afc6b07`) y, con su propia regla, a las fechas de la lista (F7b y F7c, `e837ea2`). Con el P95 de 32,0 s del reporte oficial (18,5 s en la corrida previa, con la GPU sin compartir), el enrutador no se adopta. Ver [Experimento_JEV](Experimento_JEV.md).
 
 ## Pruebas
 
@@ -124,7 +124,7 @@ Hecha (F6 a F6f): la compuerta de diseño dio PASS el 17 de noviembre (HOLD en `
 
 - **Rol 2:** resuelta; `resolver_evento` y `obtener_fragmentos` se entregaron en R2C (`c7d0dcc`) y se usan desde I1 (`2fd5bee`).
 - **Rol 4:** resuelta; sesión, auditoría y banco común (P1, `946d228`; E1, `926863b`; banco común, `f4e58d8`). Abierto: dónde se despliega Postgres fuera de la máquina local.
-- **Equipo:** modelo generador elegido (Qwen3.5-9B). La meta de latencia P95 de 15 s no se cumple: 18,5 s con un usuario y 45,1 s con 5 simultáneos.
+- **Equipo:** modelo generador elegido (Qwen3.5-9B). La meta de latencia P95 de 15 s no se cumple: 32,0 s con un usuario y 37,5 s con 5 simultáneos en la corrida oficial (18,5 s y 45,1 s en la previa, con otra carga de la GPU).
 - **Rol 1:** el OCR de la página 3 de la modificación del 222 se hizo (R1); la página 4 y el anexo de 11 hojas siguen sin indexar y se declaran.
 
 ## Pendientes del anteproyecto que dependen de este rol
