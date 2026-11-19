@@ -235,3 +235,9 @@ test-recuperacion: ## Pruebas del rol 2 (las de integración requieren make db-u
 
 diagramas: ## Exporta los diagramas HTML a PNG con Chrome
 	@bash scripts/exportar_diagramas.sh
+
+anteproyecto-pdf: ## Genera docs/anteproyecto/Anteproyecto.pdf desde el Markdown (pandoc + Chrome sin interfaz)
+	@tmp=$$(mktemp -d) && pandoc docs/anteproyecto/Anteproyecto.md -s --self-contained --resource-path=.:docs/anteproyecto \
+		--css docs/anteproyecto/pdf/estilo.css --metadata pagetitle="Anteproyecto — Proyecto Final CC3103" -o $$tmp/anteproyecto.html && \
+		google-chrome --headless=new --disable-gpu --no-pdf-header-footer --print-to-pdf=docs/anteproyecto/Anteproyecto.pdf $$tmp/anteproyecto.html 2>/dev/null; \
+		rm -rf $$tmp; ls -l docs/anteproyecto/Anteproyecto.pdf

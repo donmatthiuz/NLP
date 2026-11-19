@@ -4,14 +4,14 @@
 
 **Título:** LiciGT: sistema inteligente para analizar documentos de licitaciones del Instituto Guatemalteco de Seguridad Social mediante RAG.
 
-**Fecha de actualización:** 14 de noviembre de 2026.
+**Fecha de actualización:** 19 de noviembre de 2026 (reentrega).
 
 **Integrantes:**
 
 | Nombre | Carnet |
 |---|---|
-| Edwin Jose | Por completar |
-| Gustavo Cruz | Por completar |
+| Edwin Jose | 22809 |
+| Gustavo Cruz | 22779 |
 | Josue Say | 22801 |
 | Mathew Cordero | 22982 |
 
@@ -243,6 +243,12 @@ La arquitectura de referencia se incluye a página completa al final del documen
 
 El estado de ejecución contendrá `tenant_id`, usuario, rol, `evento_id`, intención, herramienta seleccionada, filtros aplicados, fragmentos recuperados y resultados de validación. Las decisiones de seguridad, permisos y vigencia no quedarán a cargo del modelo. La meta de latencia P95 del flujo de consulta es de hasta 15 segundos con documentos ya indexados.
 
+**Capa de decisión.** La intención de la pregunta y la verificación de datos críticos, como las fechas de la lista, las resuelven clasificadores acotados con umbral detrás de una interfaz común, que permite intercambiar tres implementaciones: reglas deterministas, un LLM con salida estructurada y JEV (TypeSafe), un modelo de decisión con probabilidades calibradas que se consume por su API alojada. Un punto de decisión adopta el LLM o JEV solo si cumple el criterio de la sección 12; en otro caso queda con reglas, que es la configuración por defecto y no envía nada fuera de la máquina. La suficiencia de la evidencia se decide con el umbral calibrado del reranker, no con el modelo generativo.
+
+**Modelo generativo.** Un solo cliente con la API compatible con OpenAI permite cambiar de proveedor por configuración, sin tocar código. Por defecto el LLM corre en local: Qwen3.5-9B, cuantizado en GGUF Q4_K_M y servido con `llama-server`. Un interruptor lo sustituye por OpenAI en equipos sin GPU. Se registrarán proveedor, versión y parámetros del modelo usado en cada evaluación. JEV, cuando se active, se consume por su API alojada.
+
+**Stack.** La API se construirá con FastAPI y Pydantic, y la interfaz web con React, Vite y TypeScript. El proveedor de almacenamiento de los originales (MinIO o Google Cloud Storage) se fijará al desplegar; en desarrollo se usa un almacén local con el mismo contrato.
+
 PostgreSQL con `pgvector` almacenará eventos, documentos, fragmentos, metadatos, versiones, permisos y listas de verificación. Se aplicarán políticas de seguridad por fila y un rol de base de datos sin privilegios para eludirlas. MinIO conservará los PDF originales como evidencia para las citas. El registro de herramientas mantendrá esquemas y límites; la auditoría guardará tareas, filtros, identificadores de fragmento, citas y errores sin datos personales innecesarios. Un banco de al menos 20 casos permitirá comparar la línea base y la versión mejorada.
 
 ### Componentes
@@ -296,7 +302,7 @@ Se conservará como configuración inicial propuesta:
 - **Almacenamiento vectorial:** PostgreSQL con `pgvector`, índice HNSW y distancia coseno; parámetros iniciales `m=16` y `ef_construction=64`.
 - **Índice léxico:** `tsvector` con configuración en español e índice GIN. Los códigos y números de evento también se conservarán en campos exactos para evitar depender de su tokenización.
 
-Las variantes con dimensiones distintas utilizarán columnas o índices separados. Los modelos de embeddings y reranking se ejecutarán localmente en la infraestructura del proyecto, si los recursos disponibles lo permiten. Las dimensiones, dependencias y consumo deberán comprobarse al implementar. El modelo generativo se seleccionará y documentará antes de la evaluación, registrando proveedor, versión y parámetros.
+Las variantes con dimensiones distintas utilizarán columnas o índices separados. Los modelos de embeddings y reranking se ejecutarán localmente en la infraestructura del proyecto, si los recursos disponibles lo permiten. Las dimensiones, dependencias y consumo deberán comprobarse al implementar. El modelo generativo es el descrito en la sección 9 (Qwen3.5-9B en local, con OpenAI como alternativa); antes de cada evaluación se documentarán su proveedor, versión y parámetros.
 
 ### Búsqueda y reordenamiento
 
@@ -325,33 +331,38 @@ La respuesta se abstendrá o limitará expresamente cuando:
 
 El umbral del reranker se calibrará según su salida real; no se asumirá que sus puntajes son probabilidades. Encontrar un número o una fecha será una condición auxiliar, no una prueba suficiente de que corresponde a la pregunta.
 
+Cuando el sistema se abstiene, la respuesta es el texto fijo “No hay información suficiente en los documentos para responder”, de modo que la abstención sea explícita y verificable.
+
 La interfaz mostrará: “La respuesta se basa en los documentos cargados del evento”. Si existen contradicciones, presentará las fuentes involucradas y solicitará revisión. No resolverá automáticamente la vigencia tomando solo el archivo con fecha más reciente.
 
 ## 11. Herramientas y agentes
 
 | Herramienta | Propósito | Parámetros principales | Permisos y validación |
 |---|---|---|---|
-| `buscar_documentos` | Buscar evidencia del evento | `query`, `evento_id`, `tipo_documento?`, `k` | Solo lectura; consulta de hasta 500 caracteres y `k` entre 1 y 10; filtro previo por empresa, evento y rol |
+| `buscar_documentos` | Buscar evidencia del evento | `query`, `evento_id`, `tipo_documento?`, `k` | Solo lectura; consulta de hasta 500 caracteres y `k` entre 1 y 10; filtro previo por empresa, evento y rol; `tipo_documento` se aplica sobre los resultados |
 | `extraer_requisitos` | Extraer requisitos, fechas y documentación de la oferta | `evento_id`, `categoria?` | Solo lectura; categorías administrativa, legal, técnica y financiera; cada dato exige cita |
-| `comparar_versiones` | Comparar bases y documentos aclaratorios o modificatorios | `evento_id`, `doc_base_id`, `doc_cambio_id` | Solo lectura; mismo evento y empresa; verificar relación, fecha y alcance del cambio; citar ambas fuentes |
+| `comparar_versiones` | Comparar bases y documentos aclaratorios o modificatorios | `evento_id`, `tema`, `doc_base_id?`, `doc_cambio_id?` | Solo lectura; mismo evento y empresa; los dos ids van juntos o ninguno, y sin ids se comparan todos los documentos del evento; verificar relación, fecha y alcance del cambio; citar ambas fuentes |
 
-Estas son las tres herramientas que puede seleccionar el agente. La extracción de fechas se realiza dentro de `extraer_requisitos`, con comprobaciones específicas de actividad y plazo. La lista de verificación se deriva de una respuesta estructurada y citada; guardar o cambiar sus estados corresponde a una acción explícita del usuario en la aplicación. La verificación de esquema y citas es un control determinista obligatorio después de la generación, no una herramienta elegible por el modelo.
+El filtro `tipo_documento` de `buscar_documentos` recorta los resultados de la búsqueda, que no lo recibe como parámetro; nunca descarta la otra fuente de un posible conflicto entre versiones. Estas son las tres herramientas que puede seleccionar el agente. La extracción de fechas se realiza dentro de `extraer_requisitos`, con comprobaciones específicas de actividad y plazo. La lista de verificación se deriva de una respuesta estructurada y citada; guardar o cambiar sus estados corresponde a una acción explícita del usuario en la aplicación. La verificación de esquema y citas es un control determinista obligatorio después de la generación, no una herramienta elegible por el modelo.
 
 ### Orquestación
 
-El enrutador seleccionará entre búsqueda, extracción y comparación tras validar la entrada. Tendrá un máximo de tres invocaciones de herramientas seleccionadas por el modelo por solicitud y una sola regeneración ante salida inválida. Las decisiones de entrada segura, selección de herramienta y suficiencia se implementarán como clasificadores acotados con umbral; se compararán reglas y salida estructurada del modelo para elegir su implementación. Ningún filtro aislado se considerará suficiente y la validación final no se omitirá por agotar el presupuesto del agente.
+El sistema es un flujo de decisión con enrutamiento condicional, no un agente autónomo: la ruta de cada solicitud la fijan decisiones acotadas y verificables, no un bucle abierto del modelo. El enrutador seleccionará entre búsqueda, extracción y comparación tras validar la entrada. Tendrá un máximo de tres invocaciones de herramientas por solicitud y una sola regeneración ante salida inválida. Las decisiones de entrada segura y selección de herramienta se implementarán como clasificadores acotados con umbral; se compararán reglas, salida estructurada de un LLM y JEV para elegir su implementación (sección 9). Ningún filtro aislado se considerará suficiente y la validación final no se omitirá por agotar el presupuesto del agente.
+
+**Validación de entrada.** Una pregunta se considera fuera de dominio por dos vías: pide un tema prohibido (los de "No incluye" de la sección 6, como presentar ofertas, redactar propuestas, certificar cumplimiento o dar recomendaciones clínicas) o la recuperación no supera el umbral de suficiencia. No se usa una lista de palabras permitidas. Una pregunta ambigua, como "la fecha" sin precisar cuál, produce una solicitud de aclaración y no una abstención.
 
 Las herramientas serán de solo lectura: no podrán navegar a URL arbitrarias, ejecutar comandos, presentar ofertas ni modificar documentos. Ante una falla, se devolverá un error controlado o una abstención.
 
 ### Contrato de salida
 
-La respuesta estructurada conservará los campos `answer`, `sources`, `abstained`, `tool_used` y `needs_human_review`, y añadirá `evento_id`, `coverage_status` y `warnings`.
+La respuesta estructurada conservará los campos `answer`, `sources`, `abstained`, `tool_used` y `needs_human_review`, y añadirá `evento_id`, `coverage_status`, `warnings`, `needs_clarification` y `clarification_question`.
 
-- `sources`: lista de referencias con `doc_id`, `source`, `page`, `chunk_id`, versión y cita.
+- `sources`: lista de referencias con `doc_id`, `source`, `page`, `page_end` (para fragmentos que abarcan varias páginas), `chunk_id`, la versión separada en `version_ingesta` y `version_oficial`, y la cita. La versión de ingesta es técnica y la oficial es la denominación de la modificación; no deben confundirse.
 - `coverage_status`: estado de cobertura respecto del inventario registrado, como `parcial` o `sin_faltantes_detectados`; este último no certifica que el expediente externo esté completo.
 - `warnings`: documentos ausentes, problemas de extracción, fechas desconocidas o conflictos relevantes.
 - `abstained`: verdadero cuando la evidencia no permita responder.
 - `needs_human_review`: verdadero ante contradicciones, interpretación ambigua o condiciones críticas que requieren confirmación.
+- `needs_clarification` y `clarification_question`: ante una pregunta ambigua, la aclaración es una salida propia, distinta de la abstención; la respuesta es entonces la pregunta de aclaración y no cita fuentes.
 
 El estado de una lista de verificación será independiente del contrato de respuesta y mantendrá el usuario y momento de cada actualización.
 
@@ -373,7 +384,7 @@ El banco tendrá al menos 20 casos con la distribución prevista:
 | Sin respuesta en el corpus | 2 | Abstenerse ante una condición o anexo que no está disponible |
 | Dependientes de versión o fecha | 2 | Identificar qué cambió entre documentos auténticos del mismo evento |
 
-Cada caso registrará `id`, `evento_id`, `question`, `expected_behavior`, `expected_sources`, `expected_pages`, `answerable` y `risk_level`. Las respuestas de referencia se anotarán a partir de los PDF y se revisarán por una segunda persona. Se distinguirá el índice de página del archivo de su numeración impresa. La evidencia esperada se fijará mediante documento, página y pasaje, para poder mapearla a los diferentes fragmentos de cada estrategia de segmentación.
+Cada caso registrará `id`, `evento_id`, `question`, `expected_behavior`, `expected_sources`, `expected_pages`, `answerable` y `risk_level`. Las respuestas de referencia se anotarán a partir de los PDF y tendrán una segunda revisión de un agente revisor independiente, con otra familia de modelos y en una sesión aislada; el usuario adjudica los desacuerdos (ver las limitaciones declaradas al final de esta sección). Se distinguirá el índice de página del archivo de su numeración impresa. La evidencia esperada se fijará mediante documento, página y pasaje, para poder mapearla a los diferentes fragmentos de cada estrategia de segmentación.
 
 Si falta evidencia auténtica para los dos casos temporales, se documentará la brecha y no se declarará completada esa parte de la evaluación. Las pruebas sintéticas de cambios o ataques usarán copias identificadas, sin modificar los originales.
 
@@ -382,6 +393,12 @@ Si falta evidencia auténtica para los dos casos temporales, se documentará la 
 Ambas variantes responderán las mismas preguntas sobre versiones congeladas del corpus. Se utilizará un subconjunto de desarrollo separado para ajustar parámetros y umbrales. Cuando el tamaño lo permita, se reservará un evento distinto para evaluación; se evitará distribuir paráfrasis equivalentes entre ajuste y prueba. Se registrarán las versiones de código y modelos.
 
 La comparación manual utilizará los mismos documentos y tareas de identificación de requisitos. Se alternará el orden manual/asistido entre participantes o tareas equivalentes para reducir el efecto de aprendizaje. Se medirá tiempo junto con cobertura y errores; una respuesta más rápida pero incompleta no contará como mejora suficiente.
+
+### Evaluación de las decisiones
+
+Si se mantiene el experimento con JEV, se usará un conjunto etiquetado de decisiones (intención del enrutador y, donde aplique, verificación de fechas de la lista) separado del banco de 20 casos, con un subconjunto de desarrollo para ajustar y otro de prueba congelado antes de medir. Las preguntas de prueba las redacta un agente proponente, las revisa un agente revisor y el usuario da el visto bueno; esa limitación se declara en el informe. Las variantes se comparan con McNemar sobre las mismas preguntas.
+
+**Criterio para adoptar JEV** (y, con la misma regla, el LLM en una decisión). Se adopta solo si se cumplen las tres condiciones: no aumenta los errores críticos, McNemar da p < 0.05 sobre las mismas preguntas y el P95 de la consulta queda dentro de los 15 s. La regla se fija antes de medir y no se modifica después de ver los resultados.
 
 ### Métricas y metas propuestas
 
@@ -401,6 +418,11 @@ La comparación manual utilizará los mismos documentos y tareas de identificaci
 
 Las métricas son objetivos, no resultados obtenidos. El tamaño del banco limita la generalización; se reportarán resultados por caso y análisis de fallas, además de promedios. Para estimar latencia bajo carga se ejecutarán consultas adicionales, sin tratarlas como nuevos casos independientes de calidad.
 
+### Limitaciones declaradas
+
+- **Segunda revisión:** la hace un agente revisor independiente y el usuario adjudica los desacuerdos. Es un humano más agentes, no dos personas; se declara como limitación.
+- **Sin memoria de conversación:** cada pregunta se responde por sí sola y una pregunta de seguimiento ("¿y en la modificación?") debe escribirse completa. Es trabajo futuro: reescribir seguimientos con el historial abriría una vía de inyección y exigiría su propio banco de pruebas.
+
 ### Suite de seguridad
 
 Se prepararán al menos ocho pruebas: inyección directa en la pregunta, inyección indirecta en una copia de PDF, acceso cruzado entre empresas, mezcla de eventos, acceso a un original sin permiso, solicitud de una acción externa no autorizada, fabricación de un requisito ausente y uso de una cita falsa. Se agregarán comprobaciones de parámetros inválidos y fallas de herramientas. Cada prueba tendrá amenaza, comportamiento esperado, resultado y mitigación.
@@ -409,6 +431,7 @@ Se prepararán al menos ocho pruebas: inyección directa en la pregunta, inyecci
 
 - **Instrucciones maliciosas:** tratar el texto de documentos y resultados de herramientas como datos no confiables. Separar instrucciones del sistema, evidencia y solicitud del usuario. Los patrones sospechosos serán una señal auxiliar, no la única defensa.
 - **Permisos:** autenticar usuarios y validar empresa, evento y rol antes de recuperar fragmentos, abrir PDF o modificar listas. Las políticas de seguridad por fila servirán como segunda barrera; el modelo nunca recibirá contenido fuera del alcance del usuario.
+- **Servicios externos:** a los servicios externos que se activen (JEV y, si se enciende el interruptor, el LLM en la nube de OpenAI) solo se envían la pregunta y textos de documentos públicos; nunca `tenant_id`, usuarios, listas de verificación, datos de la empresa ni credenciales. Con la configuración por defecto (reglas y LLM local) nada sale de la máquina. OpenAI declara no entrenar con los datos de la API y conservarlos 30 días para vigilar abusos ([política de datos](https://developers.openai.com/api/docs/guides/your-data)).
 - **Datos personales:** utilizar documentos públicos necesarios para la tarea y usuarios ficticios en las pruebas. Evitar reproducir datos personales innecesarios en registros y reportes.
 - **Integridad documental:** preservar originales, hashes y versiones. Las copias utilizadas para ataques o simulaciones se etiquetarán y mantendrán fuera del corpus oficial.
 - **Aislamiento del modelo:** permitir únicamente tres herramientas de solo lectura registradas, parámetros validados y rutas acotadas. El modelo no decidirá permisos ni tendrá capacidad de presentar ofertas o alterar documentos externos.
@@ -436,10 +459,12 @@ Las semanas son relativas al inicio de implementación. La asignación nominal d
 
 | Rol | Responsabilidad principal |
 |---|---|
-| Rol 1 | Corpus del IGSS, extracción, almacenamiento y metadatos |
-| Rol 2 | Recuperación, embeddings, índices y comparación de variantes |
-| Rol 3 | Interfaz, autenticación, herramientas y listas de verificación |
-| Rol 4 | Banco de evaluación, validación de citas, seguridad y reporte |
+| Rol 1. Ingesta y documentos | PDF originales registrados, texto por página, fragmentos y versiones |
+| Rol 2. Recuperación y RAG | Índices y búsqueda con evidencia recuperada y ordenada, y comparación de variantes |
+| Rol 3. Consulta y herramientas | Flujo de preguntas, herramientas, respuestas con citas y lista de verificación |
+| Rol 4. Plataforma, seguridad y evaluación | API, autenticación y roles, aislamiento por empresa, auditoría, banco de evaluación, suite adversaria y reporte de métricas |
+
+El detalle de cada rol está en [`Asignacion_de_roles`](../roles/Asignacion_de_roles.md).
 
 | Fase | Actividades | Responsables | Entregable | Fecha relativa |
 |---|---|---|---|---|
@@ -471,6 +496,11 @@ Fuentes identificadas para el diseño del corpus el 14 de noviembre de 2026. La 
 - Sentence Transformers. *paraphrase-multilingual-MiniLM-L12-v2*. https://huggingface.co/sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
 - BAAI. *BGE-M3*. https://huggingface.co/BAAI/bge-m3
 - BAAI. *bge-reranker-v2-m3*. https://huggingface.co/BAAI/bge-reranker-v2-m3
+- Qwen. *Qwen3.5-9B*, cuantización GGUF Q4_K_M (modelo generativo local). https://huggingface.co/unsloth/Qwen3.5-9B-GGUF
+- llama.cpp. *llama-server* (servidor del LLM local con API compatible con OpenAI). https://github.com/ggml-org/llama.cpp
+- TypeSafe. *JEV: documentación y cookbooks* (modelo de decisión consumido por API alojada). https://docs.typesafe.ai/llms.txt
+- FastAPI. https://fastapi.tiangolo.com
+- React y Vite. https://react.dev, https://vite.dev
 
 ### Documentación académica y del equipo
 
