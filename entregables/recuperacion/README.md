@@ -5,7 +5,7 @@
 Dentro del ZIP, todas las rutas de archivos son **relativas a la raíz del ZIP**:
 
 | Ruta | Uso |
-|---|---|
+| --- | --- |
 | `chunks.jsonl` | Fragmentos que el rol 2 importa e indexa en PostgreSQL. |
 | `inventario.json` | Relaciona `doc_id`, evento, versión, SHA-256, cobertura, estado y rutas internas. |
 | `originales/<doc_id>.pdf` | PDF exacto para verificar citas y páginas. |

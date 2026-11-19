@@ -35,7 +35,7 @@ Se plantea la hipótesis y sus límites. El sistema ayuda a leer, no decide: nun
 ![](../arquitectura/diagramas/arquitectura_general.png)
 
 ::: notes
-Cuatro carriles, uno por rol. La recuperación es híbrida (vectores y texto) con reranking sobre PostgreSQL. Las tres herramientas solo leen. JEV queda fuera del límite del sistema. Puntos: Cuatro carriles: ingesta, recuperación, consulta y plataforma. PostgreSQL con pgvector y búsqueda de texto; híbrida con reranking. Tres herramientas de solo lectura. JEV fuera del límite del sistema.
+Cuatro carriles, uno por rol. La recuperación es híbrida (vectores y texto) con reranking sobre PostgreSQL. Las tres herramientas solo leen. JEV fue una variante experimental no adoptada; el recorrido entregado usa reglas. Puntos: Cuatro carriles: ingesta, recuperación, consulta y plataforma. PostgreSQL con pgvector y búsqueda de texto; híbrida con reranking. Tres herramientas de solo lectura. JEV experimental, no activo por defecto.
 :::
 
 # Flujo de una consulta
@@ -43,7 +43,7 @@ Cuatro carriles, uno por rol. La recuperación es híbrida (vectores y texto) co
 ![](../arquitectura/diagramas/flujo_consulta.png)
 
 ::: notes
-Recorrido de una pregunta. Antes de publicar, un validador determinista comprueba las citas; si falla, hay una regeneración y luego salida controlada. La auditoría no guarda texto de PDF ni datos personales. Puntos: Guardrail, enrutador, herramienta, recuperación, generación. Validador determinista de citas, una regeneración y salida controlada. Auditoría sin texto sensible.
+Recorrido de una pregunta. Antes de publicar, un validador determinista comprueba las citas; si falla, permite una regeneración dentro del presupuesto y publica solo afirmaciones válidas o se abstiene. La auditoría no guarda texto de PDF ni datos personales. Puntos: Guardrail, enrutador, herramienta, recuperación, generación. Validador determinista de citas, hasta una regeneración, publicación parcial o abstención. Auditoría sin texto sensible.
 :::
 
 # Decisiones clave (1): confianza

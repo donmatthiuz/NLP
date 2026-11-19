@@ -2,9 +2,12 @@
 
 Parte F6a del [encargo F6](../docs/consulta/delegacion/F6_interfaz_web.md), con la base de componentes actualizada en W2 ([encargo W2](../docs/consulta/delegacion/W2_rediseno_con_shadcn.md)). Fija la página de consulta antes de escribir código: zonas, estados, componentes, variables CSS, accesibilidad y un boceto por estado. F6b la implementa y `design-ui-finish-gate-reviewer` la valida contra este archivo en F6e. Requisitos de origen: [`DESIGN.md`](../DESIGN.md) (sección "Interfaz de usuario"), [I3](../docs/consulta/investigacion/I3_lista_e_interfaz.md) (preguntas 3, 4 y 5), [`AGENTS.md`](../AGENTS.md) ("Reglas que no se negocian") y `src/licigt/consulta/esquemas.py` (`Fuente` y `RespuestaEstructurada`).
 
+El [refinamiento W3](../docs/consulta/delegacion/W3_refinamiento_visual.md), aprobado el 19 de noviembre de 2026, compacta la presentación y añade un favicon local. Conserva el flujo, los datos documentales y las reglas de seguridad de este contrato. La [corrección de controles](../docs/consulta/delegacion/W3_correccion_controles.md), solicitada después por el usuario, sustituye los selectores nativos, elimina el pie y ordena la cabecera adaptable.
+
 ## Carácter de la página
 
-- Herramienta de trabajo para un analista que revisa una licitación, no una página de presentación. Una sola página, una sola columna de lectura, sin imágenes, sin ilustraciones, sin animaciones de entrada ni degradados.
+- Herramienta de trabajo para un analista que revisa una licitación, no una página de presentación. Una sola página, una sola columna de lectura, sin imágenes ni ilustraciones en el contenido y sin degradados. Sin animaciones de entrada en resultados, fuentes o advertencias; la única entrada animada es la confirmación, acotada en "Lista de verificación".
+- Favicon SVG local (`public/favicon.svg`, declarado en `index.html`): hoja blanca con esquina doblada y dos trazos sobre fondo grafito redondeado. Sin letras, marca institucional ni símbolo de aprobación; debe distinguirse a 16 px en las pestañas del navegador.
 - La jerarquía la dan el texto, el espaciado y los bordes. El color refuerza el estado, pero nunca es la única señal.
 - Todo el texto de la interfaz está en español y en registro formal ("usted"), como las respuestas del sistema.
 - Componentes de shadcn/ui (Radix) y utilidades de Tailwind v4, con el tema de este archivo (ver "Base: Tailwind v4 y shadcn/ui" y "Tema"). Sin fuentes externas: la demo debe funcionar sin red hacia CDN.
@@ -18,20 +21,22 @@ En orden del DOM, que es también el orden visual y el de lectura y tabulación:
    - con `VITE_MODO=ejemplos`: "Modo ejemplos: respuestas fijas, no se consulta la API.";
    - ya no hay aviso de modo demostración: la cabecera `X-LiciGT-Autenticacion` y el adaptador sin autenticación no existen; la web usa la sesión (ver "Sesión").
 2. **Encabezado** (`header`):
-   - nombre "LiciGT" y subtítulo "Consulta de licitaciones";
-   - evento activo: `evento_id` en texto (por ejemplo, "Evento 222-IGSS-2023");
-   - con sesión iniciada, a la derecha: usuario, empresa y rol en texto pequeño, junto al botón secundario "Cerrar sesión" (`DELETE /api/sesion`);
-   - selector de tema (Sistema, Claro, Oscuro), compacto, a la derecha.
+   - nombre "LiciGT" y subtítulo "Consulta de licitaciones", con jerarquía compacta;
+   - evento activo: `evento_id` en texto (por ejemplo, "Evento 222-IGSS-2023"), agrupado con el nombre;
+   - con sesión iniciada, una segunda fila separada por un filete: usuario, empresa y rol en texto pequeño, junto al botón secundario "Cerrar sesión" (`DELETE /api/sesion`); datos y botón se apilan en móvil y se distribuyen a los extremos desde 40rem;
+   - botón de tema de 44 px, sin rótulo visible, con icono de sol o luna; alterna Claro y Oscuro. Marca y tema comparten la primera fila; la sesión ocupa otra fila en móvil.
 3. **Consulta** (`form` con `aria-label="Consulta"`, dentro de `main`, en una tarjeta):
-   - en modo ejemplos, un selector "Ejemplo" con los cinco escenarios antes de la caja;
+   - título breve "Consulta"; en modo ejemplos, un selector "Ejemplo" con los cinco escenarios antes de la caja, junto al título cuando cabe, de 20rem desde 40rem y ancho completo en móvil; el ejemplo de comparación se rotula "Comparación" para que quepa a 320 px, y el resultado conserva el aviso de revisión humana;
    - caja de pregunta con etiqueta visible "Pregunta sobre el evento", contador "N/500" y botón "Consultar".
 4. **Aviso fijo**: "La respuesta se basa en los documentos cargados del evento". Siempre presente, también antes de la primera consulta y durante la carga. Va justo encima del resultado, no se cierra ni se oculta y no cambia con el estado.
 5. **Resultado** (`section[data-estado]`): cabecera de estado, banda de revisión humana si corresponde, texto de la respuesta, metadatos y avisos de cobertura.
 6. **Fuentes** (`section` con `h2`): tarjetas de fuente, o el contraste lado a lado cuando hay conflicto.
 7. **Lista de verificación** (`section` con `h2`): propuesta, guardado con confirmación y estados por ítem. Ver "Lista de verificación".
-8. **Pie** (`footer`): una línea con "LiciGT, proyecto CC3103 (UVG). No presenta ofertas ni decide la vigencia de documentos."
+No hay pie institucional: se retira por solicitud del usuario. Los avisos documentales y de revisión permanecen en sus secciones.
 
 El panel de documentos del evento (`section` con `h2` "Documentos del evento") va entre el encabezado y la consulta. Ver "Documentos del evento".
+
+Antes de la primera consulta, la ayuda bajo el aviso fijo dice "La respuesta aparecerá aquí con sus fuentes". No sustituye el aviso ni cambia las explicaciones de abstención, cobertura o revisión.
 
 ## Sesión
 
@@ -49,26 +54,28 @@ Desde que toda ruta `/api/*` (salvo `/api/sesion`) exige cookie, la web comprueb
 
 Panel `section.documentos`, con `h2` "Documentos del evento", arriba de la consulta. Lo alimenta la ruta `GET /api/eventos/{evento_id}/documentos` (`DocumentoEvento`); `App` carga los documentos una sola vez y de ellos arma el mapa `doc_id` a tipo que usan las fuentes y la lista.
 
-- **Línea de resumen**, debajo del `h2`: "N documentos, sin información faltante" o "N documentos, M con información faltante" (en `text-estado-revision` si hay faltantes, con `data-faltantes`); "No hay documentos cargados para este evento" si no hay ninguno. Cuenta como faltante una página sin indexar, un estado distinto de "completo" o una advertencia.
+- **Línea de resumen**, junto al `h2` cuando cabe y debajo en móvil: "N documentos, sin información faltante" o "N documentos, M con información faltante" (en `text-estado-revision` si hay faltantes, con `data-faltantes`); "No hay documentos cargados para este evento" si no hay ninguno. Cuenta como faltante una página sin indexar, un estado distinto de "completo" o una advertencia.
 - **Una tarjeta por documento** (`li` con `data-faltantes`; con borde de 2 px y fondo de revisión si le falta información), con:
   - título: etiqueta del tipo ("Bases", "Modificación", "Aclaración"), la versión oficial (si no existe, "Versión oficial no indicada" como texto secundario, sin ocupar el lugar del título) y "v" más la versión de ingesta;
   - el tipo y las versiones como `Badge` ("v1" y "Versión oficial no indicada" en la variante `suave`);
-  - el `doc_id` en `font-mono` y `text-sm`;
+  - metadatos en `dl`: "Documento", con el `doc_id` completo en `font-mono` y `text-sm`, y "Páginas y estado"; esos dos rótulos redundantes son `sr-only`, mientras todos sus valores permanecen visibles;
   - páginas y estado: "35 páginas, todas indexadas; estado: completo" o "4 páginas, 1 sin indexar (p. 4); estado: requiere revisión";
   - si hay advertencias del documento, el rótulo "Falta información" y la lista de esas advertencias. Las páginas sin indexar y el estado no se repiten ahí: ya están en la línea anterior.
 - **Carga:** "Cargando documentos…" (`aria-busy`). **Error:** "No se pudieron cargar los documentos." y el motivo, en un `Alert` destructivo con `role="alert"`; la consulta sigue disponible y las citas muestran solo el hash.
 - **Modo ejemplos:** documentos fijos del 222.
+- **Densidad:** cabecera y metadatos agrupados dentro de cada tarjeta; metadatos en dos columnas desde un ancho de tarjeta de 28rem (`@md:`). Identificadores completos y advertencias permanecen visibles. No se pliegan documentos ni se truncan datos para reducir altura.
 
 ## Rejilla y ancho
 
-- Contenedor de lectura (`mx-auto max-w-lectura px-4 sm:px-6`, constante `CONTENEDOR` de `App.tsx`): ancho completo hasta 60rem, centrado, con relleno lateral de 16 px y de 24 px desde 40rem. Lo comparten el encabezado, `main` y el pie.
+- Contenedor de lectura (`mx-auto max-w-lectura px-4 sm:px-6`, constante `CONTENEDOR` de `App.tsx`): ancho completo hasta 60rem, centrado, con relleno lateral de 16 px y de 24 px desde 40rem. Lo comparten el aviso de ejemplos, el encabezado y `main`.
 - Ancho mínimo soportado: 320 px CSS sin desplazamiento horizontal, también con zoom al 200 %. `chunk_id`, `doc_id` y URL cortan con `overflow-wrap: anywhere`.
 - Puntos de corte, de móvil hacia arriba:
   - base (320 px): todo apilado; el contraste de fuentes en conflicto va una debajo de otra;
   - `40rem` (640 px): contraste en dos columnas iguales;
-  - los metadatos de la tarjeta de fuente no siguen la ventana sino el ancho de la tarjeta (consulta de contenedor `@container` con `@md:grid-cols-2`, 28rem): en la lista de fuentes van en dos columnas y dentro de cada columna del contraste, que es angosta, en una;
+  - los metadatos de documentos, fuentes e ítems no siguen la ventana sino el ancho de la tarjeta (consulta de contenedor `@container` con `@md:grid-cols-2`, 28rem): en la lista de fuentes van en dos columnas y dentro de cada columna del contraste, que es angosta, en una;
   - `64rem` (1024 px): solo aumenta el aire vertical (`--espacio-8` entre zonas). No se añade barra lateral.
 - Las zonas se separan con `gap-6` (móvil) y `lg:gap-8` (escritorio). Dentro de un panel, `gap-4`.
+- Las tarjetas comparten superficie, radio, espaciado y alineación de cabecera, contenido y acciones; sus variantes de revisión conservan los bordes y fondos de estado. Una tarjeta informativa no cambia al pasar el puntero como si fuera un botón.
 
 ## Estados del resultado
 
@@ -137,7 +144,7 @@ Cada estado lleva tres señales que no son color, más el color como refuerzo:
 
 ### Situaciones que no son estados
 
-- **Vacía:** aviso fijo y una línea de ayuda en el lugar del resultado: "Escriba una pregunta sobre los documentos del evento. Cada dato de la respuesta trae su fuente." Sin ejemplos de marketing ni ilustraciones.
+- **Vacía:** aviso fijo y una línea de ayuda en el lugar del resultado: "La respuesta aparecerá aquí con sus fuentes". Sin ejemplos de marketing ni ilustraciones.
 - **Cargando:** el botón cambia a "Consultando…" y queda deshabilitado; el resultado anterior se retira; `section.resultado` lleva `aria-busy="true"` y el área de estado anuncia "Consultando. Puede tardar unos segundos." Sin indicadores giratorios que distraigan; si se usa uno, respeta `prefers-reduced-motion`.
 - **Error de conexión o HTTP** (la API no responde, 422 o 500): `Alert` destructivo con borde sólido `--destructive`, rótulo "No se pudo completar la consulta" y el código o motivo corto ("La API no respondió", "La pregunta no es válida (422)"). No se presenta como abstención, porque no lo es. Una falla de herramienta o del LLM llega como abstención desde la API y se muestra como abstención.
 
@@ -167,7 +174,7 @@ Una `article` (`Card asChild`) por cada elemento de `sources`, en el orden recib
 Contenido, en este orden:
 
 - **Título** (`h3`): "[n] " más el tipo del documento y el `doc_id` ("[1] Bases · 03791a…"), en `text-base` y peso 600. Regla del tipo antes del hash: ver "Tipo del documento".
-- **Metadatos** (`dl` en `text-sm`, rótulo en `text-muted-foreground` y valor en peso 600; dos columnas si la tarjeta mide 28rem o más):
+- **Metadatos** (agrupados con el título en una cabecera; `dl` en `text-sm`, rótulo en `text-muted-foreground` junto al valor en peso 600 cuando cabe, con salto de línea si hace falta; dos columnas si la tarjeta mide 28rem o más):
   - "Página": "p. 8 del PDF" si `page_end` es nulo o igual a `page`; "pp. 16–17 del PDF" si es un rango. Si la fuente trae `printed_page` (opcional en el backend: el número impreso en la hoja), se agrega "(impresa M)": "p. 8 del PDF (impresa 6)". La página del PDF manda siempre: es la que abre el enlace. Lo arma `textoPagina()` de `Fuentes.tsx`, que también usa el ítem de la lista;
   - "Versión de ingesta": "v" más `version_ingesta` (por ejemplo, "v1");
   - "Versión oficial": el texto de `version_oficial` o "No indicada" si es nulo;
@@ -199,23 +206,26 @@ Se activa cuando `needs_human_review = true` y las fuentes vienen de dos o más 
 
 Implementada en F6d sobre `PropuestaLista`, `ItemLista` y las rutas de proponer, guardar y cambiar estado:
 
-- **Posición:** `section` después de las fuentes, con título `h2` "Lista de verificación".
+- **Posición:** `section` después de las fuentes, con título `h2` "Lista de verificación" y acciones "Proponer lista" y "Guardar N ítems" agrupadas en la cabecera; en móvil se apilan sin cambiar el orden de lectura.
 - **Aviso fijo de la lista** (`Alert variant="neutro"` con `IconoInfo`, como el aviso fijo de la consulta), siempre visible arriba de la lista: "Los estados de la lista no certifican cumplimiento." (`DESIGN.md`, "Interfaz de usuario").
 - **Agrupada:** los ítems se agrupan por tipo, primero "Requisitos (N)" y luego "Fechas (N)", cada grupo con un `h3` y un filete inferior; dentro de cada grupo se respeta el orden recibido. Un grupo sin ítems no se muestra. La agrupación es solo de pantalla: `lista.ts` no cambia.
 - **Estados del ítem**, con texto e ícono, no solo color:
   - "Pendiente": círculo vacío;
   - "Preparado": círculo lleno a la mitad;
   - "Revisado": círculo con marca de verificación.
+- Las opciones de estado mantienen borde de 2 px y peso 600 tanto activas como inactivas: la selección cambia color, fondo y radio, sin desplazar el contenido.
 - **Cada ítem** muestra categoría, carácter ("Fundamental", "No fundamental", "No indicado"), la cita, el documento, la página y las dos versiones, con la misma tarjeta de fuente reducida. Detalle:
   - la cita del ítem (`blockquote` con `CLASE_CITA`) es la de su fuente (`fuentes[0].cita`), con el mismo tratamiento de ` | ` que la tarjeta de fuente; en los ítems de fecha, la etiqueta de la actividad ("Recepción de ofertas") va fuera de la cita, como `Badge variant="suave"` junto a los rótulos;
-  - el origen empieza con el tipo y el hash ("Bases · 03791a…"), luego la página con el mismo texto que la tarjeta de fuente ("p. 16 del PDF", con "(impresa M)" si llega) y las dos versiones. Los ítems con revisión pendiente llevan la banda de revisión con su motivo, y los ítems en conflicto aparecen los dos, sin elegir.
+  - el origen se organiza en un `dl` con "Documento" (tipo y hash completo, "Bases · 03791a…"), "Página" con el mismo texto que la tarjeta de fuente ("p. 16 del PDF", con "(impresa M)" si llega), "Versión de ingesta" y "Versión oficial". Dos columnas desde 28rem de ancho de tarjeta. Los ítems con revisión pendiente llevan la banda de revisión con su motivo, y los ítems en conflicto aparecen los dos, sin elegir.
 - **Cambios locales:** marcar un ítem solo cambia el estado en pantalla y añade, al pie del ítem y tras un filete, el rótulo "Sin guardar" (`Badge variant="aviso"`), el cambio ("Pendiente a Preparado") y los botones "Guardar cambio" y "Descartar". Nada se guarda al marcar.
 - **Confirmación explícita:**
   - un botón aparte, "Guardar cambios (N)" o "Guardar N ítems", abre un `dialog` modal nativo (`Confirmacion.tsx`: tarjeta con borde de 2 px en `border-foreground`, `shadow-dialogo`, velo `backdrop:bg-velo`, centrado con `m-auto` porque la preflight de Tailwind quita el margen, y `open:grid` para no pisar el `display: none` del diálogo cerrado) con el resumen de lo que se va a guardar, una línea por ítem ("Requisito X: Pendiente a Preparado");
   - el modal tiene "Confirmar y guardar" y "Cancelar"; el foco entra en el título del modal, queda atrapado dentro y vuelve al botón de origen al cerrar; `Escape` cancela;
+  - al abrir, el diálogo se desplaza de 4 px a 0 durante 160 ms (`ease-out`), sin cambiar la opacidad ni retrasar su disponibilidad o el foco. Es la única excepción a la ausencia de animaciones de entrada y se anula con `prefers-reduced-motion: reduce`;
   - sin confirmación no hay petición de escritura.
 - **Conflicto (409):** mensaje "Otro usuario cambió este ítem. Recargue la lista antes de guardar." El cambio local no se aplica.
 - **Propuesta:** botón "Proponer lista"; los ítems propuestos llevan una casilla "Incluir" (`Checkbox` de Radix dentro de una `Label` de 44 px) para descartar antes de guardar, enlazada con `aria-describedby` a la cita de su ítem para que se anuncie con él, y el rótulo "No guardado". La cita no se edita.
+- **Lista vacía:** "Proponga una lista para comenzar. Solo se guarda al confirmar". El aviso de no certificación sigue visible.
 
 ## Base: Tailwind v4 y shadcn/ui
 
@@ -237,7 +247,7 @@ El tema vive en `src/estilos/tema.css`. El modo claro va en `:root`. El oscuro s
 - `@media (prefers-color-scheme: dark) { :root:not([data-tema="claro"]) { … } }`;
 - `:root[data-tema="oscuro"] { … }`.
 
-La variante `dark:` de Tailwind se redefine con `@custom-variant` para seguir esa misma regla; no se usa la clase `.dark` de shadcn. El selector de tema (Sistema, Claro, Oscuro) guarda la elección en `localStorage` dentro de `try`/`catch`; si falla, sigue al sistema. `index.html` aplica el tema guardado antes de pintar. Razón del selector: el proyector de la demo puede verse mejor en claro aunque el equipo esté en oscuro.
+La variante `dark:` de Tailwind se redefine con `@custom-variant` para seguir esa misma regla; no se usa la clase `.dark` de shadcn. El botón de tema alterna Claro y Oscuro con iconos de sol y luna. Sin una preferencia guardada, el modo inicial sigue al sistema y el icono refleja el aspecto efectivo. Su nombre accesible y título anuncian el estado actual y la siguiente acción; no lleva el texto visible "Tema". Guarda la elección en `localStorage` dentro de `try`/`catch`; si falla, mantiene la elección durante la sesión. Al pulsar fija el modo contrario y lo conserva para futuras visitas. No ofrece una opción Sistema. `index.html` aplica el tema guardado antes de pintar. Razón del control: el proyector de la demo puede verse mejor en claro aunque el equipo esté en oscuro.
 
 ### Color
 
@@ -350,9 +360,9 @@ La escala de espacio de Tailwind (`--spacing: 0.25rem`) coincide con la del cont
 | `--sombra-dialogo` | `shadow-dialogo` | `0 8px 24px rgb(0 0 0 / 0.25)` |
 | (velo del modal) | `backdrop:bg-velo` (`--color-velo`) | `rgb(0 0 0 / 0.55)`, igual en claro y oscuro |
 
-- Puntos de corte: `sm:` es `40rem` y `lg:` es `64rem`, los dos de "Rejilla y ancho". No se usan `md:`, `xl:` ni `2xl:`. La única consulta de contenedor es `@md:` (28rem) en la tarjeta de fuente.
+- Puntos de corte: `sm:` es `40rem` y `lg:` es `64rem`, los dos de "Rejilla y ancho". No se usan `md:`, `xl:` ni `2xl:`. La consulta de contenedor `@md:` (28rem) organiza los metadatos de documentos, fuentes e ítems.
 - Sin sombras salvo `shadow-dialogo`, para el modal de confirmación. Las tarjetas de shadcn traían `ring-1`; aquí llevan borde.
-- Transiciones: solo color y fondo (`transition-colors`), y ninguna con `prefers-reduced-motion: reduce` (la capa base las anula). El desplazamiento de 1 px al pulsar un botón va con `motion-safe:`.
+- Transiciones de controles: color, fondo y color del borde (`transition-colors`), de 150 ms. Los botones no se desplazan al pulsarlos. Solo el diálogo de confirmación permite una animación de entrada de 160 ms y 4 px; no se animan resultados ni advertencias. La capa base anula transiciones y animaciones con `prefers-reduced-motion: reduce`.
 
 ## Reglas de interacción
 
@@ -363,11 +373,12 @@ Viven en la capa base de `tema.css` y en los componentes de `src/componentes/ui/
 | Cursor | Mano (`pointer`) en botones habilitados, `role="button"`, `role="radio"`, `role="checkbox"`, enlaces con `href`, `select`, `summary`, casillas y radios nativos y la `label` que los envuelve. Texto (`text`) en cajas de texto. `not-allowed` en `:disabled`, `aria-disabled="true"`, `data-disabled` y en la `label` de un control deshabilitado. |
 | `hover` | Primario: fondo `--primary-hover`. Secundario (`outline`), fantasma, selector y casilla: fondo `--muted-hover`. Enlace: subrayado de 2 px. Solo si el control no está deshabilitado (`hover:not-disabled:`), y Tailwind lo limita a dispositivos con puntero (`@media (hover: hover)`). |
 | `focus-visible` | Contorno sólido de 3 px en `--ring` con separación de 2 px, en todo control y enlace, por la capa base. Con `forced-colors: active`, el contorno usa `Highlight`. Ningún componente usa `outline-none` ni el anillo translúcido de shadcn (`ring-ring/50`, que no llega a 3:1). Los `h2` que reciben el foco por programa (`tabindex="-1"`) lo muestran igual con teclado. |
-| `active` | Primario: fondo `--primary-active`. Secundario y fantasma: fondo `--muted-active`. Botones: bajan 1 px (`motion-safe:active:translate-y-px`). |
+| `active` | Primario: fondo `--primary-active`. Secundario y fantasma: fondo `--muted-active`. Sin desplazamiento del control. |
 | `disabled` | Opacidad 0.6 y cursor `not-allowed`, sin `pointer-events: none` (shadcn lo trae; se quitó para que el cursor se vea). El texto del botón no cambia ni desaparece; si la causa es el rol, la explicación va en texto visible debajo. |
 
 - **Tamaño de objetivo:** botones, cajas, selectores y opciones de estado con alto mínimo de 44 px (`min-h-11`). Casillas y radios de 20 px (`size-5`) con zona de toque ampliada por `::after`, dentro de una `label` de 44 px.
 - **Texto que no desborda:** los botones permiten partir la línea (sin `whitespace-nowrap`) y crecen en alto; `doc_id`, `chunk_id` y URL cortan con `wrap-anywhere`.
+- **Selector de ejemplos:** `Select` de Radix, con etiqueta visible, disparador y opciones de altura mínima de 44 px. Menú en portal con superficie del tema, opción seleccionada marcada y foco visible. Ancho y alto limitados al espacio disponible; navegación con flechas, selección con Enter y cierre con Escape. El tema usa el botón con icono descrito arriba.
 - **`Alert` sin `role` fijo:** el `Alert` de shadcn pone `role="alert"` siempre; aquí se quitó, porque el aviso fijo y el de cobertura no son alertas y no deben anunciarse cada vez. Quien lo use pone `role="alert"` solo en los errores que hoy lo llevan (inicio de sesión, documentos, aviso de la lista).
 
 ## Componentes: mapa a shadcn/ui
@@ -390,9 +401,9 @@ Estado tras la fase B: todo componente usa esta tabla; los bloques CSS de la seg
 |---|---|---|---|
 | Aviso de modo | `.aviso-modo` | utilidades (`bg-muted text-sm border-b`) | banda, no es un `Alert` |
 | Encabezado | `.encabezado` | utilidades (`bg-card border-b`), `Button variant="outline" size="sm"` para "Cerrar sesión" | no es fijo al desplazar |
-| Selector de tema (`Tema.tsx`) | `.tema` | `Label` + `NativeSelect` | se queda nativo: tres opciones y teclado del sistema; misma lógica de `localStorage` |
+| Selector de tema (`Tema.tsx`) | `.tema` | `Button` con icono cambiante | dos estados, nombre accesible y persistencia en `localStorage` |
 | Formulario de consulta | `.consulta` | `Card asChild` sobre `form` | agrupa ejemplo, pregunta, contador y botón |
-| Selector de ejemplo | `.campo select` | `Label` + `NativeSelect` a todo el ancho | solo en modo ejemplos |
+| Selector de ejemplo | `.campo select` | `Label` + `Select` de Radix | solo en modo ejemplos; menú estilizado |
 | Caja de pregunta | `.consulta textarea` | `Label` + `Textarea` (`rows={3}`, `maxLength={500}`) | contador en `text-xs`, con `aria-describedby` |
 | Botón primario | `.boton` | `Button` | "Consultar", "Iniciar sesión", "Guardar…", "Confirmar y guardar" |
 | Botón secundario | `.boton--secundario` | `Button variant="outline"` (`size="sm"` en la lista, el modal y el encabezado) | "Escribir la aclaración", "Proponer lista", "Cancelar", "Cerrar sesión" |
@@ -413,11 +424,11 @@ Estado tras la fase B: todo componente usa esta tabla; los bloques CSS de la seg
 | Ítem de la lista | `.item-lista` | `Card asChild` sobre `li` | con revisión: borde de 2 px `estado-revision` |
 | Rótulos del ítem | `.etiqueta` | `Badge` (`default`, `aviso`, `suave`) | "Sin guardar" es `aviso` |
 | Casilla "Incluir" | `.incluir input` | `Label` + `Checkbox` | ver "Notas de Radix" debajo de la tabla |
-| Estados del ítem | `.estados`, `.estados__opcion` | `fieldset` + `RadioGroup` + `RadioGroupItem`, cada opción en una `Label` con borde de 44 px | ícono de estado (`IconoItem`) y texto; la opción activa con `border-2 border-foreground bg-muted font-semibold` (`data-activo`) |
+| Estados del ítem | `.estados`, `.estados__opcion` | `fieldset` + `RadioGroup` + `RadioGroupItem`, cada opción en una `Label` de al menos 44 px, borde constante de 2 px y peso 600 | ícono de estado (`IconoItem`) y texto; la opción activa con `border-foreground bg-muted` (`data-activo`) |
 | Avisos de la lista | `.lista__aviso` | `Alert variant="destructive"` o `"revision"` (conflicto 409), con `role="alert"` | |
 | Confirmación | `dialog.confirmacion` | `dialog` nativo con clases de tarjeta (`bg-card border-2 rounded-xl shadow-dialogo backdrop:bg-velo`) + `Button` | sin `Dialog` de Radix |
-| Separadores | bordes de `.encabezado` y `.pie` | bordes y filetes con utilidades (`border-b`, `border-t`) | `Separator` queda instalado pero sin uso: cada filete separa partes de un contenedor que ya existe |
-| Pie | `.pie` | utilidades (`text-sm text-muted-foreground border-t`) | |
+| Separadores | borde del encabezado | bordes y filetes con utilidades (`border-b`, `border-t`) | `Separator` queda instalado pero sin uso: cada filete separa partes de un contenedor que ya existe |
+| Pie | retirado | sin componente | corrección solicitada tras W3 |
 
 Notas de Radix (aplicadas en la fase B):
 
@@ -441,8 +452,8 @@ Pruebas de la web: Vitest sobre la lógica pura (`estado`, `lista`, `cobertura`)
 
 Meta: WCAG 2.1 nivel AA.
 
-- **Idioma y estructura:** `html lang="es"`; un `h1` ("LiciGT") en el encabezado; `h2` para el rótulo del estado, "Fuentes" y "Lista de verificación"; `h3` para cada tarjeta. Regiones: `header`, `main`, `footer`; el formulario con `aria-label="Consulta"`.
-- **Orden de lectura y teclado:** orden del DOM igual al visual. Tabulación: selector de tema, selector de ejemplo (si existe), caja de pregunta, "Consultar", botón de la aclaración (si existe), enlaces "Ver copia archivada" y "Publicación en igssgt.org" de cada fuente. Con sesión, antes del selector de tema va "Cerrar sesión"; en la pantalla de inicio: "Usuario", "Contraseña" e "Iniciar sesión". Sin `tabindex` positivo. `Ctrl+Enter` o `Cmd+Enter` en la caja envía; `Enter` agrega una línea.
+- **Idioma y estructura:** `html lang="es"`; un `h1` ("LiciGT") en el encabezado; `h2` para el rótulo del estado, "Fuentes" y "Lista de verificación"; `h3` para cada tarjeta. Regiones: `header`, `main`; el formulario con `aria-label="Consulta"`.
+- **Orden de lectura y teclado:** orden del DOM igual al visual. Tabulación: botón de tema, selector de ejemplo (si existe), caja de pregunta, "Consultar", botón de la aclaración (si existe), enlaces "Ver copia archivada" y "Publicación en igssgt.org" de cada fuente. Con sesión, después del botón de tema va "Cerrar sesión"; en la pantalla de inicio: "Usuario", "Contraseña" e "Iniciar sesión". Sin `tabindex` positivo. `Ctrl+Enter` o `Cmd+Enter` en la caja envía; `Enter` agrega una línea.
 - **Foco visible:** `:focus-visible` con `outline: 3px solid var(--ring)` y `outline-offset: 2px` en todo control y enlace, desde la capa base de `tema.css` (ver "Reglas de interacción"). Nunca `outline: none` ni `outline-none` sin reemplazo.
 - **Al llegar un resultado:** el foco pasa al `h2` del panel (`tabindex="-1"`), de modo que el lector anuncia el estado ("Requiere revisión humana") antes que el texto. Un `div role="status"` aparte anuncia "Consultando…" y luego "Resultado: " más el rótulo del estado. No se pone `aria-live` sobre todo el panel, para no leer la respuesta dos veces.
 - **Lectores de pantalla:**
@@ -454,7 +465,7 @@ Meta: WCAG 2.1 nivel AA.
 - **Contraste:** ver la tabla medida. El estado nunca depende solo del color (texto, ícono y borde).
 - **Tamaño de objetivo:** botones y selectores con alto mínimo de 44 px; enlaces con relleno vertical suficiente para 24 px.
 - **Reflujo y zoom:** sin desplazamiento horizontal a 320 px ni al 200 % de zoom; textos largos cortan con `overflow-wrap: anywhere`.
-- **Movimiento:** sin animaciones de entrada; todo efecto se anula con `prefers-reduced-motion: reduce`.
+- **Movimiento:** sin animaciones de entrada salvo el diálogo de confirmación (160 ms, desplazamiento máximo de 4 px, sin retrasar foco o interacción); todo efecto se anula con `prefers-reduced-motion: reduce`.
 - **Alto contraste del sistema:** con `forced-colors: active`, los bordes de estado usan `CanvasText` y siguen visibles; el foco usa `Highlight`.
 
 ## Bocetos por estado
@@ -467,10 +478,10 @@ Los valores entre `<>` son marcadores: F6b los toma reales de `entregables/recup
 +----------------------------------------------------------------------+
 | Modo ejemplos: respuestas fijas, no se consulta la API.              |
 +----------------------------------------------------------------------+
-| LiciGT  Consulta de licitaciones          Tema: [Sistema|Claro|Oscuro]|
-| Evento 222-IGSS-2023                                                 |
+| LiciGT  Evento 222-IGSS-2023              [icono del tema] |
+| Consulta de licitaciones                                             |
 +----------------------------------------------------------------------+
-| Ejemplo: [ Respondible con fuentes          v ]                      |
+| Consulta               Ejemplo: [ Respondible con fuentes       v ] |
 | Pregunta sobre el evento                                             |
 | [ ¿Cuál es el monto del seguro de caución?                     ]     |
 |                                                       43/500 [Consultar]
@@ -499,7 +510,6 @@ Los valores entre `<>` son marcadores: F6b los toma reales de `entregables/recup
 | | Ver copia archivada, p. 26 del PDF · Publicación en igssgt.org   | |
 | +------------------------------------------------------------------+ |
 +----------------------------------------------------------------------+
-| LiciGT, proyecto CC3103 (UVG). No presenta ofertas ni decide ...     |
 +----------------------------------------------------------------------+
 ```
 
@@ -602,17 +612,16 @@ Sin aviso destacado; si hay `warnings`, se listan igual.
 ### Lista de verificación (referencia)
 
 ```text
-| Lista de verificación                               <h2>             |
+| Lista de verificación                 [Proponer lista] [Guardar 0 ítems] |
 | | (i) Los estados de la lista no certifican cumplimiento.            |
-|                                                                      |
-| [ Proponer lista ] [ Guardar 0 ítems ]                               |
 |                                                                      |
 | Requisitos (2)                                      <h3>             |
 | -------------------------------------------------------------------- |
 | +------------------------------------------------------------------+ |
 | | [Requisito] [Técnica] [Fundamental]                              | |
 | | | <cita>                                                         | |
-| | Bases · <doc_id>, p. 16 del PDF; versión de ingesta v<n>; ...    | |
+| | Documento: Bases · <doc_id>       Página: p. 16 del PDF          | |
+| | Versión de ingesta: v<n>          Versión oficial: <texto>       | |
 | | Estado de «Requisito técnica»                                    | |
 | | [(o) ( ) Pendiente] [( ) (/) Preparado] [( ) (v) Revisado]       | |
 | | ---------------------------------------------------------------- | |
@@ -633,7 +642,7 @@ Sin aviso destacado; si hay `warnings`, se listan igual.
 |   +---------------------------------------------------------------+  |
 ```
 
-`( )`, `(/)` y `(v)` son los íconos de pendiente, preparado y revisado; `(o)` es el radio de Radix marcado. La opción activa lleva borde de 2 px y texto en peso 600. El modal es el `dialog` nativo.
+`( )`, `(/)` y `(v)` son los íconos de pendiente, preparado y revisado; `(o)` es el radio de Radix marcado. Todas las opciones llevan borde de 2 px y texto en peso 600; la activa refuerza color y fondo. El modal es el `dialog` nativo.
 
 ## Criterios para la compuerta (F6e)
 

@@ -98,6 +98,10 @@ Hecha (F6 a F6f): la compuerta de diseño dio PASS el 17 de noviembre (HOLD en `
 - [x] La API es del rol 4. Si no la entrega al cerrar F5, el rol 3 escribe un adaptador reemplazable, sin tocar `src/licigt/plataforma`.
 - [x] Demo con el evento 222: una consulta respondible, una sin evidencia, la comparación del cronograma (bases frente a modificación 1), una aclaración, una inyección contra la lista y la falla real de OCR de las páginas 3 y 4.
 
+- [x] Refinamiento visual W3 (19 de noviembre, cambios locales sin commit): favicon, tarjetas y selectores compactos, ayudas breves y movimiento discreto. Compuerta independiente PASS; 80 pruebas web, compilación y matriz de navegador aprobadas. Resultados y límites en [W3_verificacion](delegacion/W3_verificacion.md).
+
+- [x] Corrección de W3 solicitada tras revisión visual: tema Claro/Oscuro con iconos, selector Radix, cabecera adaptable y retiro del pie. Sin commit; pruebas, compilación, matriz de navegador y compuerta PASS. [Verificación y explicación del inventario por evento](delegacion/W3_correccion_controles.md).
+
 ### F7. Pruebas con el rol 4
 - [x] Casos de herramientas para el banco: ejecución nominal, selección errónea, parámetros fuera de rango, confirmación humana e indisponibilidad del servicio. Medidos con `make banco` y `make reporte`: 19 de 23 cumplen en el reporte final ([reporte](../plataforma/Reporte_evaluacion.md)); [Documento_tecnico](../informe/Documento_tecnico.md), sección 8.
 - [x] Casos de seguridad que tocan este rol (6 de 6 bloqueados tras C20): inyección directa, cita falsa, fabricación de un requisito ausente y solicitud de acción no autorizada. Propuesta de casos en [I4](investigacion/I4_evaluacion_y_jev.md).

@@ -2,47 +2,25 @@
 
 Documento técnico del proyecto final de CC3103 (UVG). La documentación completa está en el [anteproyecto](../anteproyecto/Anteproyecto.md); las decisiones de diseño vigentes, en [`DESIGN.md`](../../DESIGN.md). Este documento resume y enlaza: el detalle vive en los documentos del repositorio que se citan en cada sección.
 
-**Cómo leer las cifras:**
+**Lectura de las cifras.** Las metas se distinguen de los resultados medidos y cada cifra remite a su evidencia. La corrida oficial es `20261119T061552Z` (19 de noviembre de 2026, `make reporte`, servicios reales, commit `3085334`), con cambios locales solo en `web/` que no intervienen en la medición. Su copia versionada es [`Reporte_evaluacion.md`](../plataforma/Reporte_evaluacion.md).
 
-- Cada cifra lleva el archivo del repositorio donde está medida.
-- Las metas del anteproyecto se presentan como metas, no como resultados.
-- Todo lo que no se midió se dice así.
+**Condición de ejecución.** GPU de escritorio compartida (RTX de 12 GB, Windows y WSL2): mediana de generación de 62,5 tokens/s, p25 de 45 y 4 cancelaciones por espera agotada, según registros de `llama-server`. El banco común registra un caso `generador_no_disponible`. La corrida previa `20261119T042331Z` (C21 sin confirmar) dio 86 tokens/s, 4 cancelaciones y P95 de 18,5 s; se usa como referencia de sensibilidad al hardware, no como resultado oficial. No se aisló experimentalmente el efecto de la carga.
 
-**La corrida oficial** es `20261119T061552Z` (19 de noviembre de 2026, `make reporte` con servicios reales, commit `3085334`). El árbol estaba sucio solo por `web/`, cambios de la interfaz en curso que no intervienen en la medición. La copia versionada es [`Reporte_evaluacion.md`](../plataforma/Reporte_evaluacion.md) y se regenera con `make reporte`.
-
-**Condición declarada de la corrida.** Se tomó con la GPU de escritorio compartida (RTX de 12 GB en Windows y WSL2). El LLM generó a una mediana de 62,5 tokens por segundo (p25 de 45) con 4 cancelaciones por espera agotada, medido en los registros de `llama-server` (`docker logs --timestamps licigt-llm`) dentro de la ventana de cada corrida; el reporte registra `generador_no_disponible` en un caso del banco común. La corrida previa `20261119T042331Z` generó a 86 tokens por segundo de mediana, también con 4 cancelaciones, y dio un P95 total de 18,5 s, con el árbol con los cambios de C21 sin confirmar. Se cita solo como referencia de la sensibilidad de la latencia al hardware, no como resultado.
-
-**La revisión retrospectiva.** El 18 de noviembre de 2026 cuatro agentes de solo lectura revisaron las decisiones de los cuatro roles con cinco porqués y evidencia del repositorio ([`Revision_retrospectiva.md`](../consulta/Revision_retrospectiva.md)). Este documento incorpora sus correcciones y declara lo que quedó como limitación.
+El informe incorpora la [revisión retrospectiva](../consulta/Revision_retrospectiva.md) del 18 de noviembre y conserva sus limitaciones declaradas. Se exporta con `bash scripts/exportar_informe.sh`; los enlaces relativos remiten al repositorio, que acompaña al PDF.
 
 ## 1. Resumen ejecutivo
 
-**El problema.** Las empresas que ofertan medicamentos al Instituto Guatemalteco de Seguridad Social (IGSS) reúnen requisitos repartidos entre bases, especificaciones, cronogramas, anexos y modificaciones oficiales. Una omisión o una condición mal leída puede dejar fuera una oferta.
+LiciGT apoya al analista que reúne requisitos de licitaciones de medicamentos del IGSS. Ingiere PDF oficiales, responde con citas verificables, propone listas de verificación y señala contradicciones sin decidir vigencia. Integra ingesta, recuperación híbrida, consulta con tres herramientas de solo lectura y plataforma con sesiones, permisos y auditoría, sobre cinco licitaciones y seis PDF.
 
-**La propuesta.** LiciGT es un sistema de generación aumentada por recuperación (RAG) que ingiere los PDF oficiales del portal de proveedores, responde en lenguaje natural con citas verificables (documento, página y versión), propone una lista de verificación de requisitos y fechas, y avisa cuando dos documentos se contradicen, sin decidir nunca cuál está vigente.
+El LLM redacta; el código controla acceso, valida literales y citas, y exige abstención cuando falta evidencia. La recuperación mejorada alcanza Hit@5 de 1,00 en desarrollo y 0,875 en el banco común. Cumplen 19 de 23 casos del rol 3 y 11 de 20 del banco común; las 41 citas pasan la comprobación de pertenencia y texto, sin medir respaldo semántico. La suite inicial de seguridad cumple 8 de 8.
 
-**El principio de diseño.** El modelo de lenguaje redacta, pero no decide permisos, vigencia ni suficiencia: eso lo hacen código determinista o clasificadores con umbral. Cada dato de una respuesta es un literal copiado de su cita y un validador lo comprueba antes de publicar. Sin evidencia suficiente, el sistema se abstiene.
-
-**Qué se construyó.** Un corpus reproducible de cinco licitaciones y seis PDF oficiales, y cuatro módulos (ingesta con OCR y tablas, recuperación híbrida con reranking, consulta con tres herramientas de solo lectura, plataforma con sesión, roles, auditoría y aislamiento entre empresas) con una interfaz web encima.
-
-**Lo medido** (corrida oficial; detalle en la sección 8):
-
-- **Recuperación:** la variante mejorada alcanza Hit@5 de 1,00 y MRR@5 de 0,90 en los 27 casos de desarrollo, frente a 0,56 y 0,33 de la línea base.
-- **Banco del rol 3 (23 casos):** cumplen 19. Dos de sus casos se corrigieron después de la primera corrida (sección 7).
-- **Banco común del anteproyecto (20 casos):** cumplen 11.
-- **Citas:** las 41 citas publicadas en los dos bancos pasan el validador. Es una comprobación de pertenencia (cada `chunk_id` está en la evidencia y el texto coincide), no una medida de que la cita respalde la afirmación; esa fidelidad no se midió.
-- **Seguridad:** la suite de 8 pruebas se cumple en las 8.
-- **Latencia:** el P95 de la consulta completa es de 32,0 s y no alcanza la meta de 15 s. Con 5 usuarios simultáneos es de 37,5 s, con un solo hueco de `llama-server` y 0 violaciones de aislamiento. La corrida se tomó con la GPU compartida (arriba).
-- **Enrutador:** un clasificador externo (JEV) mejora la exactitud de 37 a 53 sobre 60 casos (McNemar p = 3,1·10⁻⁵) y un LLM local la lleva a 51; ninguna variante se adopta, porque la regla fijada antes de los experimentos exige también cumplir la latencia. El sistema entregado usa reglas.
-- **Fechas de la lista:** las verifican reglas deterministas en filas de tabla; JEV quedó fuera del sistema entregado tras un segundo experimento (sección 8).
-- **Con usuarios:** pendiente de medir (sección 8, "Métricas con usuarios").
+El P95 de 32,0 s (37,5 s con cinco usuarios) supera la meta de 15 s. JEV y un LLM mejoran el enrutamiento, pero no se adoptan por latencia; la ruta entregada y las fechas de la lista usan reglas. La utilidad con usuarios está **NO MEDIDA**. La sección 8 presenta condiciones y fallos.
 
 ## 2. Problema
 
 El portal del IGSS publica cada evento con sus archivos ([anteproyecto](../anteproyecto/Anteproyecto.md), sección 3): bases, especificaciones generales y técnicas, disposiciones especiales, anexos y, a veces, modificaciones o aclaraciones que cambian fechas o requisitos. En medicamentos, el analista además relaciona el código IGSS, la presentación y la concentración con los requisitos del evento, y no puede suponer que dos concursos parecidos piden lo mismo.
 
-**Dónde está la dificultad.** No en encontrar un dato suelto, sino en consolidar información repartida en decenas de páginas, con tablas, referencias entre numerales y cambios posteriores. En el evento 222-IGSS-2023, su Modificación Número 1 mueve la recepción de ofertas del 31 de julio al 6 de octubre de 2023 y la solvencia patronal del 31 de mayo al 31 de julio. Una respuesta que cite solo las bases daría fechas desactualizadas con una cita "correcta".
-
-**La pregunta del sistema:** ¿cómo facilitar la identificación y verificación de los requisitos documentales de las licitaciones del IGSS mediante el análisis de sus PDF oficiales y respuestas respaldadas por evidencia?
+Consolidar tablas, referencias y modificaciones exige más que encontrar un dato aislado: en el evento 222, la Modificación Número 1 mueve la recepción del 31 de julio al 6 de octubre de 2023 y la solvencia patronal del 31 de mayo al 31 de julio. Citar solo las bases puede dar una fecha desactualizada con una cita formalmente correcta. El objetivo es facilitar la identificación y verificación documental con evidencia.
 
 ## 3. Usuarios
 
@@ -59,7 +37,7 @@ El riesgo principal es tomar una lista incompleta, o una condición de otra vers
 
 **Corpus.** Cinco licitaciones de medicamentos con seis PDF oficiales ([`Corpus_IGSS.md`](../ingesta/Corpus_IGSS.md)): las bases de los eventos 399, 363, 222, 327 y 368 y la Modificación Número 1 del 222. Cada archivo se descargó del sitio del IGSS, se verificó por SHA-256 y conserva su URL y sus fechas. Los datos de empresa son ficticios (`empresa_demo`, `empresa_b`). El paquete vigente (R6) tiene 625 fragmentos indexables y 28 excluidos por ruido de OCR, todos de la modificación del 222; la variante base indexa además 1 077 ventanas de 120 tokens.
 
-**Extracción.** Los PDF tienen páginas escaneadas, tablas con celdas de varias líneas, columnas, pies con número y un índice. La ingesta se corrigió en siete rondas (R1 a R7: OCR de escaneos, corpus reproducible, tablas por celdas con salvaguarda de dígitos, orden de palabras, secciones de modificaciones, pies e índice, filtro de ruido de OCR en toda la ingesta), cada una con encargo y auditoría ([`docs/ingesta/delegacion/`](../ingesta/delegacion/)). R7 corrigió que el filtro de ruido estuviera solo en `reextraer.py`: un PDF escaneado nuevo habría indexado ruido (35 de 35 fragmentos en una simulación); no afectaba al corpus vigente.
+**Extracción.** Siete rondas auditadas corrigieron escaneos, reproducibilidad, tablas y dígitos, orden de palabras, secciones, pies e índice, y ruido OCR ([encargos R1–R7](../ingesta/delegacion/)). R7 extendió a toda la ingesta un filtro antes exclusivo de `reextraer.py`: una simulación indexaba 35 de 35 fragmentos ruidosos de un PDF nuevo. No cambió el corpus vigente.
 
 **Muestreo de calidad.** Un revisor independiente comparó 30 fragmentos con la página original ([`Aportes_roles_1_y_3.md`](Aportes_roles_1_y_3.md), "Calidad medida de la extracción"). Antes y después de R6: página correcta 30 de 30 en ambos; texto exacto 16 y 24; error grave 3 y 2; sección correcta 23 y 30 de 30. Antes de R6, 177 de 893 fragmentos tenían como sección un pie de página, y las pruebas automáticas no lo detectaban porque comprobaban consistencia, no exactitud. Los juicios por fragmento no están versionados en el repositorio: se declara el agregado.
 
@@ -80,7 +58,7 @@ El riesgo principal es tomar una lista incompleta, o una condición de otra vers
 
 ## 6. Arquitectura
 
-Cuatro módulos, uno por rol ([`Asignacion_de_roles.md`](../roles/Asignacion_de_roles.md)); diagramas en [`docs/arquitectura/diagramas/`](../arquitectura/diagramas/README.md).
+Cuatro módulos, uno por rol ([`Asignacion_de_roles.md`](../roles/Asignacion_de_roles.md)). Los anexos visuales se entregan a resolución completa: [arquitectura general](../arquitectura/diagramas/arquitectura_general.png) y [flujo de consulta](../arquitectura/diagramas/flujo_consulta.png), con sus [fuentes HTML y exportación](../arquitectura/diagramas/README.md). Se consultan junto al PDF para conservar la legibilidad de los nodos. Representan sesión y permisos antes de la consulta, auditoría implementada, generación local y una propuesta de lista independiente cuya persistencia exige confirmación. La regeneración es acotada y puede terminar en publicación parcial o abstención. JEV aparece como experimento opcional, fuera de la ruta predeterminada.
 
 | Módulo | Entrada | Salida |
 |---|---|---|
@@ -169,9 +147,9 @@ Valida el PDF y su SHA-256, guarda el original sin sobrescribirlo, extrae texto 
 | Latencia P95 | ≤ 15 s | No cumplida: 32,0 s con un usuario y 37,5 s con 5, con la GPU compartida |
 | Costo | Reportar | 3 938 tokens de entrada y 286 de salida por consulta, 0,75 llamadas; 0 en dinero (LLM local) |
 | Resistencia a ataques | 100 % en la suite inicial | 8 de 8 |
-| Fidelidad factual | ≥ 90 % | No medida: requiere la revisión de dos personas |
-| Cobertura de requisitos | ≥ 90 % | No medida: no hay lista de referencia anotada |
-| Tiempo de revisión | Reducción ≥ 25 % | No medido todavía (ver "Métricas con usuarios") |
+| Fidelidad factual | ≥ 90 % | NO MEDIDO: requiere la revisión de dos personas |
+| Cobertura de requisitos | ≥ 90 % | NO MEDIDO: no hay lista de referencia anotada |
+| Tiempo de revisión | Reducción ≥ 25 % | NO MEDIDO (ver "Métricas con usuarios") |
 
 ### Recuperación: línea base contra mejorada
 
@@ -205,7 +183,7 @@ La mejorada recupera el fragmento relevante entre los cinco primeros con más fr
 - **Cuatro preguntas respondibles terminan en abstención** (`comun-005`, `-006`, `-009`, `-011`):
   - `comun-006` y `comun-009` son fallos de recuperación (Hit@5 falso, suficiencia verdadera) y el LLM, sin la evidencia, se abstiene;
   - `comun-011`: la recuperación acierta y sus citas no pasan la validación en los dos intentos;
-  - `comun-005`: **espera agotada del generador** (`generador_no_disponible`, 40,4 s, más la cobertura parcial del 222), efecto de la GPU compartida y no de la calidad del sistema; en la corrida previa este caso cumplía (esa corrida cumplía 12 de 20).
+  - `comun-005`: **espera agotada del generador** (`generador_no_disponible`, 40,4 s, más la cobertura parcial del 222), observado con la GPU compartida; no se aisló su causa; en la corrida previa este caso cumplía (esa corrida cumplía 12 de 20).
 - **Tres fallos de herramienta o enrutador** (`comun-012`, `-015`, `-018`) usan una herramienta distinta de la esperada; en `comun-018` el comportamiento observable es correcto (el anexo de 11 hojas, no cargado, termina en abstención con aviso de cobertura).
 - **Dos fallos del enrutador de reglas:** `comun-016` (pregunta sin referente que va a búsqueda en vez de pedir aclaración) y `comun-019` (pregunta de cambio de versión que no llega a ninguna herramienta). Son las clases donde JEV acierta en el experimento.
 
@@ -225,8 +203,8 @@ El sistema prefiere abstenerse antes que publicar una cita inválida. **Estos fa
 
 - **Errores críticos de las reglas:** 6, inyecciones o pedidos fuera de alcance que el enrutador manda a una herramienta (3 sin los 12 casos parecidos a desarrollo). Es una decisión mejorable declarada: lista cerrada de actividades y fallos con preguntas sin referente.
 - **McNemar:** JEV acierta 16 casos que las reglas fallan y ninguno al revés (p = 3,1·10⁻⁵; sin los 12 parecidos a desarrollo, 12 a 0, p = 4,9·10⁻⁴). En desarrollo las reglas ganan (45 contra 40 de 47), porque se escribieron con esas preguntas.
-- **Regla de adopción**, fijada antes del experimento: críticos que no aumenten (se cumple), McNemar p < 0,05 (se cumple) y P95 total dentro de 15 s (no se cumple: el resto del flujo medía 29,3 s al fijar el veredicto, 28,2 s con la recuperación en GPU y 32,0 s en la corrida oficial; 18,5 s en la de referencia). **Veredicto: no adoptar con el flujo actual.** El criterio no se cambió después de ver el resultado; si el flujo baja de 15 s, la misma regla da "adoptar". JEV agrega un P95 de 238 ms.
-- **Variante LLM (J2).** `Anteproyecto.md:342` comprometía comparar reglas, LLM con salida estructurada y JEV, y el LLM no se había medido. Se midió con el modelo local, sin salida de la máquina, con la misma regla y en una sola corrida de prueba: frente a reglas 51 contra 37 (p = 0,0043; sin los 12 marcados, p = 0,021) y 0 críticos; frente a JEV, 4 a favor del LLM y 6 de JEV, sin diferencia demostrable (p = 0,75); en desarrollo el LLM acierta 36 de 47 y las reglas 45 (p = 0,022 a favor de las reglas). Latencia del enrutador LLM: mediana 0,54 s y P95 15,1 s, inflado por otros procesos en la misma GPU (a solas, 0,55 s); no se repitió. No se adopta: cumple críticos y significancia, pero no la latencia total.
+- **Regla de adopción previa:** no aumentar errores críticos, McNemar p < 0,05 y P95 total ≤ 15 s. Se cumplen las dos primeras condiciones, pero no la latencia. **Veredicto: no adoptar con el flujo actual.** JEV agrega un P95 de 238 ms; se conserva la misma regla para una futura reevaluación.
+- **Variante LLM (J2).** Completa la comparación comprometida en el anteproyecto, en una sola corrida local: frente a reglas, 51 contra 37 (p = 0,0043; sin los 12 casos parecidos, p = 0,021); frente a JEV, 4 a favor y 6 en contra (p = 0,75), sin diferencia demostrable. En desarrollo acierta 36 de 47 y las reglas 45 (p = 0,022). Latencia: mediana 0,54 s y P95 15,1 s con otros procesos en GPU (a solas, 0,55 s); no se repitió. Tampoco se adopta por latencia total.
 - **Gobernanza de datos de JEV.** Es una API alojada de TypeSafe. Salen a un tercero solo la pregunta y fragmentos de documentos públicos del IGSS, nunca `tenant_id`, usuarios, listas ni datos de empresa ([`JEV.md`](../consulta/JEV.md)). Las corridas las ejecutó el usuario con su llave, que ningún agente lee, y sus registros están en `data/consulta/experimentos/`, fuera del repositorio. La variante LLM y las reglas no envían nada fuera de la máquina.
 - **En el sistema entregado** el enrutador es el de reglas (`LICIGT_ENRUTADOR=reglas`). Las variantes `jev` y `llm` existen como código opcional; la verificación de citas con JEV solo se activa con `LICIGT_CITAS_JEV=1` y no se midió su aporte.
 
@@ -250,7 +228,7 @@ Consulta completa dentro del proceso con `consultar()` real, 83 consultas. Corri
 
 - **Con 5 usuarios (E3):** 5 hilos, empresas `empresa_demo` y `empresa_b` alternadas, `llama-server` con un solo hueco (las consultas se encolan). P50 total de 4,5 s y máximo de 49,5 s. 102 fuentes revisadas, 0 violaciones de aislamiento, ninguna consulta fallida; en 28 preguntas se sustituyó el evento por el equivalente de la empresa, porque `empresa_b` no tiene todos.
 - **Dónde está el tiempo:** en la generación del LLM local. Cada consulta manda 3 938 tokens de entrada y recibe 286 de salida, con 0,75 llamadas. Por 100 consultas: 422 408 tokens y 794 s de reloj (cota superior del tiempo de GPU); costo monetario local 0.
-- **Sensibilidad al hardware.** La corrida de referencia, con el LLM a 86 tokens por segundo de mediana, dio P95 de 18,5 s; la oficial, a 62,5, dio 32,0 s. La diferencia coincide con la carga declarada de la GPU, pero no se aisló con un experimento: es una asociación, y las dos corridas difieren además en el árbol de trabajo. Por la misma razón, el efecto de C21 sobre el P95 (topes de salida, espera de 40 s alineada y presupuesto de 15 s; de 25,2 s antes de C21 a 18,5 s en la referencia) no puede separarse de la carga en la corrida oficial, que dio 32,0 s con el mismo código.
+- **Sensibilidad al hardware.** La referencia a 86 tokens/s dio P95 de 18,5 s; la oficial a 62,5, de 32,0 s. La asociación con la GPU compartida no prueba causalidad: difieren también los árboles de trabajo. La mejora observada tras C21 (de 25,2 a 18,5 s en la referencia) tampoco permite separar el efecto del código y de la carga.
 - **El costo del presupuesto:** una consulta que antes se rescataba con la regeneración ahora termina en abstención (`r3-sel-lista-cambios`).
 - **Límite del contexto:** en `extraer_requisitos`, 11 de 54 llamadas medidas en C21 se cortaron porque el prompt (unos 11 500 tokens) más la salida llenó el contexto de 12 288 del hueco; ahí manda el contexto y no `max_tokens`.
 - **La recuperación** dejó de ser el cuello de botella (unos 7 s por búsqueda en CPU; en GPU, 0,2 a 0,7 s).
@@ -261,23 +239,11 @@ Cuarta medición, con el corpus R6 ([`Demo_222.md`](../consulta/Demo_222.md)); e
 
 ### Métricas con usuarios
 
-Estado: **no medidas**. Las métricas de esta sección miden si el sistema ayuda a una persona, algo que los bancos automáticos no miden. Con n = 2 son una evidencia cualitativa y exploratoria; no permiten inferencia estadística ni cerrar la meta de reducción de tiempo del anteproyecto.
+Estado: **NO MEDIDO**. Las métricas de esta sección miden si el sistema ayuda a una persona, algo que los bancos automáticos no miden. Con n = 2 son una evidencia cualitativa y exploratoria; no permiten inferencia estadística ni cerrar la meta de reducción de tiempo del anteproyecto.
 
-**Protocolo (propuesto, a confirmar antes de tomar las medidas):**
+**Protocolo propuesto, por confirmar.** Dos personas con perfil de analista, ajenas a la construcción del sistema, resolverán preguntas con respuesta fijada de antemano. Cada una revisará PDF manualmente y usará LiciGT, con eventos distintos y orden alternado para compensar aprendizaje. Se medirán tiempo con cronómetro, aciertos, utilidad de 1 a 5 y comentario libre. Se reportarán valores individuales, sin inferencia estadística.
 
-- **Participantes:** 2 personas con perfil de analista o equivalente, que no hayan participado en construir el sistema.
-- **Tarea:** el mismo conjunto fijo de preguntas de revisión sobre los eventos del corpus (por ejemplo, fecha de recepción, fianza exigida, cambios de la modificación del 222), con la respuesta correcta fijada de antemano.
-- **Dos condiciones por persona:** revisión manual con los PDF y revisión con LiciGT, con eventos distintos por condición y orden alternado entre las dos personas para compensar el aprendizaje.
-- **Medidas:** tiempo de cada tarea con cronómetro, respuestas correctas, y utilidad percibida con un cuestionario corto (escala de 1 a 5 y un comentario libre).
-- **Reporte:** valores individuales, sin promediar a una "mejora" general.
-
-| Métrica | Persona 1 | Persona 2 | Meta del anteproyecto |
-|---|---|---|---|
-| Tiempo de revisión sin el sistema | [pendiente: completar tras la medición con usuarios] | [pendiente: completar tras la medición con usuarios] | reducción ≥ 25 % |
-| Tiempo de revisión con el sistema | [pendiente: completar tras la medición con usuarios] | [pendiente: completar tras la medición con usuarios] | |
-| Respuestas correctas (sin / con) | [pendiente: completar tras la medición con usuarios] | [pendiente: completar tras la medición con usuarios] | |
-| Utilidad percibida (1 a 5) | [pendiente: completar tras la medición con usuarios] | [pendiente: completar tras la medición con usuarios] | |
-| Comentarios | [pendiente: completar tras la medición con usuarios] | [pendiente: completar tras la medición con usuarios] | |
+**Registro de resultados: NO MEDIDO.** No se han obtenido tiempos manuales o asistidos, respuestas correctas, utilidad percibida ni comentarios de participantes. La reducción de tiempo ≥ 25 % sigue siendo una meta, sin valores individuales que reportar.
 
 ## 9. Auditoría de seguridad
 
@@ -300,7 +266,9 @@ El resultado es 8 de 8. Una suite inicial superada no implica seguridad universa
 
 ### Auditoría adversarial
 
-Cada entrega de código la auditó un agente adversario de solo lectura, con un modelo distinto del que implementó (Kimi en las primeras pasadas y Opus con los implementadores Sonnet; sección 13), con la tarea de refutarla contra su encargo y las reglas del proyecto; el gestor reprodujo los hallazgos graves antes de encargar la corrección. La generación y validación de citas tuvo diez pasadas ([`Auditoria_F4.md`](../consulta/Auditoria_F4.md)): las tres primeras produjeron un cambio de diseño (dejar de analizar el texto del modelo y obligarlo a seleccionar literales), las 4 a 7 bajaron los hallazgos a severidad baja (un barrido de 932 citas honestas publicó las 932) y las 8 a 10 se hicieron contra el LLM real y las tablas. La plataforma tuvo tres pasadas y la recuperación, la integración, las seis rondas de ingesta y la inyección indirecta, dos o tres cada una. Dos ejemplos de lo que cambió: al subir el costo de scrypt aparecieron una enumeración de usuarios por tiempo y un consumo excesivo de memoria (se volvió a una configuración equivalente de OWASP y se limitaron las derivaciones simultáneas); y una regla de títulos mal ajustada metía ruido de OCR al índice y borraba la alerta de cobertura (detectado antes de publicar).
+Un agente de solo lectura, de modelo distinto al implementador, intentó refutar las entregas contra su encargo; el gestor reprodujo los hallazgos graves. Las diez pasadas de [auditoría de generación y citas](../consulta/Auditoria_F4.md) llevaron a seleccionar literales en lugar de analizar texto libre. Las pasadas 4–7 redujeron los hallazgos a severidad baja (932 de 932 citas honestas publicadas); las 8–10 probaron el LLM real y las tablas. Plataforma tuvo tres pasadas; recuperación, integración, seis rondas de ingesta e inyección indirecta, dos o tres cada una.
+
+Las auditorías detectaron enumeración temporal de usuarios y consumo excesivo de memoria al elevar scrypt (se ajustó el costo y se limitaron derivaciones simultáneas), además de ruido OCR que entraba al índice y ocultaba la alerta de cobertura. Se corrigieron antes de publicar.
 
 ### Inyección indirecta: un hallazgo del banco
 
@@ -325,45 +293,38 @@ En la primera corrida del banco, un fragmento sembrado se citó como fuente y la
 
 ## 10. Limitaciones
 
-- **Latencia.** El P95 de 32,0 s con un usuario y 37,5 s con 5 supera la meta de 15 s. La corrida oficial se tomó con la GPU compartida (62,5 tokens por segundo de mediana contra 86 en la de referencia, que dio 18,5 s), así que la cifra oficial incluye esa condición y no es la mejor posible del sistema; tampoco se demostró que con la GPU libre la meta se cumpla. Con 5 usuarios `llama-server` atiende con un solo hueco y encola. La causa de fondo es la generación del LLM local de 9B. Esta limitación impide adoptar JEV o el enrutador LLM, aunque mejoran el enrutamiento de forma significativa, y el presupuesto de tiempo que bajó el P95 cuesta rescates: algunas consultas ya no regeneran.
-- **Espera agotada.** Con la GPU compartida el generador excedió la espera de 40 s (4 cancelaciones en los registros de `llama-server` durante la corrida; en el banco común, `comun-005`). Una respuesta cancelada se convierte en abstención, no en una respuesta errónea.
-- **Regeneración y pistas.** La regeneración rescata una parte de los fallos y duplica el tiempo (0 de 15 y 0 de 18 regeneraciones exitosas en esta corrida); las pistas de C18 y C19 no tienen efecto demostrado, con una sola corrida por pregunta.
-- **Capacidad del modelo de 9B.** A veces se abstiene con evidencia suficiente, no logra citar bien un dato o junta dos versiones en una afirmación. El validador convierte esos fallos en abstenciones: el sistema pierde respuestas que existen, pero no publica errores.
+- **Latencia y esperas.** El P95 supera la meta tanto con uno como con cinco usuarios; la generación local de 9B y la cola de un solo hueco limitan el rendimiento. No se demostró que la GPU libre cumpla la meta. Una espera agotada se convierte en abstención; condiciones y cancelaciones constan en la sección 8.
+- **Regeneración y pistas.** Hubo 0 de 15 y 0 de 18 regeneraciones exitosas en la corrida oficial; el presupuesto temporal impide algunos segundos intentos. Las pistas de C18 y C19 no tienen efecto demostrado.
+- **Capacidad del modelo de 9B.** Se abstiene con evidencia suficiente, cita mal o junta versiones. El validador rechaza esas salidas, con pérdida de respuestas disponibles; su validación no demuestra fidelidad semántica.
 - **Enrutador de reglas.** Falla con preguntas sin referente y con algunas de cambio de versión (banco común y experimento de JEV), tiene una lista cerrada de actividades del cronograma y cometió 6 errores críticos en el conjunto de prueba del experimento.
 - **Calibración de la suficiencia.** El umbral no abstiene en ninguna de las 4 preguntas sin respuesta del banco común (0 de 4) y se eligió con solo tres preguntas sin respuesta. Una pregunta cercana al tema pero sin respuesta ("¿qué dice el numeral 2.7 sobre el seguro de vida?", con 0,364) supera cualquier umbral razonable; ahí la abstención depende de la generación.
 - **Ids de fragmento.** Posicionales; las listas guardadas en PostgreSQL no se migran (sección 6.1). El corpus no es reproducible byte a byte (`poppler` sin fijar).
-- **OCR y tablas.** La página 4 de la modificación del 222 no se indexa y el anexo de 11 hojas no está publicado; de la página 3 solo queda indexable el párrafo de la aprobación (el membrete, la fecha de la resolución y dos órdenes de trámite quedan como ruido); dos tablas con encabezados de varias líneas salen entrelazadas.
+- **OCR y tablas.** Persisten las pérdidas de cobertura y tablas entrelazadas de la sección 4; de la página 3 de la modificación solo se indexa la aprobación, no el membrete, fecha de resolución ni dos órdenes de trámite.
 - **Inyección indirecta.** El control por patrones tiene límites conocidos (sección 9) y se aparta del texto del encargo (dos señales juntas), decisión que el usuario ratificó. El 6 de 6 del banco se midió con un fragmento sintético, y en la ingesta hay un falso positivo conocido: un cargo "Asistente" cerca de "omite".
 - **Rol lector.** No puede pedir la propuesta de lista (más restrictivo que lo pedido en P1), por decisión del usuario.
 - **Interfaz.** La web se mide en modo API; el modo de ejemplos, con respuestas fijas, sirve para revisar el diseño y no para demostrar el sistema.
 - **Revisión acotada de modificaciones.** La revisión acotada de la lista (C17) tiene un riesgo señalado por la revisión retrospectiva cuando la modificación tiene cobertura incompleta, como la del 222.
-- **Evaluación incompleta.** No hubo evento reservado limpio; la fidelidad por afirmación y la precisión y recall de citas al estilo ALCE requieren dos revisores y quedaron pendientes; no se midió la cobertura de requisitos contra una lista anotada; y las métricas con usuarios (tiempo de revisión y utilidad percibida, n = 2) están pendientes (sección 8).
-- **Corrida única.** Cada cifra sale de una sola corrida por pregunta, con temperatura 0 y semilla fija, y no se estimó la variación entre corridas; la diferencia entre la corrida oficial y la de referencia muestra que la latencia varía con la carga de la máquina.
+- **Evaluación incompleta y corrida única.** Sin evento reservado limpio, fidelidad ni precisión/recall de citas revisadas por dos personas, lista anotada de requisitos o mediciones con usuarios. Cada pregunta se ejecutó una vez, con temperatura 0 y semilla fija; no se estimó variación entre corridas.
 - **Alcance del corpus.** Cinco licitaciones de medicamentos del IGSS; los resultados no se generalizan a otras entidades ni a otro tipo de compras.
 - **Sin memoria de conversación.** Cada pregunta se responde por separado.
 - **Calidad de la lista.** Algunos ítems no son requisitos (definiciones o tramos que empiezan a media frase) y el carácter fundamental de los literales del 2.7 sale "no indicado".
 
 ## 11. Trabajo futuro
 
-- **Bajar el P95 por debajo de 15 s:** repetir la medición con la GPU sin compartir, acortar la evidencia enviada al LLM (sobre todo en `extraer_requisitos`) y, con 5 usuarios, resolver la cola de un solo hueco. Con eso se vuelve a aplicar, sin cambios, la regla de adopción de JEV y del enrutador LLM.
-- **Probar un generador de más capacidad,** que siga mejor el formato de datos literales en los conflictos entre versiones.
-- **Clasificar los fragmentos en la ingesta** con un clasificador semántico (por ejemplo JEV), una vez por fragmento, para detectar instrucciones reformuladas, con un conjunto etiquetado que permita medirlo.
-- **Completar la evaluación:** métricas con usuarios, revisión humana de fidelidad y citas, lista de referencia de requisitos y un evento nuevo reservado.
-- **Mejorar la lista** (cruzar los numerales 2.8 y 2.9 para el carácter fundamental; filtrar definiciones), **la extracción** (tablas con encabezados de varias líneas, OCR de sellos y firmas) **y la plataforma** (revocación de sesiones, límite de intentos, HTTPS y originales en un servicio de objetos).
+- **Latencia:** medir con GPU sin compartir, reducir evidencia enviada al LLM y resolver la cola con cinco usuarios; después, reevaluar enrutadores con la misma regla de adopción.
+- **Generación y seguridad:** probar mayor capacidad para seleccionar literales y un clasificador semántico de inyección en ingesta, con banco etiquetado.
+- **Evaluación:** completar métricas con usuarios, fidelidad y citas, lista de referencia de requisitos y evento reservado nuevo.
+- **Calidad y plataforma:** cruzar numerales 2.8 y 2.9 para el carácter fundamental; filtrar definiciones; mejorar tablas, sellos y firmas; añadir revocación de sesiones, límite de intentos, HTTPS y originales en almacenamiento de objetos.
 
 ## 12. Conclusiones
 
-**Trazabilidad.** La decisión central, que el modelo seleccione literales y que el código valide todo, mostró su valor donde más importa: las 41 citas publicadas en los bancos pasan el validador (garantía de trazabilidad, no medida de respaldo de la afirmación), ninguna respuesta decidió la vigencia entre versiones y, en el caso real del 222, el sistema se negó a publicar una fecha desactualizada con una cita formalmente correcta. El costo es una tasa de abstención mayor de lo deseable con el modelo de 9B.
+Seleccionar literales y validarlos aporta trazabilidad, con abstenciones cuando el modelo no logra citar evidencia disponible. Las 41 citas válidas no demuestran fidelidad semántica. La recuperación mejorada aumenta Hit@5 y la GPU reduce su costo temporal, pero el banco común no demuestra significancia ni mejora de MRR@5. La suite inicial de seguridad cumple, sin probar seguridad universal.
 
-**Recuperación y seguridad.** La recuperación híbrida con reranking supera a la línea base y dejó de ser cuello de botella al pasar a GPU. La plataforma aísla a las empresas con dos barreras independientes y la suite de seguridad se cumple completa.
-
-**Lo que falta.** La meta de latencia (32,0 s con un usuario y 37,5 s con cinco en la corrida oficial con GPU compartida, frente a 15 s) y la generalización del enrutador no se alcanzan; las dos tienen diagnóstico medido y salida concreta. JEV y el LLM local mejoran el enrutamiento de forma significativa y no se distinguen entre sí; su adopción queda condicionada a resolver la latencia. En las fechas de la lista, un segundo experimento dejó la verificación en reglas y a JEV fuera del sistema entregado. Faltan además las métricas con usuarios.
-
-**El proceso.** Agentes con papeles separados (implementador, auditor adversario, proponente y revisor de otra familia) más la adjudicación humana dejaron cada cifra trazable a un archivo y a un comando reproducible. La revisión retrospectiva aplicó a lo ya hecho el mismo criterio que a lo nuevo.
+La latencia impide adoptar los enrutadores alternativos. La evaluación humana y un evento reservado siguen pendientes. La implementación, auditoría independiente y adjudicación humana dejan evidencia reproducible sin convertir esas tareas pendientes en resultados.
 
 ## 13. Declaración del uso de herramientas de IA
 
-El proyecto se construyó con agentes de IA en papeles separados. **Autoría según el historial de git:** la estructura inicial y la primera ingesta son de un integrante (14 de noviembre); la primera implementación de la recuperación, de otro (15 y 16 de noviembre); desde el 18 de noviembre de 2026 la integración y el cierre de los cuatro roles se hicieron directo en la rama `proyecto`.
+Según Git, dos integrantes iniciaron ingesta (14 de noviembre) y recuperación (15–16); desde el 18 la integración y cierre se hicieron en `proyecto`. Se declara la intervención de IA:
 
 | Herramienta | Papel | Intervención |
 |---|---|---|
@@ -373,11 +334,12 @@ El proyecto se construyó con agentes de IA en papeles separados. **Autoría seg
 | Agente `proponente-casos` (Codex) | Casos del enrutador, del banco del rol 3 y del banco común | Sus etiquetas pasan por un revisor de otra familia |
 | Agente `adversario` en modo casos (OpenCode, `deepseek-v4.1-flash-free`) | 20 casos engañosos del enrutador; reemplazó a Kimi, no disponible | Igual que el proponente |
 | Agente `revisor-casos` (Claude, sesión aislada) | Revisión a ciegas del enrutador y en modo evidencia de los bancos | Los desacuerdos los decide el usuario |
+| Codex (cierre documental D3) | Actualización de diagramas, documentación y exportación de entregables | Edición documental; sin repetir mediciones |
 | Agentes de diseño (UX Architect, UI Designer, compuerta de acabado) | Base y migración de la interfaz a shadcn/ui; PASS o HOLD | El gestor decide qué se corrige |
 
-**Desvío del flujo escrito.** Antes del 18 de noviembre el flujo ([`Flujo_de_trabajo.md`](../consulta/Flujo_de_trabajo.md)) decía que implementaban Codex u OpenCode y que el adversario era Kimi. En la práctica implementaron subagentes Sonnet lanzados por el gestor, con auditoría de un adversario Opus. La revisión retrospectiva lo registró como desvío, el usuario lo aprobó el 18 de noviembre y el flujo se actualizó.
+**Desvío declarado.** Antes del 18 de noviembre el [flujo escrito](../consulta/Flujo_de_trabajo.md) asignaba implementación a Codex/OpenCode y auditoría a Kimi; en la práctica implementaron Sonnet y auditó Opus. La retrospectiva lo registró, el usuario lo aprobó y se actualizó el flujo.
 
-**Intervención humana:** el visto bueno de cada decisión de diseño y de cada ronda de ingesta, las adjudicaciones de etiquetado, la elección de la librería de interfaz, las corridas de JEV con la llave del usuario y los merges a las ramas compartidas. **Ningún agente** lee las llaves ni escribe credenciales en el repositorio.
+**Intervención humana.** Aprobaciones de diseño e ingesta, adjudicaciones de etiquetas, elección de librería de interfaz, corridas de JEV con llave propia y merges. El proyecto prohíbe a los agentes leer llaves o escribir credenciales; la sección 9 declara el incidente y su corrección.
 
 ## 14. Bibliografía
 

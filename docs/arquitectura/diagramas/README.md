@@ -1,11 +1,11 @@
 # Diagramas de arquitectura de LiciGT
 
-Dos figuras del sistema RAG para licitaciones del IGSS. Reemplazan al archivo anterior `docs/arquitectura/arquitectura_igss.svg`. Cada figura es un HTML autocontenido exportado a PNG de 1600 px de ancho (se ve completa en 1920x1080 sin escalar por debajo de 0,9). Todo el detalle que no cabe con letra legible vive en este documento.
+Dos figuras del sistema RAG para licitaciones del IGSS. Reemplazan al archivo anterior `docs/arquitectura/arquitectura_igss.svg`. Cada figura se define en HTML con CSS y motor locales, y se exporta a PNG con un lienzo de 1600 px de ancho. Los PNG se exportan al doble de resolución. En presentación conviene mostrar el diagrama y acercar el tramo explicado; no reducir su letra para hacerlo caber. Todo el detalle que no cabe con letra legible vive en este documento.
 
 ## Figuras
 
-- `arquitectura_general.png`: vista compacta de toda la arquitectura (15 cajas y 2 personas) en cuatro carriles: A ingesta (rol 1), B índices (rol 2), C consulta (rol 3) y D servicios (rol 4). Muestra el estado compartido, las tres compuertas, las excepciones, la revisión humana, la auditoría y JEV fuera del límite del sistema.
-- `flujo_consulta.png`: el carril C detallado: guardrail, enrutador, ambigüedad, herramienta, recuperación con alertas, generación, validación de citas, respuesta, auditoría, cada salida de excepción, la revisión humana, PostgreSQL y las tres consultas a JEV.
+- `arquitectura_general.png`: vista de toda la arquitectura organizada por roles: A ingesta (rol 1), B índices (rol 2), C consulta (rol 3) y D servicios (rol 4). Añade acceso por sesión, contexto por solicitud, las tres compuertas, excepciones, revisión humana y auditoría. La propuesta de lista es una acción independiente con confirmación antes de guardar. JEV queda rotulado como experimento, sin conexiones activas.
+- `flujo_consulta.png`: el recorrido de consulta: acceso, guardrail, enrutador por reglas, ambigüedad, herramienta, recuperación con alertas, generación, validación, respuesta, auditoría y revisión humana. Distingue regeneración dentro del presupuesto, publicación parcial y abstención. No muestra JEV como parte del recorrido entregado.
 
 ## Archivos
 
@@ -58,9 +58,12 @@ Al cargar con `?verificar`, `diagrama.js` escribe `OK` o la lista de problemas e
 
 ## Estado de cada componente
 
-- Implementado: ingesta (rol 1); índices, búsqueda, alertas y suficiencia (rol 2); esquemas, guardrail de entrada, ambigüedad, enrutador, las tres herramientas, validador de citas, regeneración, salida, aclaración y abstención (rol 3).
-- Parcial: generación con LLM (cliente local u OpenAI hecho, modelo local sin descargar ni medir; `llm.py`, `config.py:45-58`); JEV (cliente hecho en `jev.py`, sin calibrar con datos).
-- Por implementar: autenticación y contexto, auditoría, banco de evaluación (rol 4); lista de verificación e interfaz web (rol 3).
+Estado actualizado el 19 de noviembre de 2026, tras [D3](../../consulta/delegacion/D3_actualizacion_y_cierre.md).
+
+- Implementado: ingesta con OCR y tablas; índices, búsqueda, alertas y suficiencia; sesión y permisos, consulta y herramientas, generación con Qwen3.5-9B local, validador de citas, regeneración acotada, salida total/parcial, aclaración y abstención; lista con confirmación, interfaz React, auditoría y evaluación.
+- Experimental, no adoptado en la versión entregada: enrutador JEV/LLM y verificación de fechas por JEV. El enrutador y las fechas de la lista usan reglas. El cliente de citas JEV es optativo y no forma parte del recorrido predeterminado.
+- Limitaciones: implementación no equivale a cumplir todas las metas. El reporte oficial registra P95 de 32,0 s con un usuario y 37,5 s con cinco; fidelidad factual, cobertura de requisitos y tiempos con usuarios no están medidos. El despliegue remoto sigue diferido.
+- Los actores humanos se dibujan sin estado de implementación. El marco agrupa datos de una solicitud, no una memoria de conversación ni un objeto global editable por todas las etapas.
 
 ## Principios de diseño
 
@@ -77,24 +80,25 @@ Al cargar con `?verificar`, `diagrama.js` escribe `OK` o la lista de problemas e
 - Carril A (ingesta): analista, validación (cabecera `%PDF-`, URL oficial, SHA-256, pertenencia al evento), original inmutable en MinIO o almacén local, extracción con Poppler y OCR de Tesseract en español, control de calidad (menos de 30 caracteres útiles marca la página ilegible y el documento queda `requiere_revision`), limpieza, segmentación (600 palabras, solape de 90), control de inyección (regex y texto visible contra oculto; el fragmento sospechoso queda `indexable = false`), versión y paquete ZIP.
 - Carril B (índices): PostgreSQL con pgvector. Línea base: ventanas de 120 tokens con `paraphrase-multilingual-MiniLM-L12-v2` (384). Mejorada: fragmentos por sección con `BAAI/bge-m3` (1024). Índices HNSW coseno y `tsvector` en español (GIN). Seguridad por fila con el rol `licigt_app`.
 - Carril C (consulta): el orden de las compuertas es el de `decision.py`: guardrail de entrada, enrutador y ambigüedad. La herramienta consulta la base (20 candidatos semánticos y 20 léxicos, RRF con k = 60 y pesos 0.6 y 0.4, reranker `BAAI/bge-reranker-v2-m3`, hasta 5 fragmentos). Las alertas (`posible_conflicto`, `cobertura_incompleta`, `evento_con_modificaciones`) no detienen la generación: un conflicto sale con ambas fuentes y `needs_human_review = true`, y la revisión humana parte de la respuesta. Solo `suficiente = false` lleva a abstención sin llamar al LLM.
-- Carril D (servicios): la auditoría sanitizada recibe la respuesta en todos los caminos. Quedan fuera del dibujo, por espacio: el registro de herramientas y el banco de evaluación (al menos 20 casos, línea base contra mejorada). La lista de verificación (rol 3, por implementar) sí figura en el general, dentro del carril B junto a PostgreSQL: sale de la respuesta, el usuario la confirma y es la única escritura del sistema. En el flujo de consulta no cabe y se omite.
+- Carril D (servicios): la auditoría sanitizada recibe la respuesta en todos los caminos. Quedan fuera del dibujo, por espacio: el registro de herramientas y el banco de evaluación (al menos 20 casos, línea base contra mejorada). La lista de verificación (rol 3) figura en el general como acción independiente: el usuario pide una propuesta, se extraen requisitos sin enrutador ni LLM, revisa y confirma los ítems y la API autoriza su guardado en PostgreSQL. Esta escritura de negocio requiere confirmación; el sistema también escribe durante la ingesta y la auditoría. En el flujo de consulta no cabe y se omite.
 - Auditoría: las abstenciones y las salidas controladas también se auditan (bloque `finally` de `orquestador.py`); esas flechas se omiten por legibilidad y solo se dibuja la de la respuesta.
-- JEV (servicio externo, solo recibe la pregunta y fragmentos públicos): se consulta desde el guardrail de entrada, el enrutador y la herramienta `extraer_requisitos` (fechas por actividad). Sin respuesta de la API se usa la variante de reglas. La verificación de fidelidad de la cita con JEV está diferida y no se dibuja.
+- JEV: servicio externo conservado como variante experimental. `LICIGT_ENRUTADOR=reglas` es el valor por defecto; `extraer_requisitos` verifica fechas de tabla con reglas y no llama a JEV. No hay una ruta activa de tres llamadas a JEV. El experimento y su criterio de no adopción están en `docs/consulta/Experimento_JEV.md`.
 
 ## Tabla de excepciones
 
-- Entrada con formato o longitud inválidos: abstención (error de validación).
+- Sesión ausente o inválida: HTTP 401 antes de la consulta; origen o rol no permitido: HTTP 403. Un cuerpo HTTP que no cumple el esquema produce 422. Estas respuestas no son abstenciones documentales.
+- Longitud inválida al invocar el orquestador directamente: abstención por la tabla de decisión.
 - Entrada fuera de alcance o con inyección: abstención.
 - Pregunta sin objeto concreto: aclaración (`needs_clarification = true` y pregunta aclaratoria).
 - Enrutador sin herramienta aplicable: abstención.
-- Enrutador agota 3 llamadas: salida controlada.
+- Presupuesto de herramientas: máximo tres llamadas; el recorrido actual selecciona una herramienta por pregunta.
 - Herramienta con falla o parámetros inválidos: error controlado.
 - Recuperación con `suficiente = false`: abstención sin llamar al LLM.
 - `posible_conflicto`: `needs_human_review = true`, con ambas fuentes.
 - `cobertura_incompleta`: `coverage_status = parcial` y advertencia.
 - `evento_con_modificaciones`: advertencia.
 - JEV no disponible: se usa la variante de reglas.
-- Citas inválidas: una regeneración; después, salida controlada.
+- Citas o salida inválidas: hasta una regeneración si queda presupuesto. Si hay afirmaciones válidas, publicación parcial con advertencias; si no, abstención. La publicación parcial también se usa cuando no cabe regenerar.
 
 ## Parámetros de las herramientas
 
@@ -108,7 +112,7 @@ Al cargar con `?verificar`, `diagrama.js` escribe `OK` o la lista de problemas e
 
 ## Estado compartido
 
-Se dibuja como un marco discontinuo que envuelve el carril C. Guarda `tenant_id`, `usuario`, `rol`, `evento_id`, intención, herramienta y parámetros, filtros aplicados, `chunk_ids` y puntajes, alertas, resultado de validación y versiones de modelos y del prompt. Lo crea el rol 4 desde la sesión y lo leen y escriben todos los pasos del carril.
+Se dibuja como un marco discontinuo del contexto y los datos por solicitud: la sesión contiene usuario, empresa y rol; la API deriva un `Contexto` confiable y resuelve el evento autorizado. El orquestador mantiene intención, presupuesto, evidencia y validación en variables locales y `_Ejecucion`. No se comparte memoria entre preguntas. El modelo no escribe permisos ni empresa. La auditoría filtra los campos y seudonimiza al usuario.
 
 ## Fuentes verificadas contra el código
 
@@ -121,7 +125,9 @@ Se dibuja como un marco discontinuo que envuelve el carril C. Guarda `tenant_id`
 - Seguridad por fila con `licigt_app` y `app.tenant_id` (`schema.sql:55-63`; `busqueda.py:39-42`); el contexto lo construye el rol 4 (`Contratos.md:58-60`).
 - Texto fijo de abstención (`esquemas.py:10`); aclaración (`esquemas.py:52-53`); presupuesto de 3 llamadas y 1 regeneración (`presupuesto.py:11`).
 - Orden de las compuertas (`decision.py:22-45`) y alertas que no abortan la generación (`orquestador.py`, `validacion.py`).
-- JEV: cliente en `jev.py`, sin calibrar; `extraer_requisitos` lo usa para las fechas por actividad (`herramientas.py`).
+- Configuración efectiva predeterminada: `config.py` (`enrutador="reglas"`, perfil LLM local); fechas en `herramientas.py` y `fechas_reglas.py`; experimento medido en `Experimento_JEV.md`.
+- Sesión, rol y origen: `consulta/api.py` y `plataforma/acceso.py`; auditoría sanitizada: `plataforma/auditoria.py`.
+- Propuesta de lista independiente: `lista.py:proponer_lista`; escritura confirmada: `lista_escritura.py`; regeneración y publicación parcial: `orquestador.py:_ejecutar`.
 
 ## Notas
 

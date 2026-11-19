@@ -2,6 +2,12 @@
 
 **Estado al 18 de noviembre de 2026**, tras la revisión retrospectiva ([Revision_retrospectiva](consulta/Revision_retrospectiva.md)). Lista viva de lo que falta, con foco en el rol 3. Las casillas marcadas llevan el commit donde se hicieron. Los detalles por rol están en [Pendientes_rol_1](ingesta/Pendientes_rol_1.md), [Recuperacion](recuperacion/Recuperacion.md#pendientes) y [Plan_rol_3](consulta/Plan_rol_3.md). Los documentos originales del curso están en la carpeta de tareas de OneDrive (`tareas/proyecto`): instrucciones en PDF, plantilla `.docx`, diapositivas del docente, `advisor-summary.md` y diagramas (`diagrams/`, con su `.drawio` y generador).
 
+## Actualización visual del 19 de noviembre de 2026
+
+- [x] W3 aplicado en la web, sin commit: favicon genérico, tarjetas y selectores compactos, menos texto auxiliar y transiciones. Compuerta independiente PASS; [verificación y límites](consulta/delegacion/W3_verificacion.md).
+
+- [x] Corrección posterior de W3, sin commit: tema con sol/luna, selector Radix, cabecera adaptable y pie retirado. 80 pruebas, compilación, 30 vistas, seis menús y tres sesiones simuladas aprobados; compuerta PASS. [Detalle y límites](consulta/delegacion/W3_correccion_controles.md).
+
 ## Decisiones
 
 Resueltas:
@@ -40,6 +46,8 @@ Los cambios concretos por sección están en [Cambios_pendientes](anteproyecto/C
 - [ ] Anotar que los resultados de evaluación son metas, no resultados.
 
 ### Diagramas
+
+- [ ] Actualizar las dos figuras frente al código actual: estados de implementación, reglas/JEV, propuesta de lista, autenticación y regeneración. La [revisión del 19 de noviembre](arquitectura/diagramas/Revision_actualidad.md) verificó maquetación OK, pero contenido desactualizado.
 
 - [x] Decisión: fuente en HTML autocontenido exportado a PNG, en `docs/arquitectura/diagramas/`. La versión anterior de OneDrive está deprecada y no se usa como referencia. Se borró `arquitectura.jpeg` (GUATECOMPRAS y NOG, sin referencias).
 - [x] Diagrama general y flujo de consulta: encargo [D1](consulta/delegacion/D1_diagramas.md), aprobado por el revisor de compuerta (PASS) el 16 de noviembre. Reemplazan a `arquitectura_igss.svg`; referencias actualizadas en el anteproyecto y en `DESIGN.md`.

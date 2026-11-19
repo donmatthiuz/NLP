@@ -1,6 +1,6 @@
 # Guion del video de la presentación final de LiciGT
 
-Guion del video grabado (no en vivo) de la presentación final de CC3103. Instrucciones del curso: sección 13 de `Proyecto Final CC3103_ Sistema NLP_RAG Agéntico Empresarial` en `.referencias/` (no versionada), que pide 15 minutos con seis bloques (2, 3, 4, 3, 2 y 1 minutos) y que la demostración cubra consulta nominal, trazabilidad de citas, abstención, uso de herramientas, prueba de seguridad y diagnóstico de una falla real. Documentación completa del proyecto: [`Anteproyecto.md`](../anteproyecto/Anteproyecto.md).
+Guion del video de la presentación final de CC3103. El usuario confirmó el 19 de noviembre de 2026 la autorización del docente para sustituir la presentación en vivo por un video de máximo 15 minutos. Fecha de entrega: 19/11/2026. La demostración funcional se graba usando la web del proyecto. Instrucciones del curso: sección 13 de `Proyecto Final CC3103_ Sistema NLP_RAG Agéntico Empresarial` en `.referencias/` (no versionada), que pide 15 minutos con seis bloques (2, 3, 4, 3, 2 y 1 minutos) y que la demostración cubra consulta nominal, trazabilidad de citas, abstención, uso de herramientas, prueba de seguridad y diagnóstico de una falla real. Documentación completa del proyecto: [`Anteproyecto.md`](../anteproyecto/Anteproyecto.md).
 
 ## Resumen
 
@@ -44,7 +44,7 @@ Guion del video grabado (no en vivo) de la presentación final de CC3103. Instru
 
 > La arquitectura tiene cuatro carriles, uno por rol. La ingesta extrae el texto por página, lo parte en fragmentos y conserva las versiones. La recuperación indexa en PostgreSQL con pgvector y búsqueda de texto, y combina las dos con un reranker. La consulta enruta la pregunta a una de tres herramientas de solo lectura: buscar documentos, extraer requisitos o comparar versiones. Y la plataforma pone la autenticación, el aislamiento por empresa, la auditoría y la evaluación.
 >
-> El flujo de una pregunta: se valida la entrada, el enrutador decide, se recupera evidencia, el modelo genera, y un validador determinista comprueba cada cita antes de publicar. Si algo falla, hay una sola regeneración y después una salida controlada.
+> El flujo de una pregunta: se valida la entrada, el enrutador decide, se recupera evidencia, el modelo genera, y un validador determinista comprueba cada cita antes de publicar. Si la salida no pasa la validación, puede haber una regeneración si queda presupuesto; se publica solo lo válido con sus avisos, o se abstiene si no hay respaldo suficiente.
 
 **Cifra y fuente**
 
@@ -57,7 +57,7 @@ Cada decisión se dice en una o dos frases; los porqués completos están en las
 
 **Texto a decir**
 
-> Cinco decisiones explican el diseño. Primera: el modelo selecciona literales, no inventa. Cada afirmación lleva una cita y un validador determinista comprueba que el fragmento exista, sea de la empresa y coincida el texto. Un dato mal citado en una oferta cuesta más que una respuesta que falta, así que preferimos abstenernos. Segunda: sin evidencia suficiente el sistema se abstiene, y ante un conflicto pide revisión humana; nunca decide qué documento está vigente. Tercera: la empresa sale de la sesión autenticada, nunca de la pregunta ni del modelo, y la base de datos tiene seguridad por fila como segunda barrera. Cuarta: el enrutador es de reglas. Probamos JEV y un LLM local: mejoran la exactitud, pero la regla que fijamos antes de medir exigía un P95 de 15 segundos y el flujo base ya está en 29. Y para las fechas de la lista, un segundo experimento mostró que JEV no podía superar a las reglas con esos datos, así que quedó fuera del sistema.
+> Cuatro decisiones explican el diseño. Primera: el modelo selecciona literales, no inventa. Cada afirmación lleva una cita y un validador determinista comprueba que el fragmento exista, sea de la empresa y coincida el texto. Un dato mal citado en una oferta cuesta más que una respuesta que falta, así que preferimos abstenernos. Segunda: sin evidencia suficiente el sistema se abstiene, y ante un conflicto pide revisión humana; nunca decide qué documento está vigente. Tercera: la empresa sale de la sesión autenticada, nunca de la pregunta ni del modelo, y la base de datos tiene seguridad por fila como segunda barrera. Cuarta: el enrutador es de reglas. Probamos JEV y un LLM local: mejoran la exactitud, pero la regla que fijamos antes de medir exigía un P95 de 15 segundos y la corrida oficial tiene un P95 de 32,0 segundos con un usuario. Y para las fechas de la lista, un segundo experimento mostró que JEV no podía superar a las reglas con esos datos, así que quedó fuera del sistema.
 
 **Notas: cinco porqués resumidos (no se dicen en el video)**
 
@@ -247,11 +247,11 @@ PY
    - Cuatro carriles: ingesta, recuperación, consulta y plataforma.
    - PostgreSQL con pgvector y búsqueda de texto; híbrida con reranking.
    - Tres herramientas de solo lectura.
-   - JEV fuera del límite del sistema.
+   - JEV experimental, no activo en la versión entregada.
    - Imagen: `docs/arquitectura/diagramas/arquitectura_general.png`.
 4. **Flujo de una consulta**
    - Guardrail, enrutador, herramienta, recuperación, generación.
-   - Validador determinista de citas, una regeneración y salida controlada.
+   - Validador determinista de citas, hasta una regeneración según presupuesto, publicación parcial o abstención.
    - Auditoría sin texto sensible.
    - Imagen: `docs/arquitectura/diagramas/flujo_consulta.png`.
 5. **Decisiones clave (1): confianza**
