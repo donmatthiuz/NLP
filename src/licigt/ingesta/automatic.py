@@ -22,6 +22,7 @@ from urllib.parse import urljoin, urlparse
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 from zoneinfo import ZoneInfo
 
+from .eventos import conector_de_auditoria
 from .pipeline import AVISO_MODIFICACION, KINDS, IngestionService, SourceMetadata
 
 PORTAL = "https://www.igssgt.org/proveedores/"
@@ -232,9 +233,13 @@ def main() -> None:
     parser.add_argument("--relacion-documental", help="document_key del documento que complementa; obligatorio en modificacion, aclaracion y anexo")
     parser.add_argument("--evento-id", help="ID interno existente; si se omite se genera uno estable")
     parser.add_argument("--data-dir", type=Path, default=Path("data/ingesta"))
+    parser.add_argument("--auditar", action="store_true",
+                        help="guarda el evento de la carga en la auditoría del rol 4")
     args = parser.parse_args()
     try:
-        result = ingest_event(args.numero_evento, args.tenant_id, IngestionService(args.data_dir),
+        result = ingest_event(args.numero_evento, args.tenant_id,
+                              IngestionService(args.data_dir,
+                                               auditar=conector_de_auditoria() if args.auditar else None),
                               tipo_documento=args.tipo_documento, document_key=args.document_key,
                               relacion_documental=args.relacion_documental, evento_id=args.evento_id)
     except (ValueError, RuntimeError) as exc:

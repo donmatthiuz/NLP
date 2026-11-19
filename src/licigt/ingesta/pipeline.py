@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import os
 import re
 import sqlite3
@@ -18,6 +19,7 @@ from typing import Any
 from urllib.parse import urlparse
 from xml.etree.ElementTree import ParseError
 
+from .eventos import evento_de_carga
 from .pdf import EXTRACCION, Page, extract_hidden_text, extract_pages
 from .storage import store_from_environment
 
@@ -506,10 +508,12 @@ def make_chunks(pages: list[Page], doc_id: str, metadata: SourceMetadata, versio
 
 
 class IngestionService:
-    def __init__(self, data_dir: Path, store=None):
+    def __init__(self, data_dir: Path, store=None, auditar=None):
         self.data_dir = Path(data_dir)
         self.data_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
         self.store = store or store_from_environment(self.data_dir)
+        # Conector opcional con la auditoría del rol 4; recibe el evento de carga y no debe romper la ingesta.
+        self.auditar = auditar
         # Registro nuevo: los datos previos de GUATECOMPRAS quedan intactos y aislados.
         self.database = self.data_dir / "igss_ingesta.sqlite3"
         with closing(sqlite3.connect(self.database)) as connection, connection:
@@ -673,6 +677,12 @@ class IngestionService:
                  metadata.tipo_documento, version, digest, object_uri,
                  str(manifest_path.resolve()), status, manifest["created_at"]),
             )
+        if self.auditar is not None:
+            try:
+                self.auditar(evento_de_carga(manifest))
+            except Exception as error:
+                # La carga ya quedó guardada; una auditoría caída no la deshace ni cambia su resultado.
+                logging.getLogger(__name__).warning("No se pudo auditar la carga (%s)", type(error).__name__)
         return manifest
 
     def reprocess(self, doc_id: str) -> dict[str, Any]:

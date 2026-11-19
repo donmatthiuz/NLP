@@ -243,7 +243,7 @@ Estado: **NO MEDIDO**. Las métricas de esta sección miden si el sistema ayuda 
 
 **Protocolo propuesto, por confirmar.** Dos personas con perfil de analista, ajenas a la construcción del sistema, resolverán preguntas con respuesta fijada de antemano. Cada una revisará PDF manualmente y usará LiciGT, con eventos distintos y orden alternado para compensar aprendizaje. Se medirán tiempo con cronómetro, aciertos, utilidad de 1 a 5 y comentario libre. Se reportarán valores individuales, sin inferencia estadística.
 
-**Registro de resultados: NO MEDIDO.** No se han obtenido tiempos manuales o asistidos, respuestas correctas, utilidad percibida ni comentarios de participantes. La reducción de tiempo ≥ 25 % sigue siendo una meta, sin valores individuales que reportar.
+**Registro de resultados: NO MEDIDO [pendiente].** No se han obtenido tiempos manuales o asistidos, respuestas correctas, utilidad percibida ni comentarios de participantes. La reducción de tiempo ≥ 25 % sigue siendo una meta, sin valores individuales que reportar.
 
 ## 9. Auditoría de seguridad
 

@@ -47,6 +47,32 @@ class AuditoriaTests(unittest.TestCase):
         for prohibido in ("TEXTO-DE-LA-PREGUNTA", "TEXTO-DE-LA-RESPUESTA", "TEXTO-DE-PDF"):
             self.assertNotIn(prohibido, texto)
 
+    def test_carga_solo_deja_los_campos_del_contrato_y_marca_ingesta(self):
+        auditoria.registrar_carga({
+            "tenant_id": "empresa_demo", "evento_id": "e1", "doc_id": "d1", "hash_sha256": "h1",
+            "status": "requiere_revision", "paginas_legibles": 1, "paginas_total": 2,
+            "warnings": ["Hay páginas incompletas o ilegibles"],
+            "created_at": "2026-11-19T10:00:00+00:00", "reextracted_at": "2026-11-19T11:00:00+00:00",
+            "texto": "TEXTO-DE-PDF", "object_uri": "file:///ruta/local/bases.pdf",
+            "chunks": [{"texto": "TEXTO-DE-FRAGMENTO"}]})
+        (linea,) = self.lineas()
+        self.assertEqual((linea["accion"], linea["resultado"]), ("ingesta", "requiere_revision"))
+        self.assertEqual((linea["doc_id"], linea["paginas_legibles"], linea["paginas_total"]),
+                         ("d1", 1, 2))
+        self.assertEqual(linea["reextracted_at"], "2026-11-19T11:00:00+00:00")
+        texto = json.dumps(linea)
+        for prohibido in ("TEXTO-DE-PDF", "TEXTO-DE-FRAGMENTO", "file:///ruta/local"):
+            self.assertNotIn(prohibido, texto)
+
+    def test_carga_no_guarda_usuario_ni_credenciales_en_claro(self):
+        auditoria.registrar_carga({"tenant_id": "t", "evento_id": "e1", "status": "completo",
+                                   "usuario": "ana", "password": "SECRETO", "token": "TOKEN-X"})
+        (linea,) = self.lineas()
+        texto = json.dumps(linea)
+        for prohibido in ("ana", "SECRETO", "TOKEN-X"):
+            self.assertNotIn(prohibido, texto)
+        self.assertNotIn("usuario", linea)
+
     def test_resultado_es_el_error_si_lo_hay(self):
         auditoria.registrar_consulta({"usuario": "ana", "tenant_id": "t", "error": "tiempo_agotado"})
         auditoria.registrar_lista({"usuario": "ana", "tenant_id": "t", "accion": "lista_alta",

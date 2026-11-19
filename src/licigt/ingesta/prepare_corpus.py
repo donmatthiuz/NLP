@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 
 from .automatic import PortalEvent, event_id_for
+from .eventos import conector_de_auditoria
 from .pipeline import IngestionService, SourceMetadata, _sha256
 
 CORPUS = Path(__file__).with_name("corpus_igss.json")
@@ -16,7 +17,8 @@ def cargar_especificacion(ruta: Path = CORPUS) -> dict:
     return json.loads(Path(ruta).read_text(encoding="utf-8"))
 
 
-def prepare(data_dir: Path, tenant_id: str | None = None, *, spec: dict | None = None) -> list[dict]:
+def prepare(data_dir: Path, tenant_id: str | None = None, *, spec: dict | None = None,
+            auditar=None) -> list[dict]:
     """Ingiere en el orden de la especificación, con sus doc_id e ingested_at fijados.
 
     Sin OCR en la ingesta: así los chunk_id no dependen de si el entorno tiene Tesseract. Las páginas
@@ -27,7 +29,7 @@ def prepare(data_dir: Path, tenant_id: str | None = None, *, spec: dict | None =
         raise ValueError(f"El tenant {tenant_id} no es el de la especificación ({spec['tenant_id']}): "
                          "los doc_id fijos pertenecen a un solo espacio")
     tenant_id = spec["tenant_id"]
-    service = IngestionService(data_dir)
+    service = IngestionService(data_dir, auditar=auditar)
     results = []
     for documento in spec["documentos"]:
         number, digest = documento["numero_evento"], documento["sha256"]
@@ -74,8 +76,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--tenant-id", help="opcional; debe ser el de la especificación")
     parser.add_argument("--data-dir", type=Path, default=Path("data/ingesta"))
+    parser.add_argument("--auditar", action="store_true",
+                        help="guarda el evento de cada carga en la auditoría del rol 4")
     args = parser.parse_args()
-    print(json.dumps(prepare(args.data_dir, args.tenant_id), ensure_ascii=False, indent=2))
+    auditar = conector_de_auditoria() if args.auditar else None
+    print(json.dumps(prepare(args.data_dir, args.tenant_id, auditar=auditar), ensure_ascii=False, indent=2))
 
 
 if __name__ == "__main__":

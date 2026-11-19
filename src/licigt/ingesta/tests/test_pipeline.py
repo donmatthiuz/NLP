@@ -46,6 +46,36 @@ class IngestionTests(unittest.TestCase):
             self.assertEqual(other["version_ingesta"], 1)
             self.assertNotEqual(other["object_uri"], second["object_uri"])
 
+    def test_la_carga_se_entrega_al_conector_de_auditoria(self):
+        pages = [Page(1, "DOCUMENTOS DE LICITACIÓN 399-IGSS-2026", "text", "ok")]
+        with tempfile.TemporaryDirectory() as temporary, \
+                patch("licigt.ingesta.pipeline.extract_pages", return_value=pages), \
+                patch("licigt.ingesta.pipeline.extract_hidden_text", return_value={}):
+            root = Path(temporary)
+            source = root / "doc.pdf"
+            source.write_bytes(b"%PDF-1.4\ncarga")
+            eventos = []
+            manifest = IngestionService(root / "data", auditar=eventos.append).ingest(source, metadata())
+            (evento,) = eventos
+        self.assertEqual((evento["doc_id"], evento["status"]), (manifest["doc_id"], "completo"))
+        self.assertEqual((evento["evento_id"], evento["tenant_id"]), ("evento_399", "empresa_demo"))
+        for campo in ("chunks", "pages", "object_uri", "texto"):
+            self.assertNotIn(campo, evento)
+
+    def test_un_conector_que_falla_no_rompe_la_ingesta(self):
+        pages = [Page(1, "DOCUMENTOS DE LICITACIÓN 399-IGSS-2026", "text", "ok")]
+
+        def roto(evento):
+            raise RuntimeError("auditoría caída")
+        with tempfile.TemporaryDirectory() as temporary, \
+                patch("licigt.ingesta.pipeline.extract_pages", return_value=pages), \
+                patch("licigt.ingesta.pipeline.extract_hidden_text", return_value={}):
+            root = Path(temporary)
+            source = root / "doc.pdf"
+            source.write_bytes(b"%PDF-1.4\ncarga")
+            manifest = IngestionService(root / "data", auditar=roto).ingest(source, metadata())
+        self.assertEqual(manifest["status"], "completo")
+
     def test_wrong_event_and_notice_are_not_indexable(self):
         pages = [Page(1, "CONVOCATORIA 111-IGSS-2026. Las bases no están aquí.", "text", "ok")]
         with tempfile.TemporaryDirectory() as temporary, \

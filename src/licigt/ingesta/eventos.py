@@ -33,6 +33,12 @@ def evento_de_carga(manifest: dict[str, Any]) -> dict[str, Any]:
     return evento
 
 
+def conector_de_auditoria():
+    """Devuelve el registro del rol 4; importa la plataforma solo al usarse, para no acoplar las capas."""
+    from licigt.plataforma.auditoria import registrar_carga
+    return registrar_carga
+
+
 def main(argv: list[str] | None = None) -> None:
     import argparse
     from pathlib import Path

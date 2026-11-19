@@ -14,6 +14,9 @@ from .sesion import SesionNoConfigurada, leer_clave
 CAMPOS_CONSULTA = ("momento", "usuario", "tenant_id", "evento_id", "herramienta", "chunk_ids", "abstained",
                    "needs_human_review", "validacion", "latencia_ms", "error", "chunk_ids_citados",
                    "modelo_generador", "version_prompt")
+# Contrato propuesto por el rol 1: resumen de la carga, sin texto, rutas ni credenciales.
+CAMPOS_CARGA = ("tenant_id", "evento_id", "doc_id", "hash_sha256", "status", "paginas_legibles",
+                "paginas_total", "warnings", "created_at", "reextracted_at")
 CLAVES_INTENCION = ("accion", "motivo", "variante")
 _cerrojo = threading.Lock()
 log = logging.getLogger(__name__)
@@ -60,6 +63,12 @@ def registrar_lista(evento: dict) -> None:
     linea = {k: evento[k] for k in ("momento", "usuario", "tenant_id", "evento_id", "accion", "item_ids", "error")
              if k in evento}
     _escribir({**linea, "resultado": evento.get("error") or "ok"})
+
+
+def registrar_carga(evento: dict) -> None:
+    """Resume una carga de ingesta; descarta cualquier campo fuera del contrato del rol 1."""
+    linea = {k: evento[k] for k in CAMPOS_CARGA if k in evento}
+    _escribir({**linea, "accion": "ingesta", "resultado": evento.get("status") or "ok"})
 
 
 def registrar_login_fallido(usuario: str) -> None:
