@@ -133,4 +133,4 @@ Hecha (F6 a F6f): la compuerta de diseño dio PASS el 17 de noviembre (HOLD en `
 
 ## Pendientes del anteproyecto que dependen de este rol
 
-- Abiertos: la tabla de roles de la sección 15 del anteproyecto, los carnets de Edwin Jose y Gustavo Cruz y el resto de [Cambios_pendientes](../anteproyecto/Cambios_pendientes.md), sin aplicar. El usuario decidió volver a entregar el anteproyecto con esos cambios.
+- Aplicados en el anteproyecto los cambios de las secciones 1, 9 a 13, 15 y 16; el detalle está en [Cambios_pendientes](../anteproyecto/Cambios_pendientes.md). Quedan abiertos solo los que dependen de decisiones: el almacén remoto y la fecha real de entrega.

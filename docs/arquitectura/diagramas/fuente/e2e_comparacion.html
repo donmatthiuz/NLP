@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="diagrama-tamano" content="1600x1504">
+  <title>Extremo a extremo: comparación de versiones</title>
+  <link rel="stylesheet" href="estilos.css">
+</head>
+<body>
+<div class="lienzo" id="lienzo" style="width:1600px">
+  <div class="cabecera">
+    <div class="titulo-principal">Extremo a extremo: comparación de versiones</div>
+    <div class="subtitulo">La fecha de recepción se compara entre las bases y la modificación 1 del evento 222, con revisión humana</div>
+  </div>
+  <div class="mapa" id="mapa"></div>
+  <div id="leyenda"></div>
+</div>
+<div id="verificacion"></div>
+<script src="diagrama.js"></script>
+<script>
+(function () {
+  const D = window.Diagrama, F = D.flecha;
+  const HS = [336, 300, 336, 336];
+  const AY = 44, G = 6;
+  const Y = []; HS.reduce((y, h) => { Y.push(y); return y + h + G; }, AY);
+  const BOT = Y[Y.length - 1] + HS[HS.length - 1] + 12;
+  D.init({ w: 1600, h: BOT + 12 });
+  D.leyenda('leyenda');
+  D.limite({ x: 12, y: 8, w: 1576, h: BOT - 8, etq: 'Sistema LiciGT' });
+
+  const cy = y => y + 84;
+  const exTop = y => cy(y) + 130;
+  const base = (carril, rol) => ({ carril, rol: rol || 'rol 3', est: 'ok' });
+  const box = (c, y, id, x, w, p) => D.nodo(Object.assign({ id, x, y: cy(y) - 50, w, h: 100, tipo: 'codigo' }, base(c), p));
+  const dec = (c, y, id, x, w, p) => D.nodo(Object.assign({ id, x, y: cy(y) - 60, w, h: 120, tipo: 'decision' }, base(c), p));
+  const exc = (c, y, id, x, w, p) => D.nodo(Object.assign({ id, x, y: exTop(y), w, h: 96, tipo: 'salida', sk: 14, sec: true }, base(c), p));
+  const hum = (c, y, id, x, p) => D.nodo(Object.assign({ id, x, y: cy(y) - 50, w: 130, h: 100, tipo: 'humano', carril: c }, p));
+  const lane = (i, id, tab) => D.carril({ id, x: 24, y: Y[i], w: 1552, h: HS[i], tab });
+  const cxn = id => D.nodos[id].x + D.nodos[id].w / 2;
+  const fin = (id, a, i) => F({ de: id, ds: 'e', a, as: 'n', via: [[1530, null], [null, Y[i] + HS[i] + 3], [cxn(a), null]] });
+  const no = (de, a, dof, i0) => F({ de, ds: 's', dof: dof === undefined ? -40 : dof, m: cy(Y[i0]) + 108, a, as: 'n', tipo: 'excepcion' });
+  const A = Y[0], B = Y[1], C = Y[2], E = Y[3];
+  const SI = [{ t: 'sí', l: 'a' }];
+  const NO = [{ t: 'no', i: 0, l: 'i', f: 0.95 }];
+
+  // ---------- A · Petición ----------
+  lane(0, 'A', 'A · Petición y alcance');
+  hum('A', A, 'an', 84, { titulo: 'Analista' });
+  box('A', A, 'ct', 270, 220, { rol: 'rol 4', titulo: 'Sesión', linea: 'empresa y evento' });
+  dec('A', A, 'gr', 580, 240, { titulo: '¿Segura?', linea: 'guardrail' });
+  box('A', A, 'er', 900, 220, { titulo: 'Enrutador', linea: 'reglas' });
+  box('A', A, 'tv', 1210, 280, { titulo: 'Comparar', linea: 'comparar_versiones' });
+  exc('A', A, 'ab', 580, 240, { titulo: 'Abstención', linea: 'pregunta insegura' });
+  D.nota({ x: 84, y: exTop(A) + 4, t: 'Compara la fecha de recepción de' });
+  D.nota({ x: 84, y: exTop(A) + 36, t: 'ofertas entre las bases y la' });
+  D.nota({ x: 84, y: exTop(A) + 68, t: 'modificación' });
+  D.nota({ x: 900, y: exTop(A) + 20, t: 'Evento 222-IGSS-2023' });
+  D.nota({ x: 900, y: exTop(A) + 52, t: 'La empresa sale de la sesión' });
+
+  // ---------- B · Documentos ----------
+  lane(1, 'B', 'B · Documentos');
+  const cb = B + 150;
+  D.nodo({ id: 'fl', x: 84, y: cb - 50, w: 210, h: 100, tipo: 'codigo', carril: 'B', rol: 'rol 2', est: 'ok', titulo: 'Filtro SQL', linea: 'empresa y evento' });
+  D.nodo({ id: 'ba', x: 350, y: cb - 124, w: 320, h: 104, tipo: 'datos', carril: 'B', rol: 'rol 2', est: 'ok', titulo: 'Bases', linea: 'p. 8 · 31 jul 2023, 11:00' });
+  D.nodo({ id: 'mo', x: 350, y: cb + 20, w: 320, h: 104, tipo: 'datos', carril: 'B', rol: 'rol 2', est: 'ok', titulo: 'Modificación 1', linea: 'p. 1 · 06 oct 2023, 11:00' });
+  D.nodo({ id: 'ev', x: 760, y: cb - 52, w: 260, h: 104, tipo: 'datos', carril: 'B', rol: 'rol 2', est: 'ok', titulo: 'Evidencia', linea: '2 fragmentos por documento' });
+  D.nodo({ id: 'av', x: 1110, y: cb - 50, w: 340, h: 100, tipo: 'codigo', carril: 'B', rol: 'rol 2', est: 'ok', titulo: 'Avisos', linea: 'p. 4 sin indexar y anexo de 11' });
+
+  // ---------- C · Comparación ----------
+  lane(2, 'C', 'C · Comparación y citas');
+  box('C', C, 'pr', 84, 180, { titulo: 'Prompt', linea: 'dos documentos' });
+  box('C', C, 'llm', 310, 200, { tipo: 'llm', titulo: 'Qwen3.5-9B', linea: 'local · semilla 42' });
+  box('C', C, 'va', 556, 190, { titulo: 'Validar', linea: 'citas literales' });
+  dec('C', C, 'vd', 792, 210, { titulo: '¿Válida?', linea: 'citas y datos' });
+  box('C', C, 'cp', 1090, 290, { tipo: 'salida', sk: 14, titulo: 'Comparación', linea: 'una afirmación por versión' });
+  exc('C', C, 'rg', 740, 180, { titulo: 'Regenerar', linea: 'una vez' });
+  exc('C', C, 'sg', 1000, 340, { titulo: 'Salida segura', linea: 'lo válido; si no, abstención' });
+  D.nota({ x: 84, y: exTop(C) + 68, t: 'El modelo no decide la vigencia' });
+
+  // ---------- D · Salida y revisión ----------
+  lane(3, 'D', 'D · Salida y revisión');
+  box('D', E, 'rs', 84, 400, { tipo: 'salida', sk: 14, titulo: 'Respuesta', linea: 'bases y modificación, con citas' });
+  box('D', E, 'wa', 580, 400, { titulo: 'Estado', linea: 'cobertura parcial y avisos' });
+  box('D', E, 'au', 1100, 420, { rol: 'rol 4', titulo: 'Auditoría', linea: 'evento en finally' });
+  D.nodo({ id: 'rv', x: 84, y: exTop(E), w: 130, h: 96, tipo: 'humano', sec: true, carril: 'D', titulo: 'Revisor' });
+  exc('D', E, 'pn', 630, 300, { tipo: 'salida', titulo: 'Panel', linea: 'página 4 y anexo' });
+  D.nota({ x: 250, y: exTop(E) + 4, t: 'needs_human_review' });
+  D.nota({ x: 250, y: exTop(E) + 36, t: 'El sistema no decide' });
+  D.nota({ x: 250, y: exTop(E) + 68, t: 'cuál rige' });
+  D.nota({ x: 1100, y: cy(E) + 66, t: 'Una columna por versión' });
+  D.nota({ x: 1100, y: exTop(E) + 84, t: 'Cada afirmación lleva su cita' });
+  D.nota({ x: 1100, y: exTop(E) + 20, t: 'Consulta de la demo: 6,3 s' });
+  D.nota({ x: 1100, y: exTop(E) + 52, t: 'El revisor decide la vigencia' });
+
+  // ---------- flechas ----------
+  F({ de: 'an', ds: 'e', a: 'ct', as: 'w' });
+  F({ de: 'ct', ds: 'e', a: 'gr', as: 'w' });
+  F({ de: 'gr', ds: 'e', a: 'er', as: 'w', et: SI });
+  F({ de: 'er', ds: 'e', a: 'tv', as: 'w' });
+  no('gr', 'ab', -40, 0);
+  fin('tv', 'fl', 0);
+
+  F({ de: 'fl', ds: 'e', a: 'ba', as: 'w' });
+  F({ de: 'fl', ds: 'e', a: 'mo', as: 'w' });
+  F({ de: 'ba', ds: 'e', a: 'ev', as: 'w', aof: -18, tipo: 'datos' });
+  F({ de: 'mo', ds: 'e', a: 'ev', as: 'w', aof: 18, tipo: 'datos' });
+  F({ de: 'ev', ds: 'e', a: 'av', as: 'w', tipo: 'datos' });
+  fin('av', 'pr', 1);
+
+  F({ de: 'pr', ds: 'e', a: 'llm', as: 'w' });
+  F({ de: 'llm', ds: 'e', a: 'va', as: 'w' });
+  F({ de: 'va', ds: 'e', a: 'vd', as: 'w' });
+  F({ de: 'vd', ds: 'e', a: 'cp', as: 'w', et: SI });
+  F({ de: 'vd', ds: 's', dof: -40, m: cy(C) + 108, a: 'rg', as: 'n', tipo: 'excepcion', et: [{ t: 'no', i: 2, l: 'i', f: 0.5 }] });
+  F({ de: 'vd', ds: 's', dof: 70, m: cy(C) + 108, a: 'sg', as: 'n', tipo: 'excepcion', et: [{ t: 'sin tiempo', i: 1, l: 'a', f: 0.5 }] });
+  F({ de: 'rg', ds: 'w', a: 'pr', as: 'w', via: [[60, null], [null, cy(C)]], tipo: 'excepcion' });
+  F({ de: 'rg', ds: 'e', a: 'sg', as: 'w', tipo: 'excepcion', et: [{ t: 'falla', l: 'a' }] });
+  fin('cp', 'rs', 2);
+
+  F({ de: 'rs', ds: 'e', a: 'wa', as: 'w', tipo: 'datos' });
+  F({ de: 'wa', ds: 'e', a: 'au', as: 'w' });
+  F({ de: 'wa', ds: 's', dof: 0, a: 'pn', as: 'n', tipo: 'datos' });
+  F({ de: 'rs', ds: 's', dof: -40, m: cy(E) + 108, a: 'rv', as: 'n', tipo: 'revision', et: [{ t: 'si revisa', i: 2, l: 'i', f: 0.5 }] });
+
+  D.listo();
+})();
+</script>
+</body>
+</html>

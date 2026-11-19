@@ -1,6 +1,6 @@
 # Pendientes del proyecto LiciGT
 
-**Estado al 18 de noviembre de 2026**, tras la revisión retrospectiva ([Revision_retrospectiva](consulta/Revision_retrospectiva.md)). Lista viva de lo que falta, con foco en el rol 3. Las casillas marcadas llevan el commit donde se hicieron. Los detalles por rol están en [Pendientes_rol_1](ingesta/Pendientes_rol_1.md), [Recuperacion](recuperacion/Recuperacion.md#pendientes) y [Plan_rol_3](consulta/Plan_rol_3.md). Los documentos originales del curso están en la carpeta de tareas de OneDrive (`tareas/proyecto`): instrucciones en PDF, plantilla `.docx`, diapositivas del docente, `advisor-summary.md` y diagramas (`diagrams/`, con su `.drawio` y generador).
+**Estado al 19 de noviembre de 2026**, tras la revisión retrospectiva ([Revision_retrospectiva](consulta/Revision_retrospectiva.md)) y las correcciones de cierre. Lista viva de lo que falta, con foco en el rol 3. Las casillas marcadas llevan el commit donde se hicieron. Los detalles por rol están en [Pendientes_rol_1](ingesta/Pendientes_rol_1.md), [Recuperacion](recuperacion/Recuperacion.md#pendientes) y [Plan_rol_3](consulta/Plan_rol_3.md). Los documentos originales del curso están en la carpeta de tareas de OneDrive (`tareas/proyecto`): instrucciones en PDF, plantilla `.docx`, diapositivas del docente, `advisor-summary.md` y diagramas (`diagrams/`, con su `.drawio` y generador).
 
 ## Actualización visual del 19 de noviembre de 2026
 
@@ -40,14 +40,14 @@ Abiertas:
 Los cambios concretos por sección están en [Cambios_pendientes](anteproyecto/Cambios_pendientes.md).
 
 - [x] Completar los carnets de Edwin Jose y Gustavo Cruz (sección 1).
-- [ ] Actualizar la tabla de roles de la sección 15 con la asignación de [Asignacion_de_roles](roles/Asignacion_de_roles.md).
-- [ ] Revisar las fechas relativas del plan de trabajo frente a la fecha real de entrega.
-- [ ] Comparar las 16 secciones contra la plantilla `.docx` y entregar en el formato que pida el docente (el repo tiene `.md` y `.pdf`).
-- [ ] Anotar que los resultados de evaluación son metas, no resultados.
+- [x] Actualizar la tabla de roles de la sección 15 con la asignación de [Asignacion_de_roles](roles/Asignacion_de_roles.md). **Aplicado:** sección 15.
+- [x] Revisar las fechas relativas del plan de trabajo frente a la fecha real de entrega. La entrega es el 19 de noviembre de 2026 (confirmado por el usuario, [D3](consulta/delegacion/D3_actualizacion_y_cierre.md)); el plan del anteproyecto conserva semanas relativas porque describe la planificación original.
+- [ ] Comparar las 16 secciones contra la plantilla `.docx` y entregar en el formato que pida el docente (el repo tiene `.md` y `.pdf`). La plantilla está en OneDrive, fuera del repositorio; no se puede verificar desde aquí.
+- [x] Anotar que los resultados de evaluación son metas, no resultados. **Aplicado:** sección 12 ("Métricas y metas propuestas" y "Limitaciones declaradas").
 
 ### Diagramas
 
-- [ ] Actualizar las dos figuras frente al código actual: estados de implementación, reglas/JEV, propuesta de lista, autenticación y regeneración. La [revisión del 19 de noviembre](arquitectura/diagramas/Revision_actualidad.md) verificó maquetación OK, pero contenido desactualizado.
+- [x] Actualizar las dos figuras frente al código actual: estados de implementación, reglas/JEV, propuesta de lista, autenticación y regeneración. Las fuentes HTML ya estaban corregidas; los PNG se regeneraron el 19 de noviembre y la verificación de maquetación dio `OK`. [Detalle](arquitectura/diagramas/Revision_actualidad.md#cierre-del-19-de-noviembre).
 
 - [x] Decisión: fuente en HTML autocontenido exportado a PNG, en `docs/arquitectura/diagramas/`. La versión anterior de OneDrive está deprecada y no se usa como referencia. Se borró `arquitectura.jpeg` (GUATECOMPRAS y NOG, sin referencias).
 - [x] Diagrama general y flujo de consulta: encargo [D1](consulta/delegacion/D1_diagramas.md), aprobado por el revisor de compuerta (PASS) el 16 de noviembre. Reemplazan a `arquitectura_igss.svg`; referencias actualizadas en el anteproyecto y en `DESIGN.md`.
@@ -57,16 +57,16 @@ Los cambios concretos por sección están en [Cambios_pendientes](anteproyecto/C
 
 ### Documento técnico (10 a 15 páginas)
 
-- [x] Existe en [Documento_tecnico](informe/Documento_tecnico.md) (`e2eead7`, actualizado con la revisión retrospectiva) con todas las secciones pedidas. Abierto: su longitud (el curso pide 10 a 15 páginas) y el formato final de entrega.
+- [x] Existe en [Documento_tecnico](informe/Documento_tecnico.md) (`e2eead7`, actualizado con la revisión retrospectiva) con todas las secciones pedidas. `make informe-pdf` genera 15 páginas, dentro del rango de 10 a 15. El formato final de entrega sigue por decidir.
 - [x] Declaración del uso de herramientas de IA y su grado de intervención: sección 13 del documento técnico.
 - [x] Citar formalmente librerías, modelos y referencias: sección 14 del documento técnico.
 
 ### Presentación final (15 minutos)
 
-- [ ] Las diapositivas de `CC3103 - Procesamiento de Lenguaje Natural.pptx` son del docente, no del equipo (desde el 18 de noviembre están en `.referencias/`, fuera del repositorio). Falta armar la propia.
-- [ ] Estructura: problema 2 min, arquitectura 3, demo 4, métricas 3, seguridad 2, cierre 1.
-- [ ] Manifiesto del anteproyecto (diapositiva 20): usuario, problema, evidencia, demostración, riesgo y mitigación.
-- [ ] Demo en vivo: consulta nominal, trazabilidad de citas, abstención, herramientas, prueba de seguridad y diagnóstico de una falla real.
+- [x] Las diapositivas de `CC3103 - Procesamiento de Lenguaje Natural.pptx` son del docente, no del equipo (desde el 18 de noviembre están en `.referencias/`, fuera del repositorio). La presentación propia está armada en [Diapositivas.md](presentacion/Diapositivas.md) y se exporta con `make presentacion-pptx`; quedan por completar los nombres en la diapositiva de roles.
+- [x] Estructura: problema 2 min, arquitectura 3, demo 4, métricas 3, seguridad 2, cierre 1. Las 15 diapositivas siguen ese orden con notas del orador.
+- [x] Manifiesto del anteproyecto (diapositiva 20): usuario, problema, evidencia, demostración, riesgo y mitigación, en la diapositiva "Manifiesto: usuario, problema y riesgo".
+- [ ] Demo grabada en el video (el docente autorizó video en lugar de presentación en vivo, 15 minutos; [D3](consulta/delegacion/D3_actualizacion_y_cierre.md)): consulta nominal, trazabilidad de citas, abstención, herramientas, prueba de seguridad y diagnóstico de una falla real. Guion en [Guion_video](presentacion/Guion_video.md); la grabación es la quinta medición de [Demo_222](consulta/Demo_222.md).
 - [ ] Defensa individual: cada integrante debe poder explicar cada línea de su código.
 
 ### Entrega de código
@@ -95,7 +95,7 @@ Resumen; el detalle está en [Pendientes_rol_1](ingesta/Pendientes_rol_1.md).
 - [x] Corregir la clasificación del conector automático (`8df7c95`).
 - [x] `tabla_markdown` vacío (R3, `87c5d90`) y `seccion` con pies de página (R6, `7c117d9`).
 - [x] Filtro de ruido del OCR en toda la ingesta (R7, `3c8a4c9`).
-- [ ] Registro de eventos de ingesta para el rol 4: existe `evento_de_carga` (`a3ce147`), pero la API no lo guarda en la auditoría.
+- [x] Registro de eventos de ingesta para el rol 4: `auditoria.registrar_carga` guarda el `evento_de_carga`; la ingesta lo ofrece con `--auditar` y el conector se importa solo al usarse. Pruebas en `test_auditoria.py` y `test_pipeline.py`.
 
 ## Rol 2: recuperación
 
@@ -126,7 +126,7 @@ El plan por fases está en [Plan_rol_3](consulta/Plan_rol_3.md). Orden sugerido:
   - Correcciones aplicadas: R7 (`3c8a4c9`), J2 (`afc6b07`), E3 (`987b2f6`), P2 (`9b22d02`), C21 (`4d997dd`), F7b y F7c (`e837ea2`) y `make web` en modo API (`8584c73`).
   - Declaradas como limitación en el documento técnico: lo que la revisión marcó como "declarar".
 - [ ] **Abiertos tras la retrospectiva:**
-  - volver a entregar el anteproyecto con [Cambios_pendientes](anteproyecto/Cambios_pendientes.md) aplicado (16 de 17 cambios sin aplicar);
+  - volver a entregar el anteproyecto con [Cambios_pendientes](anteproyecto/Cambios_pendientes.md) aplicado: los cambios aplicables ya están en el `.md` y el `.pdf` regenerado; quedan sin aplicar los dos que dependen de decisiones (almacén remoto y fecha real de entrega);
   - el repositorio sigue con el material del docente en su historial: hacerlo privado le corresponde a su dueño;
   - la quinta medición de la demo con sesión y la preparación de la demo con `make usuarios-demo`;
   - el P95 sigue sobre 15 s (32,0 s en la corrida oficial);

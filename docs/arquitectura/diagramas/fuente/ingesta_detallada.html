@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="diagrama-tamano" content="1600x1540">
+  <title>Ingesta detallada de LiciGT</title>
+  <link rel="stylesheet" href="estilos.css">
+</head>
+<body>
+<div class="lienzo" id="lienzo" style="width:1600px">
+  <div class="cabecera">
+    <div class="titulo-principal">Ingesta detallada de LiciGT</div>
+    <div class="subtitulo">Del PDF del IGSS al paquete versionado que consumen los índices</div>
+  </div>
+  <div class="mapa" id="mapa"></div>
+  <div id="leyenda"></div>
+</div>
+<div id="verificacion"></div>
+<script src="diagrama.js"></script>
+<script>
+(function () {
+  const D = window.Diagrama, F = D.flecha;
+  const HS = [336, 336, 336, 336];
+  const AY = 44, G = 6;
+  const Y = []; HS.reduce((y, h) => { Y.push(y); return y + h + G; }, AY);
+  const BOT = Y[Y.length - 1] + HS[HS.length - 1] + 12;
+  D.init({ w: 1600, h: BOT + 12 });
+  D.leyenda('leyenda');
+  D.limite({ x: 12, y: 8, w: 1576, h: BOT - 8, etq: 'Sistema LiciGT' });
+
+  const cy = y => y + 84;
+  const exTop = y => cy(y) + 130;
+  const base = (carril, rol) => ({ carril, rol: rol || 'rol 3', est: 'ok' });
+  const box = (c, y, id, x, w, p) => D.nodo(Object.assign({ id, x, y: cy(y) - 50, w, h: 100, tipo: 'codigo' }, base(c), p));
+  const dec = (c, y, id, x, w, p) => D.nodo(Object.assign({ id, x, y: cy(y) - 60, w, h: 120, tipo: 'decision' }, base(c), p));
+  const exc = (c, y, id, x, w, p) => D.nodo(Object.assign({ id, x, y: exTop(y), w, h: 96, tipo: 'salida', sk: 14, sec: true }, base(c), p));
+  const hum = (c, y, id, x, p) => D.nodo(Object.assign({ id, x, y: cy(y) - 50, w: 130, h: 100, tipo: 'humano', carril: c }, p));
+  const lane = (i, id, tab) => D.carril({ id, x: 24, y: Y[i], w: 1552, h: HS[i], tab });
+  const cxn = id => D.nodos[id].x + D.nodos[id].w / 2;
+  const fin = (id, a, i) => F({ de: id, ds: 'e', a, as: 'n', via: [[1530, null], [null, Y[i] + HS[i] + 3], [cxn(a), null]] });
+  const no = (de, a, dof, i0) => F({ de, ds: 's', dof: dof === undefined ? -40 : dof, m: cy(Y[i0]) + 108, a, as: 'n', tipo: 'excepcion' });
+  const A = Y[0], B = Y[1], C = Y[2], E = Y[3];
+  const SI = [{ t: 'sí', l: 'a' }];
+  const NO = [{ t: 'no', i: 0, l: 'i', f: 0.95 }];
+  const SIB = [{ t: 'sí', i: 0, l: 'i', f: 0.95 }];
+  const r1 = { rol: 'rol 1' };
+
+  // ---------- A · Validación ----------
+  lane(0, 'A', 'A · Validación');
+  hum('A', A, 'an', 84, { titulo: 'Analista' });
+  box('A', A, 'va', 270, 220, { titulo: 'Validar', linea: 'PDF, tamaño y URL', ...r1 });
+  dec('A', A, 'vd', 560, 210, { titulo: '¿Válido?', linea: 'PDF y origen', ...r1 });
+  box('A', A, 'sh', 850, 220, { titulo: 'Huella', linea: 'SHA-256 del archivo', ...r1 });
+  dec('A', A, 'ed', 1150, 230, { titulo: '¿Ya existe?', linea: 'evento, clave y hash', ...r1 });
+  exc('A', A, 'xr', 560, 210, { titulo: 'Rechazo', linea: 'no se ingesta', ...r1 });
+  exc('A', A, 'xm', 1150, 230, { titulo: 'Manifiesto previo', linea: 'se devuelve el existente', ...r1 });
+  D.nota({ x: 84, y: exTop(A) + 30, t: 'Cabecera %PDF-, hasta 50 MB,' });
+  D.nota({ x: 84, y: exTop(A) + 62, t: 'dominio igssgt.org y HTTPS' });
+  D.nota({ x: 840, y: exTop(A) + 30, t: 'El mismo archivo en el mismo' });
+  D.nota({ x: 840, y: exTop(A) + 62, t: 'evento no genera otra versión' });
+
+  // ---------- B · Extracción ----------
+  lane(1, 'B', 'B · Extracción');
+  box('B', B, 'po', 84, 190, { titulo: 'Poppler', linea: 'pdftotext -layout', ...r1 });
+  dec('B', B, 'td', 330, 220, { titulo: '¿Texto útil?', linea: '30 caracteres', ...r1 });
+  box('B', B, 'tp', 640, 240, { titulo: 'Texto por página', linea: 'tablas con pdfplumber', ...r1 });
+  box('B', B, 'to', 950, 220, { titulo: 'Texto oculto', linea: 'pdftohtml -hidden', ...r1 });
+  box('B', B, 'ev', 1260, 230, { titulo: 'Evento', linea: 'número en el PDF', ...r1 });
+  exc('B', B, 'oc', 330, 220, { tipo: 'codigo', sec: false, sk: 0, titulo: 'OCR', linea: 'Tesseract en español', ...r1 });
+  exc('B', B, 'xp', 960, 240, { titulo: 'Página incompleta', linea: 'no se fragmenta', ...r1 });
+  D.nota({ x: 84, y: exTop(B) + 38, t: 'Sin texto útil, OCR' });
+  D.nota({ x: 1260, y: exTop(B) + 30, t: 'Si el número falta,' });
+  D.nota({ x: 1260, y: exTop(B) + 62, t: 'nada se indexa' });
+
+  // ---------- C · Preparación ----------
+  lane(2, 'C', 'C · Preparación');
+  box('C', C, 'li', 84, 210, { titulo: 'Limpiar', linea: 'márgenes y ruido', ...r1 });
+  box('C', C, 'se', 340, 240, { titulo: 'Segmentar', linea: '600 palabras, solape 90', ...r1 });
+  box('C', C, 'in', 630, 230, { titulo: 'Inyección', linea: 'texto visible y oculto', ...r1 });
+  dec('C', C, 'sd', 920, 230, { titulo: '¿Inyecta?', linea: 'señales juntas', ...r1 });
+  box('C', C, 'ix', 1230, 250, { tipo: 'salida', sk: 14, titulo: 'Indexable', linea: 'fragmento y metadatos', ...r1 });
+  exc('C', C, 'xn', 920, 230, { titulo: 'No indexable', linea: 'indexable = false', ...r1 });
+  D.nota({ x: 84, y: exTop(C) + 4, t: 'Frase fija, o destinatario IA más orden' });
+  D.nota({ x: 84, y: exTop(C) + 36, t: 'a menos de 200 caracteres: la página' });
+  D.nota({ x: 84, y: exTop(C) + 68, t: 'entera queda sin indexar' });
+  D.nota({ x: 1230, y: exTop(C) + 20, t: 'También sin indexar si es solo' });
+  D.nota({ x: 1230, y: exTop(C) + 52, t: 'convocatoria o el texto oculto' });
+  D.nota({ x: 1230, y: exTop(C) + 84, t: 'no se pudo revisar' });
+
+  // ---------- D · Publicación ----------
+  lane(3, 'D', 'D · Publicación');
+  box('D', E, 've', 84, 200, { titulo: 'Versión', linea: 'v1, v2, sin borrar', ...r1 });
+  D.nodo({ id: 'or', x: 340, y: cy(E) - 52, w: 240, h: 104, tipo: 'datos', carril: 'D', rol: 'rol 1', est: 'ok', titulo: 'Original', linea: 'MinIO o almacén local' });
+  box('D', E, 'ma', 640, 240, { titulo: 'Manifiesto', linea: 'estado, páginas y chunks', ...r1 });
+  box('D', E, 'zi', 940, 240, { tipo: 'documento', titulo: 'Paquete ZIP', linea: 'originales y chunks', ...r1 });
+  D.nodo({ id: 'r2', x: 1250, y: cy(E) - 52, w: 240, h: 104, tipo: 'datos', carril: 'D', rol: 'rol 2', est: 'ok', titulo: 'Índices', linea: 'por evento' });
+  exc('D', E, 'xq', 640, 240, { titulo: 'Revisión', linea: 'requiere_revision', ...r1 });
+  exc('D', E, 'au', 940, 240, { rol: 'rol 4', titulo: 'Auditoría', linea: 'registra la carga' });
+  D.nota({ x: 84, y: exTop(E) + 20, t: 'El original no se modifica' });
+  D.nota({ x: 84, y: exTop(E) + 52, t: 'Cada versión enlaza la anterior' });
+  D.nota({ x: 1250, y: exTop(E) + 20, t: 'Un aviso deja el documento' });
+  D.nota({ x: 1250, y: exTop(E) + 52, t: 'en requiere_revision' });
+
+  // ---------- flechas ----------
+  F({ de: 'an', ds: 'e', a: 'va', as: 'w' });
+  F({ de: 'va', ds: 'e', a: 'vd', as: 'w' });
+  F({ de: 'vd', ds: 'e', a: 'sh', as: 'w', et: SI });
+  F({ de: 'sh', ds: 'e', a: 'ed', as: 'w' });
+  no('vd', 'xr', -40, 0);
+  F({ de: 'ed', ds: 's', dof: -40, m: cy(A) + 108, a: 'xm', as: 'n', tipo: 'excepcion', et: SIB });
+  fin('ed', 'po', 0);
+
+  F({ de: 'po', ds: 'e', a: 'td', as: 'w' });
+  F({ de: 'td', ds: 'e', a: 'tp', as: 'w', et: SI });
+  F({ de: 'tp', ds: 'e', a: 'to', as: 'w' });
+  F({ de: 'to', ds: 'e', a: 'ev', as: 'w' });
+  F({ de: 'td', ds: 's', dof: -40, m: cy(B) + 108, a: 'oc', as: 'n', tipo: 'excepcion', et: NO });
+  F({ de: 'oc', ds: 'e', aof: -20, a: 'tp', as: 's', et: [{ t: 'texto OCR', l: 'a', f: 0.5 }] });
+  F({ de: 'oc', ds: 'e', aof: 20, a: 'xp', as: 'w', tipo: 'excepcion', et: [{ t: 'menos de 30', l: 'b', f: 0.5 }] });
+  fin('ev', 'li', 1);
+
+  F({ de: 'li', ds: 'e', a: 'se', as: 'w' });
+  F({ de: 'se', ds: 'e', a: 'in', as: 'w' });
+  F({ de: 'in', ds: 'e', a: 'sd', as: 'w' });
+  F({ de: 'sd', ds: 'e', a: 'ix', as: 'w', et: [{ t: 'no', l: 'a' }] });
+  F({ de: 'sd', ds: 's', dof: -40, m: cy(C) + 108, a: 'xn', as: 'n', tipo: 'excepcion', et: SIB });
+  fin('ix', 've', 2);
+
+  F({ de: 've', ds: 'e', a: 'or', as: 'w' });
+  F({ de: 'or', ds: 'e', a: 'ma', as: 'w', tipo: 'datos' });
+  F({ de: 'ma', ds: 'e', a: 'zi', as: 'w' });
+  F({ de: 'zi', ds: 'e', a: 'r2', as: 'w', tipo: 'datos' });
+  F({ de: 'ma', ds: 's', dof: -40, m: cy(E) + 108, a: 'xq', as: 'n', tipo: 'excepcion' });
+  F({ de: 'zi', ds: 's', dof: -40, m: cy(E) + 108, a: 'au', as: 'n', tipo: 'datos' });
+
+  D.listo();
+})();
+</script>
+</body>
+</html>

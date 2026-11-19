@@ -30,6 +30,19 @@ Presentación del proyecto. El analista de una empresa proveedora del IGSS cruza
 Se plantea la hipótesis y sus límites. El sistema ayuda a leer, no decide: nunca dice qué documento está vigente ni certifica cumplimiento.
 :::
 
+# Manifiesto: usuario, problema y riesgo
+
+- **Usuario:** analista de una empresa proveedora que prepara una oferta para el IGSS.
+- **Problema:** cruzar bases, cronograma y modificaciones a mano; usar una fecha o un requisito vencido cuesta caro.
+- **Evidencia:** 5 licitaciones y 6 PDF; bancos de 23 y 20 casos; reporte reproducible.
+- **Demostración:** evento 222 con cita verificada, conflicto, abstención y lista confirmada.
+- **Riesgo:** inyección en documentos y fuga de datos entre empresas.
+- **Mitigación:** fragmentos como datos no confiables, validador de citas, `tenant_id` de la sesión y 8 de 8 pruebas de seguridad.
+
+::: notes
+Manifiesto en una diapositiva, como pide la diapositiva 20 del anteproyecto. Dos minutos con la hipótesis anterior: usuario, problema, evidencia, demostración, riesgo y mitigación. No prometer latencia ni métricas humanas.
+:::
+
 # Arquitectura general
 
 ![](../arquitectura/diagramas/arquitectura_general.png)
@@ -67,6 +80,14 @@ Cinco porqués encadenados, de dato equivocado a validador determinista: la conf
 
 ::: notes
 Dos barreras de aislamiento. JEV y el LLM local mejoran el enrutamiento (McNemar p = 3,1·10⁻⁵ para JEV), pero la regla fijada de antemano exige P95 dentro de 15 s y no se cumple, así que el sistema entregado usa reglas.
+:::
+
+# Experimento de adopción: reglas, JEV y LLM local
+
+![](../arquitectura/diagramas/experimento_jev.png)
+
+::: notes
+Tres variantes del enrutador sobre los mismos conjuntos, con etiquetado a ciegas y la regla de adopción fijada antes de correr: sin más errores críticos, McNemar p menor a 0,05 y P95 de 15 s o menos. JEV y el LLM local aciertan más que las reglas, pero no cumplen la latencia: el sistema entregado usa reglas. En las fechas de la lista, las reglas tuvieron 11 aciertos y 0 críticos y JEV no podía superarlas.
 :::
 
 # Demostración: evento 222-IGSS-2023
@@ -113,6 +134,14 @@ Resultados medidos tal cual. Corrida oficial con la GPU de escritorio compartida
 
 ::: notes
 La causa de fondo es la generación del LLM local de 9B con un solo hueco en llama-server. La asociación con la carga de la GPU no se aisló con un experimento. No se demostró que con la GPU libre se cumpla la meta.
+:::
+
+# Seguridad: inyección directa e indirecta
+
+![](../arquitectura/diagramas/e2e_inyeccion.png)
+
+::: notes
+La inyección directa la detiene el guardrail de entrada y el sistema se abstiene sin herramienta ni LLM. La indirecta, dentro de un documento, la marca la ingesta con dos señales y la búsqueda la quita de la evidencia: los fragmentos son datos, nunca instrucciones.
 :::
 
 # Seguridad: 8 de 8

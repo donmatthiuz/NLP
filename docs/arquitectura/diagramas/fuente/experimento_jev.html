@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="diagrama-tamano" content="1600x1738">
+  <title>Experimento con JEV</title>
+  <link rel="stylesheet" href="estilos.css">
+</head>
+<body>
+<div class="lienzo" id="lienzo" style="width:1600px">
+  <div class="cabecera">
+    <div class="titulo-principal">Experimento con JEV</div>
+    <div class="subtitulo">Reglas, JEV y LLM local sobre los mismos conjuntos, con una regla de adopción fijada antes</div>
+  </div>
+  <div class="mapa" id="mapa"></div>
+  <div id="leyenda"></div>
+</div>
+<div id="verificacion"></div>
+<script src="diagrama.js"></script>
+<script>
+(function () {
+  const D = window.Diagrama, F = D.flecha;
+  const HS = [440, 430, 336, 336];
+  const AY = 44, G = 6;
+  const Y = []; HS.reduce((y, h) => { Y.push(y); return y + h + G; }, AY);
+  const BOT = Y[Y.length - 1] + HS[HS.length - 1] + 12;
+  D.init({ w: 1600, h: BOT + 12 });
+  D.leyenda('leyenda');
+  D.limite({ x: 12, y: 8, w: 1576, h: BOT - 8, etq: 'Experimento, fuera del sistema entregado' });
+
+  const cy = y => y + 84;
+  const exTop = y => cy(y) + 130;
+  const base = (carril, rol) => ({ carril, rol: rol || 'rol 3', est: 'ok' });
+  const box = (c, y, id, x, w, p) => D.nodo(Object.assign({ id, x, y: cy(y) - 50, w, h: 100, tipo: 'codigo' }, base(c), p));
+  const dec = (c, y, id, x, w, p) => D.nodo(Object.assign({ id, x, y: cy(y) - 60, w, h: 120, tipo: 'decision' }, base(c), p));
+  const exc = (c, y, id, x, w, p) => D.nodo(Object.assign({ id, x, y: exTop(y), w, h: 96, tipo: 'salida', sk: 14, sec: true }, base(c), p));
+  const hum = (c, y, id, x, p) => D.nodo(Object.assign({ id, x, y: cy(y) - 50, w: 130, h: 100, tipo: 'humano', carril: c }, p));
+  const lane = (i, id, tab) => D.carril({ id, x: 24, y: Y[i], w: 1552, h: HS[i], tab });
+  const cxn = id => D.nodos[id].x + D.nodos[id].w / 2;
+  const fin = (id, a, i) => F({ de: id, ds: 'e', a, as: 'n', via: [[1530, null], [null, Y[i] + HS[i] + 3], [cxn(a), null]] });
+  const no = (de, a, dof, i0) => F({ de, ds: 's', dof: dof === undefined ? -40 : dof, m: cy(Y[i0]) + 108, a, as: 'n', tipo: 'excepcion' });
+  const A = Y[0], B = Y[1], C = Y[2], E = Y[3];
+  const SI = [{ t: 'sí', l: 'a' }];
+  const NOB = [{ t: 'no', i: 0, l: 'i', f: 0.95 }];
+
+  // ---------- A · Conjuntos y etiquetas ----------
+  lane(0, 'A', 'A · Conjuntos');
+  const ca = A + 220;
+  D.nodo({ id: 'pr', x: 84, y: ca - 190, w: 270, h: 100, tipo: 'codigo', carril: 'A', rol: 'rol 3', est: 'ok', titulo: 'Proponente', linea: 'Codex · 40 de prueba' });
+  D.nodo({ id: 'ad', x: 84, y: ca - 50, w: 270, h: 100, tipo: 'codigo', carril: 'A', rol: 'rol 3', est: 'ok', titulo: 'Adversario', linea: 'OpenCode · 20 de prueba' });
+  D.nodo({ id: 'de', x: 84, y: ca + 90, w: 270, h: 104, tipo: 'datos', carril: 'A', rol: 'rol 3', est: 'ok', titulo: 'Desarrollo', linea: '27 + 20 preguntas · 47' });
+  D.nodo({ id: 'rv', x: 460, y: ca - 50, w: 270, h: 100, tipo: 'codigo', carril: 'A', rol: 'rol 3', est: 'ok', titulo: 'Revisor ciego', linea: 'Claude · sin etiquetas' });
+  D.nodo({ id: 'ac', x: 830, y: ca - 60, w: 260, h: 120, tipo: 'decision', carril: 'A', rol: 'rol 3', est: 'ok', titulo: '¿Acuerdan?', linea: 'kappa 1,000' });
+  D.nodo({ id: 'pu', x: 1190, y: ca - 52, w: 300, h: 104, tipo: 'datos', carril: 'A', rol: 'rol 3', est: 'ok', titulo: 'Prueba', linea: '60 casos congelados' });
+  D.nota({ x: 460, y: ca + 66, t: 'No ve las etiquetas ni' });
+  D.nota({ x: 460, y: ca + 98, t: 'el razonamiento' });
+  D.nota({ x: 830, y: ca + 108, t: 'Un desacuerdo lo adjudica' });
+  D.nota({ x: 830, y: ca + 140, t: 'el usuario' });
+  D.nota({ x: 460, y: ca - 180, t: 'Prueba: 12 casos por clase,' });
+  D.nota({ x: 460, y: ca - 148, t: 'cinco clases' });
+  D.nota({ x: 830, y: ca - 180, t: 'Primera y segunda revisión' });
+  D.nota({ x: 830, y: ca - 148, t: 'con 100 % de acuerdo' });
+  D.nota({ x: 1190, y: ca + 66, t: 'Se reemplazaron 7 casos que' });
+  D.nota({ x: 1190, y: ca + 98, t: 'duplicaban el desarrollo' });
+  D.nota({ x: 1190, y: ca - 180, t: 'Cada caso guarda las marcas' });
+  D.nota({ x: 1190, y: ca - 148, t: 'de duplicado del revisor' });
+  D.nota({ x: 460, y: ca + 140, t: 'El desarrollo solo lo etiqueta' });
+  D.nota({ x: 460, y: ca + 172, t: 'el revisor ciego' });
+  D.nota({ x: 830, y: ca + 172, t: 'Se calcula sobre los 60 de prueba' });
+
+  // ---------- B · Variantes ----------
+  lane(1, 'B', 'B · Variantes');
+  const cb = B + 215;
+  D.nodo({ id: 'ci', x: 84, y: cb - 50, w: 250, h: 100, tipo: 'codigo', carril: 'B', rol: 'rol 3', est: 'ok', titulo: 'Misma pregunta', linea: 'desarrollo y prueba' });
+  D.nodo({ id: 'v1', x: 420, y: cb - 190, w: 290, h: 100, tipo: 'codigo', carril: 'B', rol: 'rol 3', est: 'ok', titulo: 'Reglas', linea: 'palabras clave y patrones' });
+  D.nodo({ id: 'v2', x: 420, y: cb - 50, w: 290, h: 100, tipo: 'externo', carril: 'B', rol: 'rol 3', est: 'parc', titulo: 'JEV', linea: 'jev-1.14.0' });
+  D.nodo({ id: 'v3', x: 420, y: cb + 90, w: 290, h: 100, tipo: 'llm', carril: 'B', rol: 'rol 3', est: 'ok', titulo: 'LLM local', linea: 'Qwen3.5-9B · esquema JSON' });
+  D.nodo({ id: 'r1', x: 800, y: cb - 190, w: 650, h: 100, tipo: 'salida', sk: 14, carril: 'B', rol: 'rol 3', est: 'ok', titulo: 'Prueba: reglas', linea: '37 de 60 · 6 críticos' });
+  D.nodo({ id: 'r2', x: 800, y: cb - 50, w: 650, h: 100, tipo: 'salida', sk: 14, carril: 'B', rol: 'rol 3', est: 'ok', titulo: 'Prueba: JEV', linea: '53 de 60 · 0 críticos · McNemar p < 0,0001' });
+  D.nodo({ id: 'r3', x: 800, y: cb + 90, w: 650, h: 100, tipo: 'salida', sk: 14, carril: 'B', rol: 'rol 3', est: 'ok', titulo: 'Prueba: LLM local', linea: '51 de 60 · 0 críticos · McNemar p = 0,0043' });
+
+  // ---------- C · Regla y veredicto ----------
+  lane(2, 'C', 'C · Regla de adopción');
+  box('C', C, 'rr', 84, 210, { titulo: 'Regla', linea: 'fijada antes de correr' });
+  box('C', C, 'c1', 340, 190, { titulo: 'Críticos', linea: 'no aumentan' });
+  box('C', C, 'c2', 570, 190, { titulo: 'McNemar', linea: 'p < 0,05' });
+  box('C', C, 'c3', 800, 210, { titulo: 'Latencia', linea: 'P95 de 15 s o menos' });
+  dec('C', C, 'vd', 1070, 250, { titulo: '¿Cumple?', linea: 'las tres' });
+  box('C', C, 'ok', 1370, 140, { tipo: 'salida', sk: 14, titulo: 'Adoptar', linea: 'la variante' });
+  exc('C', C, 'xv', 1070, 250, { titulo: 'No adoptar', linea: 'JEV y LLM fuera' });
+  D.nota({ x: 84, y: exTop(C) + 20, t: 'Se escribió antes' });
+  D.nota({ x: 84, y: exTop(C) + 52, t: 'de ver resultados' });
+  D.nota({ x: 340, y: exTop(C) + 4, t: 'JEV y LLM: 0 contra 6' });
+  D.nota({ x: 340, y: exTop(C) + 36, t: 'Cumple' });
+  D.nota({ x: 570, y: exTop(C) + 4, t: 'Cumplen los dos' });
+  D.nota({ x: 570, y: exTop(C) + 36, t: 'frente a las reglas' });
+  D.nota({ x: 800, y: exTop(C) + 4, t: '29,3 s (experimento)' });
+  D.nota({ x: 800, y: exTop(C) + 36, t: '32,0 s (reporte oficial)' });
+  D.nota({ x: 800, y: exTop(C) + 68, t: 'No cumple' });
+
+  // ---------- D · Fechas y veredicto ----------
+  lane(3, 'D', 'D · Fechas');
+  box('D', E, 'fa', 84, 330, { titulo: 'Fechas de la lista', linea: '15 candidatas de prueba' });
+  box('D', E, 'rg', 480, 330, { titulo: 'Reglas', linea: '11 aciertos, 0 críticos' });
+  box('D', E, 'en', 900, 620, { tipo: 'salida', sk: 14, titulo: 'Sistema entregado', linea: 'reglas en las fechas; JEV fuera' });
+  D.nodo({ id: 'jv', x: 480, y: exTop(E), w: 330, h: 96, tipo: 'externo', carril: 'D', rol: 'rol 3', est: 'parc', titulo: 'JEV', linea: 'no podía superarlas' });
+  D.nota({ x: 84, y: exTop(E) + 4, t: 'Solo vale en filas de tabla;' });
+  D.nota({ x: 84, y: exTop(E) + 36, t: 'fuera de una tabla la fecha' });
+  D.nota({ x: 84, y: exTop(E) + 68, t: 'queda sin verificar' });
+  D.nota({ x: 1250, y: exTop(E) + 20, t: 'Solo 3 actividades' });
+  D.nota({ x: 1250, y: exTop(E) + 52, t: 'quedaron medidas' });
+  D.nota({ x: 900, y: exTop(E) + 4, t: 'Detecta los dos conflictos' });
+  D.nota({ x: 900, y: exTop(E) + 36, t: 'del 222; sin costo ni datos' });
+  D.nota({ x: 900, y: exTop(E) + 68, t: 'fuera de la máquina' });
+
+  // ---------- flechas ----------
+  F({ de: 'pr', ds: 'e', a: 'rv', as: 'w', aof: -26 });
+  F({ de: 'ad', ds: 'e', a: 'rv', as: 'w' });
+  F({ de: 'de', ds: 'e', a: 'rv', as: 'w', aof: 26, tipo: 'datos' });
+  F({ de: 'rv', ds: 'e', a: 'ac', as: 'w' });
+  F({ de: 'ac', ds: 'e', a: 'pu', as: 'w', et: [{ t: 'sí', l: 'a' }] });
+  fin('pu', 'ci', 0);
+
+  F({ de: 'ci', ds: 'e', a: 'v1', as: 'w', aof: -20 });
+  F({ de: 'ci', ds: 'e', a: 'v2', as: 'w' });
+  F({ de: 'ci', ds: 'e', a: 'v3', as: 'w', aof: 20 });
+  F({ de: 'v1', ds: 'e', a: 'r1', as: 'w' });
+  F({ de: 'v2', ds: 'e', a: 'r2', as: 'w', tipo: 'jev' });
+  F({ de: 'v3', ds: 'e', a: 'r3', as: 'w' });
+  fin('r2', 'rr', 1);
+
+  F({ de: 'rr', ds: 'e', a: 'c1', as: 'w' });
+  F({ de: 'c1', ds: 'e', a: 'c2', as: 'w' });
+  F({ de: 'c2', ds: 'e', a: 'c3', as: 'w' });
+  F({ de: 'c3', ds: 'e', a: 'vd', as: 'w' });
+  F({ de: 'vd', ds: 'e', a: 'ok', as: 'w', et: SI });
+  F({ de: 'vd', ds: 's', dof: -40, m: cy(C) + 108, a: 'xv', as: 'n', tipo: 'excepcion', et: NOB });
+  F({ de: 'xv', ds: 'e', a: 'fa', as: 'n', via: [[1530, null], [null, Y[2] + HS[2] + 3], [cxn('fa'), null]] });
+
+  F({ de: 'fa', ds: 'e', a: 'rg', as: 'w' });
+  F({ de: 'rg', ds: 'e', a: 'en', as: 'w' });
+  F({ de: 'rg', ds: 's', a: 'jv', as: 'n', tipo: 'jev', et: [{ t: 'no se llamó', l: 'd', f: 0.5 }] });
+
+  D.listo();
+})();
+</script>
+</body>
+</html>

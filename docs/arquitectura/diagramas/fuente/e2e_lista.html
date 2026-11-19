@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="diagrama-tamano" content="1600x1198">
+  <title>Extremo a extremo: lista de verificación</title>
+  <link rel="stylesheet" href="estilos.css">
+</head>
+<body>
+<div class="lienzo" id="lienzo" style="width:1600px">
+  <div class="cabecera">
+    <div class="titulo-principal">Extremo a extremo: lista de verificación</div>
+    <div class="subtitulo">Propuesta independiente, confirmación explícita del usuario y escritura autorizada</div>
+  </div>
+  <div class="mapa" id="mapa"></div>
+  <div id="leyenda"></div>
+</div>
+<div id="verificacion"></div>
+<script src="diagrama.js"></script>
+<script>
+(function () {
+  const D = window.Diagrama, F = D.flecha;
+  const HS = [336, 336, 336];
+  const AY = 44, G = 6;
+  const Y = []; HS.reduce((y, h) => { Y.push(y); return y + h + G; }, AY);
+  const BOT = Y[Y.length - 1] + HS[HS.length - 1] + 12;
+  D.init({ w: 1600, h: BOT + 12 });
+  D.leyenda('leyenda');
+  D.limite({ x: 12, y: 8, w: 1576, h: BOT - 8, etq: 'Sistema LiciGT' });
+
+  const cy = y => y + 84;
+  const exTop = y => cy(y) + 130;
+  const base = (carril, rol) => ({ carril, rol: rol || 'rol 3', est: 'ok' });
+  const box = (c, y, id, x, w, p) => D.nodo(Object.assign({ id, x, y: cy(y) - 50, w, h: 100, tipo: 'codigo' }, base(c), p));
+  const dec = (c, y, id, x, w, p) => D.nodo(Object.assign({ id, x, y: cy(y) - 60, w, h: 120, tipo: 'decision' }, base(c), p));
+  const exc = (c, y, id, x, w, p) => D.nodo(Object.assign({ id, x, y: exTop(y), w, h: 96, tipo: 'salida', sk: 14, sec: true }, base(c), p));
+  const hum = (c, y, id, x, p) => D.nodo(Object.assign({ id, x, y: cy(y) - 50, w: 130, h: 100, tipo: 'humano', carril: c }, p));
+  const lane = (i, id, tab) => D.carril({ id, x: 24, y: Y[i], w: 1552, h: HS[i], tab });
+  const cxn = id => D.nodos[id].x + D.nodos[id].w / 2;
+  const fin = (id, a, i) => F({ de: id, ds: 'e', a, as: 'n', via: [[1530, null], [null, Y[i] + HS[i] + 3], [cxn(a), null]] });
+  const no = (de, a, dof, i0) => F({ de, ds: 's', dof: dof === undefined ? -40 : dof, m: cy(Y[i0]) + 108, a, as: 'n', tipo: 'excepcion' });
+  const A = Y[0], B = Y[1], C = Y[2];
+  const SI = [{ t: 'sí', l: 'a' }];
+  const SIB = [{ t: 'sí', i: 0, l: 'i', f: 0.95 }];
+  const NOB = [{ t: 'no', i: 0, l: 'i', f: 0.95 }];
+
+  // ---------- A · Propuesta ----------
+  lane(0, 'A', 'A · Propuesta independiente');
+  hum('A', A, 'an', 84, { titulo: 'Analista' });
+  dec('A', A, 'ro', 260, 240, { rol: 'rol 4', titulo: '¿Analista?', linea: 'rol de la sesión' });
+  box('A', A, 'ex', 570, 250, { titulo: 'Extraer', linea: 'extraer_requisitos' });
+  box('A', A, 'fe', 890, 250, { titulo: 'Fechas', linea: 'reglas en filas de tabla' });
+  dec('A', A, 'vf', 1220, 250, { titulo: '¿Verificada?', linea: 'una actividad' });
+  exc('A', A, 'x4', 260, 240, { rol: 'rol 4', titulo: 'Error 403', linea: 'lector sin permiso' });
+  exc('A', A, 'xr', 1220, 250, { titulo: 'Ítem marcado', linea: 'sigue en la propuesta' });
+  D.nota({ x: 570, y: exTop(A) + 4, t: 'Sin enrutador ni LLM' });
+  D.nota({ x: 570, y: exTop(A) + 36, t: 'La propuesta no escribe nada' });
+  D.nota({ x: 890, y: exTop(A) + 4, t: 'Sin coincidencia única, la' });
+  D.nota({ x: 890, y: exTop(A) + 36, t: 'fecha queda sin verificar' });
+  D.nota({ x: 890, y: exTop(A) + 68, t: 'JEV no se usa' });
+
+  // ---------- B · Confirmación ----------
+  lane(1, 'B', 'B · Confirmación');
+  box('B', B, 'pp', 84, 340, { tipo: 'salida', sk: 14, titulo: 'Propuesta', linea: 'ítems con cita y avisos' });
+  hum('B', B, 'an2', 500, { titulo: 'Analista' });
+  dec('B', B, 'cf', 720, 280, { titulo: '¿Confirma?', linea: 'explícita' });
+  box('B', B, 'co', 1100, 400, { titulo: 'Confirmación', linea: 'confirmado = true' });
+  exc('B', B, 'xn', 720, 280, { titulo: 'Sin escritura', linea: 'no se guarda nada' });
+  D.nota({ x: 84, y: exTop(B) + 20, t: 'Un ítem con fecha sin' });
+  D.nota({ x: 84, y: exTop(B) + 52, t: 'verificar va marcado' });
+  D.nota({ x: 380, y: exTop(B) + 20, t: 'El modelo no tiene ruta' });
+  D.nota({ x: 380, y: exTop(B) + 52, t: 'hasta la escritura' });
+  D.nota({ x: 1100, y: exTop(B) + 20, t: 'Solo la construye la capa' });
+  D.nota({ x: 1100, y: exTop(B) + 52, t: 'que recibe al usuario' });
+
+  // ---------- C · Escritura ----------
+  lane(2, 'C', 'C · Escritura autorizada');
+  dec('C', C, 'r2', 84, 250, { rol: 'rol 4', titulo: '¿Analista?', linea: 'rol de la sesión' });
+  box('C', C, 'rl', 400, 250, { titulo: 'Revalidar', linea: 'cita literal y vigente' });
+  dec('C', C, 'vl', 710, 250, { titulo: '¿Válida?', linea: 'todos los ítems' });
+  D.nodo({ id: 'db', x: 1030, y: cy(C) - 52, w: 240, h: 104, tipo: 'datos', carril: 'C', rol: 'rol 2', est: 'ok', titulo: 'PostgreSQL', linea: 'estado pendiente' });
+  box('C', C, 'au', 1320, 200, { rol: 'rol 4', titulo: 'Auditoría', linea: 'alta o error' });
+  exc('C', C, 'x5', 84, 250, { rol: 'rol 4', titulo: 'Error 403', linea: 'lector sin permiso' });
+  exc('C', C, 'xc', 710, 250, { titulo: 'cita_no_valida', linea: 'no entra ningún ítem' });
+  D.nota({ x: 400, y: exTop(C) + 4, t: 'La fuente se compara con el' });
+  D.nota({ x: 400, y: exTop(C) + 36, t: 'índice y no puede estar marcada' });
+  D.nota({ x: 1030, y: exTop(C) + 20, t: 'Un ítem repetido no se duplica' });
+  D.nota({ x: 1030, y: exTop(C) + 52, t: 'Cada alta guarda su historial' });
+
+  // ---------- flechas ----------
+  F({ de: 'an', ds: 'e', a: 'ro', as: 'w' });
+  F({ de: 'ro', ds: 'e', a: 'ex', as: 'w', et: SI });
+  F({ de: 'ex', ds: 'e', a: 'fe', as: 'w' });
+  F({ de: 'fe', ds: 'e', a: 'vf', as: 'w' });
+  F({ de: 'ro', ds: 's', dof: -40, m: cy(A) + 108, a: 'x4', as: 'n', tipo: 'excepcion', et: NOB });
+  F({ de: 'vf', ds: 's', dof: -40, m: cy(A) + 108, a: 'xr', as: 'n', tipo: 'revision', et: [{ t: 'no, con actividad', i: 0, l: 'i', f: 0.95 }] });
+  fin('vf', 'pp', 0);
+
+  F({ de: 'pp', ds: 'e', a: 'an2', as: 'w' });
+  F({ de: 'an2', ds: 'e', a: 'cf', as: 'w' });
+  F({ de: 'cf', ds: 'e', a: 'co', as: 'w', et: SI });
+  F({ de: 'cf', ds: 's', dof: -40, m: cy(B) + 108, a: 'xn', as: 'n', tipo: 'excepcion', et: NOB });
+  fin('co', 'r2', 1);
+
+  F({ de: 'r2', ds: 'e', a: 'rl', as: 'w', et: SI });
+  F({ de: 'rl', ds: 'e', a: 'vl', as: 'w' });
+  F({ de: 'vl', ds: 'e', a: 'db', as: 'w', et: SI, tipo: 'datos' });
+  F({ de: 'db', ds: 'e', a: 'au', as: 'w' });
+  F({ de: 'r2', ds: 's', dof: -40, m: cy(C) + 108, a: 'x5', as: 'n', tipo: 'excepcion', et: NOB });
+  F({ de: 'vl', ds: 's', dof: -40, m: cy(C) + 108, a: 'xc', as: 'n', tipo: 'excepcion', et: NOB });
+
+  D.listo();
+})();
+</script>
+</body>
+</html>

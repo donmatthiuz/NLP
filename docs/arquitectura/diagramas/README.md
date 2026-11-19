@@ -1,18 +1,26 @@
 # Diagramas de arquitectura de LiciGT
 
-Dos figuras del sistema RAG para licitaciones del IGSS. Reemplazan al archivo anterior `docs/arquitectura/arquitectura_igss.svg`. Cada figura se define en HTML con CSS y motor locales, y se exporta a PNG con un lienzo de 1600 px de ancho. Los PNG se exportan al doble de resolución. En presentación conviene mostrar el diagrama y acercar el tramo explicado; no reducir su letra para hacerlo caber. Todo el detalle que no cabe con letra legible vive en este documento.
+Nueve figuras del sistema RAG para licitaciones del IGSS: dos generales, cuatro de detalle por etapa y tres de recorridos extremo a extremo. Reemplazan al archivo anterior `docs/arquitectura/arquitectura_igss.svg`. Cada figura se define en HTML con CSS y motor locales, y se exporta a PNG con un lienzo de 1600 px de ancho. Los PNG se exportan al doble de resolución. En presentación conviene mostrar el diagrama y acercar el tramo explicado; no reducir su letra para hacerlo caber. Todo el detalle que no cabe con letra legible vive en este documento.
 
 ## Figuras
 
 - `arquitectura_general.png`: vista de toda la arquitectura organizada por roles: A ingesta (rol 1), B índices (rol 2), C consulta (rol 3) y D servicios (rol 4). Añade acceso por sesión, contexto por solicitud, las tres compuertas, excepciones, revisión humana y auditoría. La propuesta de lista es una acción independiente con confirmación antes de guardar. JEV queda rotulado como experimento, sin conexiones activas.
 - `flujo_consulta.png`: el recorrido de consulta: acceso, guardrail, enrutador por reglas, ambigüedad, herramienta, recuperación con alertas, generación, validación, respuesta, auditoría y revisión humana. Distingue regeneración dentro del presupuesto, publicación parcial y abstención. No muestra JEV como parte del recorrido entregado.
 
+- `ingesta_detallada.png` (rol 1): validación y huella, extracción con OCR, preparación con control de inyección, versión, original, manifiesto y paquete ZIP.
+- `recuperacion.png` (rol 2): contexto y evento autorizado, búsqueda semántica y léxica, fusión RRF, reranking, redundancia, alertas y suficiencia.
+- `generacion.png` (rol 3): prompt acotado con alias y fechas, modelo local, validación determinista, regeneración y salida segura.
+- `e2e_comparacion.png`: la fecha de recepción comparada entre las bases y la modificación 1 del evento 222, con revisión humana.
+- `e2e_inyeccion.png`: inyección directa (guardrail de entrada) e indirecta (fragmento sospechoso: se quita de la evidencia), bloqueo y abstención.
+- `e2e_lista.png`: propuesta independiente, confirmación explícita, escritura autorizada para el rol analista y auditoría.
+- `experimento_jev.png`: reglas, JEV y LLM local sobre los mismos conjuntos, regla de adopción fijada antes y veredicto (reglas en el enrutador y en las fechas; JEV fuera del sistema entregado).
+
 ## Archivos
 
 - `fuente/estilos.css`: tokens de color y tipografía, carriles, nodos, insignias, flechas y leyenda mínima.
 - `fuente/diagrama.js`: motor propio sin dependencias: dibuja nodos, enruta flechas ortogonales entre puertos, coloca etiquetas junto al tramo y ejecuta la verificación.
-- `fuente/arquitectura_general.html` y `fuente/flujo_consulta.html`: las dos figuras.
-- `arquitectura_general.png` y `flujo_consulta.png`: exportaciones versionadas.
+- `fuente/*.html`: una fuente por figura (`arquitectura_general`, `flujo_consulta`, `ingesta_detallada`, `recuperacion`, `generacion`, `e2e_comparacion`, `e2e_inyeccion`, `e2e_lista`, `experimento_jev`).
+- `*.png`: las nueve exportaciones versionadas, junto a este documento.
 
 ## Cómo se edita
 
