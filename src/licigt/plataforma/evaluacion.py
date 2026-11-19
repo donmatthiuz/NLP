@@ -16,10 +16,10 @@ import math
 import os
 import statistics
 import subprocess
+import sys
 import time
 import unittest
 from concurrent.futures import ThreadPoolExecutor
-from contextlib import contextmanager
 from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
@@ -245,17 +245,28 @@ def correr_pruebas(suites):
     return resultados
 
 
-@contextmanager
-def con_admin(url):
-    """La conexión de administrador solo existe mientras corren las pruebas de integración: el resto del proceso no la ve."""
-    if not url:
-        yield
-        return
-    os.environ["LICIGT_DB_ADMIN_URL"] = url
+RUTA_PRUEBAS_INTEGRACION = Path(DIRECTORIO_REPORTE) / "pruebas_integracion.json"
+
+
+def escribir_pruebas_integracion(ruta, suites):
+    """Corre las pruebas y guarda `{nombre: ok | falla | omitida}`, sin secretos. Lo invoca make en un proceso aparte,
+    el único que recibe la conexión de administrador que esas pruebas necesitan."""
+    ruta = Path(ruta)
+    ruta.parent.mkdir(parents=True, exist_ok=True)
+    ruta.write_text(json.dumps(correr_pruebas(suites), ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def leer_pruebas_integracion(ruta, consumir=False):
+    """Resultados guardados por el proceso aparte; `{}` si no hay archivo (la seguridad sale `no_medido`).
+    `consumir` borra el archivo para que una corrida no lea el de otra."""
+    ruta = Path(ruta)
     try:
-        yield
-    finally:
-        os.environ.pop("LICIGT_DB_ADMIN_URL", None)
+        resultado = json.loads(ruta.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    if consumir:
+        ruta.unlink(missing_ok=True)
+    return resultado if isinstance(resultado, dict) else {}
 
 
 def suites_de_plataforma():
@@ -461,8 +472,9 @@ def main():
     from licigt.recuperacion.busqueda import Contexto
     from licigt.recuperacion.indice import REVISION, conectar, dispositivo, dtype_modelo
 
-    # make la entrega con otro nombre; se retira del entorno aquí y solo vuelve con su nombre dentro de con_admin.
-    url_admin = os.environ.pop("LICIGT_REPORTE_ADMIN_URL", None)
+    if "--pruebas-integracion" in sys.argv:
+        escribir_pruebas_integracion(RUTA_PRUEBAS_INTEGRACION, suites_de_plataforma())
+        return
     avisos = []
     ahora = datetime.now(timezone.utc)
     sello = ahora.strftime("%Y%m%dT%H%M%SZ")
@@ -545,11 +557,7 @@ def main():
 
     if not corta:
         registros = [c for b in e2e.values() for c in b["casos"]]
-    pruebas = {}
-    if not corta:
-        # test_integracion decide si corre al importarse: el import también va dentro del bloque.
-        with con_admin(url_admin):
-            pruebas = correr_pruebas(suites_de_plataforma())
+    pruebas = {} if corta else leer_pruebas_integracion(RUTA_PRUEBAS_INTEGRACION, consumir=True)
     seguridad = [] if corta else suite_seguridad(registros, pruebas)
 
     reporte = {

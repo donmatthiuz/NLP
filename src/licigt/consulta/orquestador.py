@@ -198,7 +198,28 @@ def _ejecutar(ctx, evento_id, evento_salida, pregunta, herramienta, presupuesto,
         if not evidencia:
             respuesta = _abstencion(evento_salida, resultado, conflicto=hay_conflicto())
             return respuesta
-        informe, cortada = {}, False
+        informe, cortada, previo = {}, False, None
+
+        def publicar_parcial(crudo, errores):
+            """Publicación parcial de una salida ya validada; None si no hay nada válido que publicar."""
+            nonlocal validacion
+            parcial = None if crudo is None else _publicacion_parcial(
+                crudo, errores, evidencia, resultado, evento_id=evento_id, conflictos=conflictos)
+            if not parcial:
+                return None
+            respuesta, ejecucion.afirmaciones_descartadas = parcial
+            validacion = "parcial"
+            if citas_activas():
+                respuesta, ejecucion.citas_jev = aplicar_citas(respuesta, fragmentos, cliente_jev)
+            return respuesta
+
+        def sin_regeneracion(codigo):
+            """La regeneración falló: lo válido del primer intento se publica; si no hay, se abstiene con su motivo."""
+            nonlocal error
+            error = codigo
+            parcial = publicar_parcial(*previo) if previo else None
+            return parcial or _abstencion(evento_salida, resultado, "generador_no_disponible", conflicto=hay_conflicto())
+
         for intento in range(2):
             try:
                 # La regeneración cambia la semilla: con temperatura 0 la misma semilla repite la misma salida.
@@ -215,18 +236,12 @@ def _ejecutar(ctx, evento_id, evento_salida, pregunta, herramienta, presupuesto,
                 cortada = False
             except FallaGenerador as exc:
                 if exc.codigo != "respuesta_cortada":
-                    error = exc.codigo
-                    respuesta = _abstencion(evento_salida, resultado, "generador_no_disponible", conflicto=hay_conflicto())
-                    return respuesta
+                    return sin_regeneracion(exc.codigo)
                 cortada = True
             except TimeoutError:
-                error = "tiempo_agotado"
-                respuesta = _abstencion(evento_salida, resultado, "generador_no_disponible", conflicto=hay_conflicto())
-                return respuesta
+                return sin_regeneracion("tiempo_agotado")
             except Exception:
-                error = "api"
-                respuesta = _abstencion(evento_salida, resultado, "generador_no_disponible", conflicto=hay_conflicto())
-                return respuesta
+                return sin_regeneracion("api")
             if cortada:
                 verificada, crudo = [], None
             else:
@@ -245,15 +260,13 @@ def _ejecutar(ctx, evento_id, evento_salida, pregunta, herramienta, presupuesto,
             if not intento and not presupuesto.cabe_generacion(min(duracion, config.estimacion_regeneracion_segundos)):
                 ejecucion.regeneracion_omitida = "tiempo"
             if intento or ejecucion.regeneracion_omitida:
-                parcial = None if cortada else _publicacion_parcial(
-                    crudo, verificada, evidencia, resultado, evento_id=evento_id, conflictos=conflictos)
+                # Una regeneración cortada recurre a lo válido del primer intento, como una que falla.
+                parcial = publicar_parcial(*(previo or (None, None) if cortada and intento else (crudo, verificada)))
                 if parcial:
-                    respuesta, ejecucion.afirmaciones_descartadas = parcial
-                    validacion = "parcial"
-                    if citas_activas():
-                        respuesta, ejecucion.citas_jev = aplicar_citas(respuesta, fragmentos, cliente_jev)
-                    return respuesta
+                    return parcial
                 break
+            if not cortada:
+                previo = (crudo, verificada)
             try:
                 presupuesto.usar_regeneracion()
             except LimiteAgotado:

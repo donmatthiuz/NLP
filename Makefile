@@ -207,7 +207,8 @@ test-plataforma: ## Pruebas del rol 4 (las de integración requieren make db-up,
 	@$(WITH_DB) LICIGT_DB_ADMIN_URL="postgresql://$(LICIGT_DB_USER):$$(tr -d '\r\n' < $(LICIGT_DB_PASSWORD_FILE))@$(LICIGT_DB_HOST):$(LICIGT_DB_PORT)/$(LICIGT_DB_NAME)" PYTHONPATH=src $(PYTHON) -m unittest discover -s src/licigt/plataforma/tests -v
 
 reporte: ## Reporte de evaluación con los servicios reales (db-up, importar, empresa-b y el LLM); BANCO_COMUN=ruta opcional; guarda en data/plataforma/reporte
-	@$(WITH_DB) LICIGT_REPORTE_ADMIN_URL="postgresql://$(LICIGT_DB_USER):$$(tr -d '\r\n' < $(LICIGT_DB_PASSWORD_FILE))@$(LICIGT_DB_HOST):$(LICIGT_DB_PORT)/$(LICIGT_DB_NAME)" LICIGT_LISTA=postgres HF_HUB_OFFLINE=1 BANCO_COMUN="$(BANCO_COMUN)" PYTHONPATH=src $(PYTHON) -m licigt.plataforma.evaluacion
+	@$(WITH_DB) HF_HUB_OFFLINE=1 LICIGT_DB_ADMIN_URL="postgresql://$(LICIGT_DB_USER):$$(tr -d '\r\n' < $(LICIGT_DB_PASSWORD_FILE))@$(LICIGT_DB_HOST):$(LICIGT_DB_PORT)/$(LICIGT_DB_NAME)" PYTHONPATH=src $(PYTHON) -m licigt.plataforma.evaluacion --pruebas-integracion
+	@$(WITH_DB) LICIGT_LISTA=postgres HF_HUB_OFFLINE=1 BANCO_COMUN="$(BANCO_COMUN)" PYTHONPATH=src $(PYTHON) -m licigt.plataforma.evaluacion
 
 usuarios-demo: ## Crea, si faltan, la clave y los usuarios de la demo en keys/plataforma (no imprime contraseñas). FORZAR=1 los regenera
 	@PYTHONPATH=src $(PYTHON) -m licigt.plataforma.usuarios_demo $(if $(filter 1,$(FORZAR)),--forzar)

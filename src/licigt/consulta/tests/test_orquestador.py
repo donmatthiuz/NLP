@@ -252,6 +252,32 @@ class OrquestadorTests(unittest.TestCase):
         self.assertFalse(r.abstained)
         self.assertIn("afirmaciones_descartadas: 1", r.warnings)
 
+    def salida_mitad_valida(self):
+        base = salida_222()["afirmaciones"][0]
+        mala = {"texto": "Las bases indican entrega el {1}.",
+                "citas": [{"fragmento": "F1", "cita": "texto que no existe en el fragmento F1"}],
+                "datos": [{"cita": 1, "literal": "31 de julio de 2023"}]}
+        return json.dumps({"abstener": False, "revision_humana": False, "afirmaciones": [base, mala]})
+
+    def test_c21_a1_si_la_regeneracion_falla_se_publica_lo_valido_del_primer_intento(self):
+        fallas = (FallaGenerador("tiempo_agotado"), FallaGenerador("respuesta_cortada"), TimeoutError(), RuntimeError("x"))
+        for falla in fallas:
+            with self.subTest(falla=repr(falla)):
+                self.eventos.clear()
+                generador = GeneradorFalso([self.salida_mitad_valida(), falla])
+                r = self.consultar(recuperador=RecuperadorFalso(), generador=generador)
+                self.assertEqual(len(generador.llamadas), 2)
+                self.assertFalse(r.abstained)
+                self.assertIn("afirmaciones_descartadas: 1", r.warnings)
+                self.assertEqual(self.eventos[0]["validacion"], "parcial")
+
+    def test_c21_a1_sin_parcial_previo_la_falla_de_la_regeneracion_abstiene_con_su_motivo(self):
+        generador = GeneradorFalso(["no es json", FallaGenerador("tiempo_agotado")])
+        r = self.consultar(generador=generador)
+        self.assertTrue(r.abstained)
+        self.assertIn("generador_no_disponible", r.warnings)
+        self.assertEqual(self.eventos[0]["error"], "tiempo_agotado")
+
     def test_c21_a2_salida_cortada_sin_presupuesto_no_reintenta_y_lo_registra(self):
         cortada = FallaGenerador("respuesta_cortada")
         for segundos, llamadas, omitida in ((20, 1, "tiempo"), (2, 2, None)):

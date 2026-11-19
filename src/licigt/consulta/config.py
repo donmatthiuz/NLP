@@ -46,7 +46,8 @@ class ConfiguracionLlm(BaseModel):
     url: str = Field(default="http://127.0.0.1:8080/v1", pattern=r"^https?://\S+$")
     modelo: str = Field(default="qwen3.5-9b", min_length=1)
     archivo_clave: Path = Path("keys/llm/openai.key")
-    # Medido sin recorte (18-nov, espera 60 s, max_tokens 3072, 71 preguntas de desarrollo, 91 llamadas):
+    # Medido sin recorte (18-nov, espera 60 s, max_tokens 3072): 71 preguntas (27 de casos_desarrollo, 4 de casos_calibracion
+    # y 40 adicionales, 8 plantillas por 5 eventos; ninguna de los bancos), 91 llamadas; ids y cifras en data/consulta/medicion_c21.json:
     # salidas de buscar_documentos p50 163, p99 1137, máx 1137 tokens; comparar_versiones máx 801 (solo 2 llamadas);
     # extraer_requisitos p50 796, p99 1781, máx 1781 (las válidas, máx 1114). Con ~79 tok/s: 1536 tok = 19,4 s y 2048 tok = 25,9 s.
     # La espera cubre 2048 tok más hasta ~6 s de prefill. Ojo: 11 de 54 llamadas de extraer_requisitos se cortaron entre 290 y 920 tokens
@@ -57,7 +58,7 @@ class ConfiguracionLlm(BaseModel):
     # Tope de tiempo de la solicitud entera: con él gastado no se regenera.
     presupuesto_segundos: float = Field(default=15, gt=0, allow_inf_nan=False)
     # Duración estimada de una regeneración: p75 de las segundas llamadas medidas solo con preguntas de desarrollo
-    # (casos_desarrollo, casos_calibracion y CASOS_ADICIONALES; n=32: p50 7,9, p75 10,1, p90 11,0, máx 16,3 s).
+    # (las mismas 71 preguntas; n=32: p50 7,9, p75 10,1, p90 11,0, máx 16,3 s).
     # Se usa el menor entre este valor y lo que tardó el primer intento.
     estimacion_regeneracion_segundos: float = Field(default=10, gt=0, allow_inf_nan=False)
     semilla: int = Field(default=42, ge=-(2**63), le=2**63 - 1)
