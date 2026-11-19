@@ -60,8 +60,8 @@ Depende del cliente de JEV de F2. Diseño acordado (cookbook oficial de fechas d
 
 - [ ] Evidencia por categoría con `buscar()` y consultas fijas por categoría en un solo lugar.
 - [ ] Fechas candidatas con expresiones regulares (meses en español), cada una con su `chunk_id`.
-- [ ] JEV asigna cada candidata a su actividad (`Choice` más `Noul` compañero); el código normaliza, valida y compara fechas.
-- [ ] La confianza mínima entre las partes decide revisión humana; una fecha que el documento no dice siempre va a revisión. Sin JEV, las candidatas salen como no verificadas.
+- [x] La actividad de cada candidata la asignan reglas deterministas, solo en filas de tabla, en la propuesta de lista; el código normaliza, valida y compara fechas. JEV (`Choice` más `Noul` compañero) se probó y no se adoptó (F7b, [Experimento_JEV.md](Experimento_JEV.md)).
+- [x] Una fecha que no se pudo asignar queda `no_verificada`; si su texto menciona una actividad (coincidencia ambigua) pide revisión humana con el aviso `fecha_ambigua`. En el chat las candidatas salen como no verificadas.
 
 Decisiones del 16 de noviembre, tras los cinco porqués ([encargo](delegacion/F3b_extraer_requisitos.md)):
 

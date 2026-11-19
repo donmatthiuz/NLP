@@ -36,6 +36,11 @@ FECHA_BASES = frag("c-f1", "La recepción de ofertas se llevará a cabo el 31 de
                    "2.2 Cronograma")
 FECHA_MOD = frag("c-f2", "En Salones Los Volcanes, el día 06 de octubre de 2023, a las 11:00 horas",
                  "2.2 Cronograma", doc_id="222-mod", tipo="modificacion", pagina=1)
+# F7c: solo se verifican las fechas de filas de tabla.
+FILA_RECEPCION = "| 2.2.6 | Lugar, dirección, fecha y hora para la recepción de OFERTAS. | En Salones Los Volcanes, el día {} |"
+FECHA_TABLA = frag("c-f3", FILA_RECEPCION.format("31 de julio de 2023"), "2.2 Cronograma")
+FECHA_TABLA_MOD = frag("c-f4", FILA_RECEPCION.format("06 de octubre de 2023"), "2.2 Cronograma",
+                       doc_id="222-mod", tipo="modificacion", pagina=1)
 # C14: la cita de la propuesta es el primer tramo legible del fragmento, no un recorte elegido por un modelo.
 CITA_FUND = FUNDAMENTAL["texto"]
 CITA_NOFUND = NO_FUNDAMENTAL["texto"]
@@ -614,25 +619,6 @@ class GeneradorProhibido:
         raise AssertionError("la propuesta de lista no llama al generador")
 
 
-class JevDeLista:
-    def __init__(self):
-        self.llamadas = []
-
-    def preguntar(self, estado, preguntas):
-        from licigt.consulta.jev import RespuestaJev
-        from licigt.consulta.preguntas_jev import ACTIVIDADES_CRONOGRAMA
-        self.llamadas.append(estado)
-        respuestas = {}
-        for identificador in estado["candidatas"]:
-            p = {a: 0.01 for a in ACTIVIDADES_CRONOGRAMA}
-            p["recepcion_ofertas"] = 0.9
-            respuestas[f"actividad_{identificador}"] = {
-                "type": "choice", "choice": "recepcion_ofertas", "probabilities": p, "confidence": 0.01}
-            respuestas[f"respaldo_{identificador}"] = {"type": "noul", "noul": 0.9}
-        return RespuestaJev(respuestas=respuestas, modelo="jev-falso", request_id=None,
-                            tokens_entrada=None, tokens_salida=None)
-
-
 class ProponerListaTests(unittest.TestCase):
     def setUp(self):
         self.ctx = SimpleNamespace(tenant_id="empresa-a", usuario="persona-a", rol="analista")
@@ -690,13 +676,31 @@ class ProponerListaTests(unittest.TestCase):
         for item in requisitos:
             self.assertTrue(_fuente_vigente(item, por_chunk[item.fuentes[0].chunk_id]))
 
-    def test_c14_con_jev_las_fechas_se_verifican(self):
-        jev = JevDeLista()
-        p = self.proponer(cliente_jev=jev)
-        self.assertEqual(len(jev.llamadas), 1)
+    def test_f7c_una_fecha_de_tabla_se_verifica_por_reglas_y_no_acepta_cliente_jev(self):
+        self.recuperador = RecuperadorPorConsulta({
+            CONSULTAS_POR_CATEGORIA["legal"]: [FUNDAMENTAL], CONSULTA_CRONOGRAMA: [FECHA_TABLA]})
+        p = self.proponer()
         fecha_item = [i for i in p.items if i.tipo == "fecha"][0]
-        self.assertEqual(fecha_item.descripcion, "Recepción de ofertas: 31 de julio de 2023")
+        self.assertTrue(fecha_item.descripcion.startswith("Recepción de ofertas: "))
+        self.assertTrue(fecha_item.descripcion.endswith("31 de julio de 2023"))
         self.assertFalse(fecha_item.requiere_revision)
+        with self.assertRaises(TypeError):
+            proponer_lista(self.ctx, "222", "legal", recuperador=self.recuperador, cliente_jev=object())
+
+    def test_f7c_fecha_en_prosa_no_se_verifica_y_pide_revision_de_la_respuesta(self):
+        p = self.proponer()  # FECHA_BASES: prosa que menciona la recepción de ofertas
+        fecha_item = [i for i in p.items if i.tipo == "fecha"][0]
+        self.assertEqual(fecha_item.descripcion, "Fecha sin verificar: 31 de julio de 2023")
+        self.assertTrue(fecha_item.requiere_revision)
+        self.assertTrue(p.respuesta.needs_human_review)
+        self.assertIn("fecha_ambigua: recepcion_ofertas", p.respuesta.warnings)
+
+    def test_f7c_dos_fechas_de_la_misma_actividad_piden_revision(self):
+        self.recuperador = RecuperadorPorConsulta({
+            CONSULTAS_POR_CATEGORIA["legal"]: [FUNDAMENTAL], CONSULTA_CRONOGRAMA: [FECHA_TABLA, FECHA_TABLA_MOD]})
+        fechas = [i for i in self.proponer().items if i.tipo == "fecha"]
+        self.assertEqual(len(fechas), 2)
+        self.assertTrue(all(i.requiere_revision and i.motivo_revision == MOTIVO_FECHAS_DISTINTAS for i in fechas))
 
     def test_c14_sin_items_abstiene(self):
         recuperador = RecuperadorPorConsulta({CONSULTA_CRONOGRAMA: [PIE]})

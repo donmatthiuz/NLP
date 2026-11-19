@@ -38,7 +38,7 @@ EVENTO ?= 222-IGSS-2023
 
 .PHONY: help setup env-init keys-init keys-status key-set db-up db-down db-password-sync db-password-rotar db-rol-app \
         importar evaluar buscar models-status claude opencode codex test-consulta test-ingesta test-recuperacion corpus \
-        diagramas llm-descargar llm-servidor llm-estado llm-detener deps-consulta sondeo-jev api banco experimento-jev experimento-llm web web-build lista-schema test-consulta-sql \
+        diagramas llm-descargar llm-servidor llm-estado llm-detener deps-consulta sondeo-jev api banco experimento-jev experimento-llm fechas-preparar fechas-reglas experimento-jev-fechas fechas-comparar web web-build lista-schema test-consulta-sql \
         usuarios-demo empresa-b test-plataforma reporte deps
 
 help: ## Muestra esta ayuda
@@ -149,10 +149,22 @@ sondeo-jev: ## Vista previa del sondeo de JEV; CONFIRMAR=1 autoriza el envío
 	@PYTHONPATH=src $(PYTHON) -m licigt.consulta.sondeo_jev $(if $(filter 1,$(CONFIRMAR)),--confirmar-envio)
 
 experimento-jev: ## Experimento de JEV: CONJUNTO=desarrollo|prueba; CONFIRMAR=1 autoriza el envío
-	@PYTHONPATH=src $(PYTHON) -m licigt.consulta.experimento correr $(CONJUNTO) $(if $(filter 1,$(CONFIRMAR)),--confirmar-envio)
+	@PYTHONPATH=src $(PYTHON) -m licigt.consulta.experimento correr $(CONJUNTO) $(if $(filter 1,$(CONFIRMAR)),--confirmar-envio) $(if $(filter 1,$(REPETIR)),--repetir)
 
 experimento-llm: ## Enrutador con el LLM local (make llm-servidor): CONJUNTO=desarrollo|prueba corre; COMPARAR=1 compara (P95_RESTO_MS=...)
 	@PYTHONPATH=src $(PYTHON) -m licigt.consulta.experimento $(if $(filter 1,$(COMPARAR)),comparar,correr) $(CONJUNTO) --variante llm $(if $(P95_RESTO_MS),--p95-resto-ms $(P95_RESTO_MS))
+
+fechas-preparar: ## F7b: exporta las candidatas de fechas por partición a data/consulta/agentes (requiere db-up e importar)
+	@$(WITH_DB) HF_HUB_OFFLINE=1 PYTHONPATH=src $(PYTHON) -m licigt.consulta.experimento_fechas preparar
+
+fechas-reglas: ## F7b: variante de reglas sin JEV: CONJUNTO=desarrollo|prueba; DETALLE=1 lista cada fecha
+	@PYTHONPATH=src $(PYTHON) -m licigt.consulta.experimento_fechas reglas $(CONJUNTO) $(if $(filter 1,$(DETALLE)),--detalle)
+
+experimento-jev-fechas: ## F7b: JEV en las fechas: CONJUNTO=desarrollo|prueba; sin CONFIRMAR=1 solo vista previa; REPETIR=1 fuerza una segunda corrida de prueba
+	@PYTHONPATH=src $(PYTHON) -m licigt.consulta.experimento_fechas correr $(CONJUNTO) $(if $(filter 1,$(CONFIRMAR)),--confirmar-envio)
+
+fechas-comparar: ## F7b: reglas contra JEV con las etiquetas y la última corrida: CONJUNTO=desarrollo|prueba
+	@PYTHONPATH=src $(PYTHON) -m licigt.consulta.experimento_fechas comparar $(CONJUNTO)
 
 lista-schema: ## Crea las tablas de la lista de verificación (idempotente; requiere db-up e importar)
 	@$(WITH_DB_ADMIN) PYTHONPATH=src $(PYTHON) -c "import os,psycopg; psycopg.connect(os.environ['LICIGT_DB_URL'], autocommit=True).execute(open('src/licigt/consulta/lista_schema.sql', encoding='utf-8').read())"
@@ -192,7 +204,7 @@ test-plataforma: ## Pruebas del rol 4 (las de integración requieren make db-up,
 	@$(WITH_DB) LICIGT_DB_ADMIN_URL="postgresql://$(LICIGT_DB_USER):$$(tr -d '\r\n' < $(LICIGT_DB_PASSWORD_FILE))@$(LICIGT_DB_HOST):$(LICIGT_DB_PORT)/$(LICIGT_DB_NAME)" PYTHONPATH=src $(PYTHON) -m unittest discover -s src/licigt/plataforma/tests -v
 
 reporte: ## Reporte de evaluación con los servicios reales (db-up, importar, empresa-b y el LLM); BANCO_COMUN=ruta opcional; guarda en data/plataforma/reporte
-	@$(WITH_DB) LICIGT_LISTA=postgres HF_HUB_OFFLINE=1 BANCO_COMUN="$(BANCO_COMUN)" PYTHONPATH=src $(PYTHON) -m licigt.plataforma.evaluacion
+	@$(WITH_DB) LICIGT_REPORTE_ADMIN_URL="postgresql://$(LICIGT_DB_USER):$$(tr -d '\r\n' < $(LICIGT_DB_PASSWORD_FILE))@$(LICIGT_DB_HOST):$(LICIGT_DB_PORT)/$(LICIGT_DB_NAME)" LICIGT_LISTA=postgres HF_HUB_OFFLINE=1 BANCO_COMUN="$(BANCO_COMUN)" PYTHONPATH=src $(PYTHON) -m licigt.plataforma.evaluacion
 
 usuarios-demo: ## Crea, si faltan, la clave y los usuarios de la demo en keys/plataforma (no imprime contraseñas). FORZAR=1 los regenera
 	@PYTHONPATH=src $(PYTHON) -m licigt.plataforma.usuarios_demo $(if $(filter 1,$(FORZAR)),--forzar)

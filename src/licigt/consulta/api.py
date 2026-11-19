@@ -17,7 +17,6 @@ from .lista import Estado, ItemLista, ItemPropuesto, PropuestaLista, proponer_li
 from .lista_escritura import (
     Confirmacion, FallaLista, RepositorioMemoria, cambiar_estado, guardar_items, listar,
 )
-from .jev import ClienteJevSdk, FallaJev
 from .llm import ClienteGeneradorOpenAI
 from .orquestador import consultar
 from licigt.plataforma import auditoria, originales, usuarios
@@ -120,15 +119,6 @@ def obtener_lector():
 @lru_cache(maxsize=None)
 def obtener_generador():
     return ClienteGeneradorOpenAI()
-
-
-@lru_cache(maxsize=None)
-def obtener_cliente_jev():
-    """JEV verifica las fechas de la propuesta; sin SDK o sin llave la propuesta sigue con las fechas sin verificar."""
-    try:
-        return ClienteJevSdk()
-    except FallaJev:
-        return None
 
 
 def contexto_acceso(sesion: Annotated[Sesion, Depends(sesion_actual)]):
@@ -342,11 +332,10 @@ def proponer(
     request: Request,
     ctx: Annotated[object, Depends(contexto_acceso)],
     recuperador: Annotated[object, Depends(obtener_recuperador)],
-    cliente_jev: Annotated[object, Depends(obtener_cliente_jev)],
     entrada: PropuestaEntrada | None = None,
 ):
     propuesta = proponer_lista(ctx, evento_id, entrada.categoria if entrada else None,
-                               recuperador=recuperador, cliente_jev=cliente_jev, auditar=_auditar_propuesta)
+                               recuperador=recuperador, auditar=_auditar_propuesta)
     pedido = request.path_params["evento_id"]
     return propuesta.model_copy(update={"evento_id": pedido, "respuesta": _con_evento(propuesta.respuesta, pedido)})
 

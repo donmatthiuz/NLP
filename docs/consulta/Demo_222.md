@@ -85,6 +85,7 @@ Pasos de F6 de [`Plan_rol_3.md`](Plan_rol_3.md).
   - 4 por "Las fuentes difieren": la adquisición de documentos y la recepción de ofertas.
   - Antes eran 39 de 41.
 - **Fechas:** JEV verificó las 6 (no hay aviso `fechas_no_verificadas`).
+  - **Nota del 18 de noviembre de 2026 (F7c):** desde F7c las fechas de la propuesta las verifican reglas, no JEV, y solo en filas de tabla. El experimento F7b extrae 8 fechas candidatas del 222 (2 de ellas, solvencias patronales sin verificar); el número de ítems de la lista no se volvió a medir en la demo. El registro de arriba es el de la corrida de entonces.
 - **Aviso de la respuesta:** `fechas_distintas` en adquisición de documentos y en recepción de ofertas.
 - **Lista guardada:** `make importar` dejó la lista vacía.
   - Para mostrar el guardado se confirma un subconjunto: un diálogo nativo y `confirmado: true`.

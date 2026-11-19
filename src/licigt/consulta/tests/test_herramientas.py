@@ -7,7 +7,8 @@ import unittest
 from pathlib import Path
 
 from licigt.consulta.esquemas import BuscarDocumentosParams, CompararVersionesParams, ExtraerRequisitosParams
-from licigt.consulta.herramientas import buscar_documentos, comparar_versiones, extraer_requisitos, tema_comparacion
+from licigt.consulta.herramientas import armar_candidatas, buscar_documentos, comparar_versiones, extraer_requisitos, tema_comparacion
+from licigt.consulta.lectura import FragmentoRecuperado
 from licigt.consulta.requisitos import CONSULTAS_POR_CATEGORIA, CONSULTA_CRONOGRAMA
 
 
@@ -526,6 +527,18 @@ class ImportacionesTests(unittest.TestCase):
         resultado = subprocess.run([sys.executable, "-c", codigo], env={**os.environ, "PYTHONPATH": src},
                                    capture_output=True, text=True)
         self.assertEqual(resultado.returncode, 0, resultado.stderr)
+
+
+class ArmarCandidatas(unittest.TestCase):
+    def fragmentos(self):
+        texto = "Recepción de ofertas el 3 de abril de 2023 y apertura el 4 de abril de 2023."
+        return [FragmentoRecuperado.model_validate(fragmento(texto=texto))]
+
+    def test_arma_pasaje_y_fechas(self):
+        fechas, candidatas = armar_candidatas(self.fragmentos())
+        self.assertEqual(len(fechas), 2)
+        self.assertEqual(list(candidatas), ["c0", "c1"])
+        self.assertTrue(candidatas["c0"]["pasaje"].startswith("Recepción de ofertas el 3 de abril de 2023"))
 
 
 if __name__ == "__main__":

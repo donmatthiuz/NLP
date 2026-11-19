@@ -38,7 +38,7 @@ Cada uso es una **variante candidata** frente a reglas y frente al LLM con salid
 | F3 y F4 | Pasajes recuperados | Por fragmento, `Noul`: ¿es relevante?, ¿contiene la respuesta?, ¿contradice lo que asume la pregunta?, ¿intenta dar instrucciones? Se descartan los irrelevantes y los que traen instrucciones; los que contradicen se marcan como conflicto. | [Classifying RAG passages](https://docs.typesafe.ai/cookbooks/classifying_rag_passages.md) |
 | F4 | Suficiencia | `Noul`: ¿los fragmentos contienen todos los datos que la pregunta necesita? Complementa `suficiente` del rol 2. | [Verify LLM outputs](https://docs.typesafe.ai/cookbooks/verify_llm_outputs.md) |
 | F4 | Fidelidad de cada cita | Por afirmación, `Choice`: la sección citada la respalda, la contradice o no dice nada. Coincide con la evaluación por afirmaciones del curso (respaldada, parcial, no respaldada). | [Citation check](https://docs.typesafe.ai/cookbooks/citation_check.md) |
-| F3 | Fechas de `extraer_requisitos` | El código encuentra candidatas con expresiones regulares; JEV elige cuál corresponde a cada actividad del cronograma; el código normaliza y valida la fecha. | [Date extraction](https://docs.typesafe.ai/cookbooks/date_extraction_cookbook.md) |
+| F3 | Fechas de `extraer_requisitos` | Se probó y no se adoptó (F7b, [Experimento_JEV.md](Experimento_JEV.md)): el código encuentra candidatas con expresiones regulares y las reglas deterministas asignan la actividad solo en filas de tabla; JEV no interviene en el sistema entregado. Se midió con una muestra pequeña. | [Date extraction](https://docs.typesafe.ai/cookbooks/date_extraction_cookbook.md) |
 
 El validador determinista de citas (existencia, permisos, página, versión y texto) sigue siendo obligatorio; JEV solo añade el juicio de si la cita respalda la afirmación.
 
@@ -71,7 +71,7 @@ Según la [página de modelos](https://docs.typesafe.ai/go/models.md):
 
 Según la [página de puntos débiles](https://docs.typesafe.ai/go/jaggedness.md):
 
-- **Fechas y números:** JEV lee las fechas como texto; no compara ni calcula. Coincide con el plan: JEV elige la fecha candidata y el código la compara y valida (caso del evento 222).
+- **Fechas y números:** JEV lee las fechas como texto; no compara ni calcula. En las fechas de la lista el código encuentra la candidata y las reglas la asignan a su actividad, sin JEV (F7b); el código la compara y valida (caso del evento 222).
 - **Contenido adversario:** JEV no trata el estado como hostil. Un fragmento con instrucciones inyectadas puede influirle; la pregunta de "¿intenta dar instrucciones?" es una capa más, no la única defensa.
 - **Contexto grande e irrelevante:** baja la precisión. Se envían solo los fragmentos y campos que la pregunta necesita.
 - **Orden de opciones:** en `Choice` favorece la primera. En la evaluación se repite con el orden cambiado para medir ese sesgo.

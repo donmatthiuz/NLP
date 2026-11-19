@@ -377,7 +377,13 @@ def _respuesta_de_lista(evento_id: str, resultado: ResultadoHerramienta, items: 
         coverage_status=resultado.coverage_status, warnings=resultado.warnings)
 
 
-def proponer_lista(ctx, evento_id, categoria=None, *, recuperador, cliente_jev=None,
+def parametros_propuesta(evento_id, categoria=None) -> ExtraerRequisitosParams:
+    """Los parámetros fijos con que la propuesta ejecuta extraer_requisitos; el experimento de fechas los comparte."""
+    pregunta = f"Requisitos {categoria} y fechas del evento" if categoria else "Requisitos y fechas del evento"
+    return ExtraerRequisitosParams(evento_id=evento_id, categoria=categoria, pregunta=pregunta)
+
+
+def proponer_lista(ctx, evento_id, categoria=None, *, recuperador,
                    auditar=lambda evento: None) -> PropuestaLista:
     """Acción del usuario, sin enrutador ni LLM: ejecuta extraer_requisitos con una pregunta fija y no escribe nada."""
     inicio = time.monotonic()
@@ -389,11 +395,9 @@ def proponer_lista(ctx, evento_id, categoria=None, *, recuperador, cliente_jev=N
         if evento_salida != evento_id:
             error = "parametros_invalidos"
         else:
-            pregunta = f"Requisitos {categoria} y fechas del evento" if categoria else "Requisitos y fechas del evento"
             observado = _RecuperadorObservado(recuperador, evento_id)
             resultado = extraer_requisitos(
-                ctx, ExtraerRequisitosParams(evento_id=evento_id, categoria=categoria, pregunta=pregunta),
-                observado, cliente_jev=cliente_jev)
+                ctx, parametros_propuesta(evento_id, categoria), observado, verificar_fechas=True)
             error = resultado.error
             if observado.evento_distinto or resultado.evento_id != evento_id:
                 error = "evento_distinto"

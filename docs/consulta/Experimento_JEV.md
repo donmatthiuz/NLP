@@ -167,3 +167,55 @@ Encargo [J2](delegacion/J2_variante_llm_del_enrutador.md): `Anteproyecto.md:342`
 - el P95 total dentro de 15 s: no cumple. Con el P95 medido (15,1 s) más el del resto (29,3 s) son 44 s; aun con la latencia de desarrollo (0,55 s) el total sería de 29,8 s, porque el flujo base ya excede.
 
 **Lectura comparada.** Los dos enrutadores con modelo superan a las reglas en la prueba y no se distinguen entre sí (p = 0,75). El LLM local es gratuito y mantiene en cero los críticos; JEV acierta 2 casos más y tarda unos 240 ms contra unos 500 ms. En desarrollo ninguno supera a las reglas. Ninguno cambia la decisión de adopción, que depende del P95 de 29 s del resto del flujo.
+
+## Fechas de la lista (F7b)
+
+Encargo [F7b](delegacion/F7b_jev_en_fechas.md): `DESIGN.md:24` pide que JEV se quede en cada punto solo si mejora el resultado en un banco etiquetado. En el enrutador se midió; en las fechas de la lista JEV se usaba sin experimento. Aquí asigna cada fecha candidata a una actividad del cronograma, y las fechas verificadas alimentan la detección de `fechas_distintas`. Se compararon JEV, reglas deterministas y no verificar.
+
+### Protocolo
+
+- **Candidatas:** las fechas que produce `extraer_requisitos` con los mismos parámetros y la misma pregunta que la propuesta real (`parametros_propuesta` en `lista.py`), con el pasaje que arma `herramientas.py`.
+  - Desarrollo (eventos 399 y 363): 8 candidatas.
+  - Prueba (eventos 368, 327 y 222): 15 candidatas.
+- **Por qué desarrollo queda por debajo de 15:** solo entran fechas escritas como "N de mes de AAAA", y en los eventos de desarrollo la recuperación del cronograma trae pocas filas (adquisición, inducción y recepción) más la solvencia patronal. Ampliar las consultas habría cambiado qué se considera candidata, así que no se hizo.
+- **Etiquetas:** la actividad de `preguntas_jev.py` o `ninguna`, a ciegas.
+  - Proponente en Codex y revisor en Claude, con 23 de 23 de acuerdo (8 de desarrollo y 15 de prueba).
+  - El etiquetado de prueba se repitió porque el hallazgo A1 de la auditoría cambió la consulta de la exportación y se permutaron los ids del 222. Las 8 fechas y sus pasajes son los mismos.
+- **Regla de adopción, fijada antes de correr:**
+  - Crítico: una fecha `verificada` con una actividad distinta de la etiqueta. Acierto: `verificada` con la actividad correcta.
+  - JEV se queda si no tiene más críticos que las reglas y supera sus aciertos con McNemar p < 0,05.
+  - Si no se cumple, se adoptan las reglas cuando no tienen críticos; si las dos tienen críticos, las fechas quedan sin verificar y la detección de conflictos de fechas se declara como limitación.
+- **Aclaraciones previas, hechas antes de cualquier corrida con JEV y de ver las reglas sobre prueba:**
+  - Si JEV tiene 0 críticos, las reglas tienen 1 o más y JEV acierta al menos una, JEV se queda aunque no haya significancia, porque un crítico pesa más que una fecha sin verificar. Con 0 aciertos, las fechas quedan sin verificar.
+  - Si JEV tiene críticos y las reglas no, se adoptan las reglas.
+- **Reglas:** palabras clave de cada actividad tomadas de las definiciones de `ACTIVIDADES_CRONOGRAMA`, en la fila de la tabla o el texto anterior a la fecha. Sin coincidencia única, `no_verificada`. Huella de las palabras clave al medir: `8ac0fd8df76e`; la vigente es `d925b6f6f849` (ver limitaciones).
+- **Latencia:** se reporta, pero no decide.
+
+### Resultado (prueba, 15 candidatas)
+
+- **Reglas:** 11 aciertos, 0 críticos y 4 `no_verificada`. Las 4 son solvencias patronales, con etiqueta `ninguna`.
+- **Conflictos del 222:** las reglas detectan los dos conocidos (adquisición de documentos y recepción de ofertas).
+- **Veredicto:** `reglas`, sin corrida de JEV, porque la regla ya estaba determinada con estos datos.
+
+### Potencia
+
+- Para que JEV ganara con McNemar bilateral exacto necesitaba al menos 6 casos que las reglas fallaran y él acertara (con 5 casos y ninguno en contra, p = 0,0625).
+- Las reglas solo fallan en 4 candidatas, y todas tienen etiqueta `ninguna`: JEV no puede acertarlas como `verificada`. El máximo de discordantes a favor de JEV era 0 (p mínimo 1), así que JEV no podía superar a las reglas con estos datos, tuviera la llave que tuviera. Por eso no se llamó a JEV.
+
+### Decisión
+
+- La propuesta de lista verifica las fechas de filas de tabla con las reglas (`fechas_reglas.py`). Una fecha sin coincidencia única queda `no_verificada` y aparece en la propuesta marcada para revisión; la detección de `fechas_distintas` usa las verificadas.
+- JEV no se usa en las fechas del sistema entregado. Costo 0, sin datos fuera de la máquina y sin la dependencia de la llave. `extraer_requisitos` conserva el parámetro `cliente_jev` por compatibilidad, sin usarlo, y la API ya no crea el cliente para la propuesta. El caso `r3-ind-jev-fechas` del banco se corrigió: ya no simula JEV caído.
+- JEV sigue en el enrutador y en la verificación de citas, con sus propios experimentos. El código del experimento de fechas (`experimento_fechas.py`) se conserva y puede repetirse con otro conjunto.
+
+### Limitaciones
+
+- Muestra pequeña: 8 candidatas de desarrollo y 15 de prueba. La decisión vale para estos datos, no es una medida de generalización.
+- La verificación por reglas solo vale en filas de tabla, que es lo medido (las 6 candidatas no tabulares eran solvencias). Fuera de una tabla una fecha nunca se verifica.
+- Una fecha `no_verificada` sin ninguna actividad mencionada (una solvencia) solo deja el aviso `fechas_no_verificadas`. Si su texto menciona alguna actividad (coincidencia ambigua, o prosa con palabra clave), pide revisión humana: el ítem va con revisión y la respuesta lleva `needs_human_review` y el aviso `fecha_ambigua: <actividades>`.
+- La verificación por reglas solo aplica a la propuesta de lista (`proponer_lista`), que es lo medido; en el chat `extraer_requisitos` deja las fechas `no_verificada`.
+- La huella de las reglas cambió a `d925b6f6f849` al agregar el alcance "solo filas de tabla". Ese cambio se hizo después de ver el resultado de prueba, por un hallazgo de auditoría (verificación fuera de tabla nunca medida), y solo restringe: no puede crear aciertos nuevos. Se declara como cambio posterior a la corrida. Con la huella nueva, prueba sigue en 11 aciertos, 0 críticos, 4 `no_verificada` y los dos conflictos del 222.
+- Solo 3 actividades están representadas en las candidatas (adquisición de documentos, inducción y recepción de ofertas, además de `ninguna`). Las reglas para solicitud y respuesta de aclaraciones, formulario electrónico, apertura de plicas y adjudicación no se midieron.
+- Las fechas que no están escritas como "N de mes de AAAA" no son candidatas: ni las reglas ni JEV las ven.
+- Con varias fechas iguales en un pasaje fuera de tabla, las reglas cortan en la primera aparición del literal; solo puede dejar la fecha sin verificar.
+- Las fechas de solvencia, que JEV habría marcado fuera del cronograma, ahora aparecen como fecha sin verificar con revisión pendiente.

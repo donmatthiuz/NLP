@@ -396,9 +396,9 @@
     {
       "id": "r3-ind-jev-fechas",
       "evento": "222-IGSS-2023",
-      "tipo": "indisponibilidad",
+      "tipo": "herramienta_nominal",
       "question": "Extrae la fecha y la hora de recepción de ofertas que aparecen en las bases del evento 222-IGSS-2023.",
-      "expected_behavior": "Ejecuta extraer_requisitos con JEV caído. La fecha candidata del 31 de julio de 2023, a las 11:00 horas y con límite a las 11:30, conserva su fuente de las bases y queda no_verificada. Incluye el aviso jev_no_disponible. No convierte la indisponibilidad en una clasificación negativa del respaldo ni presenta la fecha como vigente.",
+      "expected_behavior": "Ejecuta extraer_requisitos en el chat. La fecha candidata del 31 de julio de 2023, a las 11:00 horas y con límite a las 11:30, conserva su fuente de las bases y queda no_verificada, con el aviso fechas_no_verificadas. No presenta la fecha como vigente. Corregido después de la primera corrida (18 de noviembre, F7c): las fechas se verifican por reglas solo en la propuesta de lista y JEV ya no interviene en extraer_requisitos (ver Experimento_JEV.md), así que se quitó la simulación de JEV caído y no hay degradación que medir.",
       "expected_sources": [
         {
           "tipo_documento": "bases",
@@ -420,9 +420,6 @@
         ]
       },
       "nivel": "herramienta",
-      "simulacion": {
-        "jev": "caido"
-      },
       "particion": "prueba",
       "autor": "proponente-casos (Codex)",
       "revisado_por": "revisor-casos (evidencia)"

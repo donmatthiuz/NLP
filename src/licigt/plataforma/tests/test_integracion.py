@@ -120,7 +120,6 @@ class IntegracionPermisosTests(unittest.TestCase):
         api.app.dependency_overrides[api.obtener_enrutador] = EnrutadorReglas
         api.app.dependency_overrides[api.obtener_recuperador] = lambda: self.recuperador
         api.app.dependency_overrides[api.obtener_generador] = GeneradorDeCita
-        api.app.dependency_overrides[api.obtener_cliente_jev] = lambda: None
         self.repositorio = RepositorioMemoria()
         api.app.dependency_overrides[api.obtener_repositorio] = lambda: self.repositorio
         self.addCleanup(api.app.dependency_overrides.clear)

@@ -41,8 +41,6 @@ class ApiTests(unittest.TestCase):
         api.app.dependency_overrides[api.resolver_evento] = lambda evento_id: evento_id
         api.app.dependency_overrides[api.obtener_recuperador] = lambda: self.recuperador
         api.app.dependency_overrides[api.obtener_generador] = lambda: self.generador
-        self.jev = None
-        api.app.dependency_overrides[api.obtener_cliente_jev] = lambda: self.jev
         # Sin psycopg se sustituye solo el módulo que define Contexto.
         try:
             import licigt.recuperacion.busqueda  # noqa: F401
@@ -136,15 +134,15 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(self.repositorio.items("empresa_demo", "222"), [])
         self.assertEqual(self.repositorio._cambios, {})
 
-    def test_c14_la_propuesta_recibe_el_cliente_jev_y_verifica_las_fechas(self):
-        self.jev = tl.JevDeLista()
+    def test_f7c_la_propuesta_verifica_las_fechas_por_reglas_sin_cliente_jev(self):
         self.recuperador = tl.RecuperadorPorConsulta({
-            tl.CONSULTAS_POR_CATEGORIA["legal"]: [tl.FUNDAMENTAL], tl.CONSULTA_CRONOGRAMA: [tl.FECHA_BASES]})
+            tl.CONSULTAS_POR_CATEGORIA["legal"]: [tl.FUNDAMENTAL], tl.CONSULTA_CRONOGRAMA: [tl.FECHA_TABLA]})
+        self.assertFalse(hasattr(api, "obtener_cliente_jev"))
+        self.assertFalse(hasattr(api, "ClienteJevSdk"))
         r = self.cliente.post(LISTA + "/propuesta", json={"categoria": "legal"})
         self.assertEqual(r.status_code, 200, r.text)
-        self.assertEqual(len(self.jev.llamadas), 1)
         fecha = [i for i in r.json()["items"] if i["tipo"] == "fecha"][0]
-        self.assertEqual(fecha["descripcion"], "Recepción de ofertas: 31 de julio de 2023")
+        self.assertTrue(fecha["descripcion"].startswith("Recepción de ofertas: "))
 
     def test_propuesta_sin_cuerpo_es_valida(self):
         self.recuperador = tl.RecuperadorPorConsulta({})
@@ -378,7 +376,6 @@ class ResolverEventoTests(unittest.TestCase):
         api.app.dependency_overrides[api.obtener_repositorio] = lambda: self.repo
         api.app.dependency_overrides[api.obtener_recuperador] = lambda: RecuperadorDelEvento({
             tl.CONSULTAS_POR_CATEGORIA["legal"]: [tl.FUNDAMENTAL], tl.CONSULTA_CRONOGRAMA: [tl.FECHA_BASES]})
-        api.app.dependency_overrides[api.obtener_cliente_jev] = lambda: None
         lector = LectorFalso({interno: {f["chunk_id"]: f for f in (tl.FUNDAMENTAL, tl.FECHA_BASES)}})
         api.app.dependency_overrides[api.obtener_lector] = lambda: lector
         return f"/api/eventos/{pedido}", pedido

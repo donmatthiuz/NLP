@@ -15,8 +15,10 @@ const HERRAMIENTAS = {
 const ROTULOS_AVISO: Record<string, string> = {
   cobertura_incompleta: 'Cobertura incompleta',
   evento_con_modificaciones: 'El evento tiene modificaciones',
-  candidatas_sin_verificar: 'Fechas sin verificar',
+  fechas_no_verificadas: 'Fechas sin verificar',
+  fecha_ambigua: 'Fecha ambigua: requiere revisión',
   alerta_desconocida: 'Alerta no reconocida',
+  afirmaciones_descartadas: 'Se omitieron afirmaciones que no pasaron la validación de citas',
 }
 
 const rotuloAviso = (w: string) => ROTULOS_AVISO[w.split(':')[0]] ?? 'Aviso del sistema'

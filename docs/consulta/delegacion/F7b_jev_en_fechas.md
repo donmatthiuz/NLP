@@ -16,6 +16,7 @@ Rama `proyecto`. No commitees.
 - **Si no se cumple:**
   - si las reglas tienen 0 críticos, se adoptan las reglas, que no salen de la máquina ni cuestan;
   - si las dos tienen críticos, las fechas quedan `no_verificada` y la detección de conflictos de fechas se declara como limitación.
+- **Aclaración del 18 de noviembre, antes de cualquier corrida con JEV y de ver las reglas sobre prueba (hallazgo A3 de la auditoría):** si JEV tiene 0 críticos y las reglas tienen 1 o más, las reglas no se pueden adoptar y JEV domina a no verificar (igual de seguro, igual o más cobertura): JEV se queda si tiene al menos 1 acierto, haya o no diferencia significativa con las reglas; con 0 aciertos, las fechas quedan `no_verificada`. Precisado en la segunda auditoría (B1), también antes de cualquier corrida. Si JEV tiene críticos y las reglas no, se adoptan las reglas (rama de arriba).
 - **La latencia** se reporta, pero no decide: la propuesta de lista no tiene la meta de 15 s.
 
 ## Conjuntos

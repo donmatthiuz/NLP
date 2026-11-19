@@ -12,7 +12,8 @@ from typing import get_args
 from pydantic import ValidationError
 
 from licigt.consulta.esquemas import Categoria, ExtraerRequisitosParams
-from licigt.consulta.herramientas import extraer_requisitos
+from licigt.consulta.herramientas import armar_candidatas, extraer_requisitos
+from licigt.consulta.lectura import FragmentoRecuperado
 from licigt.consulta.tests.test_generacion import DATOS_TABLA
 from licigt.consulta.jev import FallaJev, RespuestaJev
 from licigt.consulta.preguntas_jev import (
@@ -225,30 +226,28 @@ class FechasEnTablaTests(unittest.TestCase):
                           ("31 de julio de 2023", "2023-07-31")])
 
     def test_c15_cada_candidata_lleva_el_titulo_de_su_fila(self):
-        jev = JevFalso(elecciones={"c0": "adquirir_documentos", "c1": "induccion", "c2": "recepcion_ofertas"})
-        recuperador = RecuperadorFalso([busqueda([DATOS_TABLA])] * 5)
-        r = extraer_requisitos(None, ExtraerRequisitosParams(evento_id="222"), recuperador, cliente_jev=jev)
-        candidatas = jev.llamadas[0][0]["candidatas"]
+        _, candidatas = armar_candidatas([FragmentoRecuperado.model_validate(DATOS_TABLA)])
         self.assertEqual([c["fecha"] for c in candidatas.values()],
                          ["31 de julio de 2023", "19 de julio de 2023", "31 de julio de 2023"])
         self.assertIn("2.2.2 | Fecha y hora para inducción", candidatas["c1"]["pasaje"])
         self.assertIn("Lugar, dirección, fecha y hora para la recepción de OFERTAS", candidatas["c2"]["pasaje"])
         self.assertTrue(candidatas["c2"]["pasaje"].startswith("| 2.2.6 | Lugar"))
+
+    def test_f7c_las_reglas_verifican_cada_fila_del_cronograma(self):
+        recuperador = RecuperadorFalso([busqueda([DATOS_TABLA])] * 5)
+        r = extraer_requisitos(None, ExtraerRequisitosParams(evento_id="222"), recuperador, verificar_fechas=True)
         self.assertEqual([(f.actividad, f.estado) for f in r.fechas],
                          [("adquirir_documentos", "verificada"), ("induccion", "verificada"),
                           ("recepcion_ofertas", "verificada")])
+        self.assertTrue(all(f.prob_actividad is None and f.prob_respaldo is None for f in r.fechas))
 
     def test_c16_el_pasaje_de_una_fecha_de_tabla_termina_en_el_fin_de_su_fila(self):
-        jev = JevFalso(elecciones={"c0": "adquirir_documentos", "c1": "induccion", "c2": "recepcion_ofertas"})
-        recuperador = RecuperadorFalso([busqueda([DATOS_TABLA])] * 5)
-        extraer_requisitos(None, ExtraerRequisitosParams(evento_id="222"), recuperador, cliente_jev=jev)
-        candidatas = jev.llamadas[0][0]["candidatas"]
+        _, candidatas = armar_candidatas([FragmentoRecuperado.model_validate(DATOS_TABLA)])
         for identificador, otra_fila in (("c0", "2.2.2"), ("c1", "2.2.3"), ("c2", "2.2.7")):
             with self.subTest(candidata=identificador):
                 self.assertNotIn(otra_fila, candidatas[identificador]["pasaje"])
         self.assertTrue(candidatas["c0"]["pasaje"].endswith("31 de julio de 2023. |"))
         self.assertNotIn("Fecha y hora para inducción", candidatas["c0"]["pasaje"])
-
 
     def test_c15_la_consulta_del_cronograma_nombra_las_actividades_de_la_tabla(self):
         # Medido: con la consulta anterior, la tabla 2.2 (chunk 00041) no salía entre los 5 mejores del evento 222.
@@ -257,9 +256,9 @@ class FechasEnTablaTests(unittest.TestCase):
             self.assertIn(palabra, consulta)
 
 class ExtraerRequisitosTests(unittest.TestCase):
-    def extraer(self, recuperador=None, jev=None, **params):
+    def extraer(self, recuperador=None, jev=None, verificar=True, **params):
         return extraer_requisitos(self.ctx, ExtraerRequisitosParams(evento_id="222", **params),
-                                 recuperador or RecuperadorFalso(), cliente_jev=jev)
+                                 recuperador or RecuperadorFalso(), cliente_jev=jev, verificar_fechas=verificar)
 
     def setUp(self):
         self.ctx = {"tenant_id": "empresa_privada", "usuario": "usuario_privado"}
@@ -297,113 +296,99 @@ class ExtraerRequisitosTests(unittest.TestCase):
         self.assertEqual(resultado.coverage_status, "parcial")
         self.assertEqual(resultado.warnings, ["cobertura_incompleta: base páginas no indexadas 3",
                                              "evento_con_modificaciones: mod",
-                                             "alerta_desconocida: nueva", "fechas_no_verificadas: 5"])
+                                             "alerta_desconocida: nueva", "fechas_no_verificadas: 3",
+                                             "fecha_ambigua: recepcion_ofertas",
+                                             "fechas_distintas: recepcion_ofertas"])
 
-    def test_sin_jev_no_inventa_actividad_ni_revision(self):
-        resultado = self.extraer()
+    def test_f7c_sin_coincidencia_unica_queda_sin_verificar_sin_pedir_revision(self):
+        fragmento = {**FRAGMENTOS_222[3], "texto": "Solvencia Patronal con el pago operado al 31 de mayo de 2023"}
+        resultado = self.extraer(RecuperadorFalso([busqueda([fragmento])] * 5))
         self.assertFalse(resultado.needs_human_review)
-        self.assertIn("fechas_no_verificadas: 5", resultado.warnings)
-        for fecha in resultado.fechas:
-            self.assertEqual(fecha.estado, "no_verificada")
-            self.assertIsNone(fecha.actividad)
-            self.assertIsNone(fecha.prob_actividad)
-            self.assertIsNone(fecha.prob_respaldo)
+        self.assertIn("fechas_no_verificadas: 1", resultado.warnings)
+        fecha = resultado.fechas[0]
+        self.assertEqual((fecha.estado, fecha.actividad, fecha.prob_actividad, fecha.prob_respaldo),
+                         ("no_verificada", None, None, None))
+
+    def test_f7c_ningun_cliente_jev_se_usa(self):
+        jev = JevFalso()
+        resultado = self.extraer(jev=jev)
+        self.assertEqual(jev.llamadas, [])
+        self.assertNotIn("jev_no_disponible", resultado.warnings)
 
     def test_caso_222_compara_recepcion_y_excluye_solvencias(self):
-        jev = JevFalso({"c2": "ninguna", "c4": "ninguna"})
-        resultado = self.extraer(jev=jev)
+        resultado = self.extraer()
         self.assertTrue(resultado.needs_human_review)
-        self.assertEqual(resultado.warnings, ["fechas_distintas: recepcion_ofertas"])
+        self.assertEqual(resultado.warnings, ["fechas_no_verificadas: 3", "fecha_ambigua: recepcion_ofertas",
+                                              "fechas_distintas: recepcion_ofertas"])
         self.assertEqual([f.estado for f in resultado.fechas],
-                         ["verificada", "verificada", "fuera_del_cronograma", "verificada",
-                          "fuera_del_cronograma"])
+                         ["no_verificada", "verificada", "no_verificada", "verificada", "no_verificada"])
         self.assertEqual({f.fecha for f in resultado.fechas if f.actividad == "recepcion_ofertas"},
                          {date(2023, 7, 31), date(2023, 10, 6)})
         self.assertEqual(len(resultado.fragmentos), 6)
 
-    def test_confianza_baja_y_limites_inclusivos(self):
-        for probabilidad, respaldo, estado in [(0.49, 0.9, "no_verificada"),
-                                               (0.9, 0.69, "no_verificada"),
-                                               (0.9, 0.2, "no_verificada"),
-                                               (0.5, 0.7, "verificada")]:
-            with self.subTest(probabilidad=probabilidad, respaldo=respaldo):
-                jev = JevFalso(probabilidad=probabilidad, respaldo=respaldo)
-                resultado = self.extraer(RecuperadorFalso([busqueda(FRAGMENTOS_222[:1])] * 5), jev)
-                candidata = resultado.fechas[0]
-                self.assertEqual(candidata.estado, estado)
-                self.assertEqual(candidata.prob_actividad, probabilidad)
-                self.assertEqual(candidata.prob_respaldo, respaldo)
-                self.assertEqual(resultado.needs_human_review, estado == "no_verificada")
+    def test_f7c_fuera_del_flujo_de_la_lista_las_fechas_quedan_sin_verificar(self):
+        resultado = self.extraer(verificar=False)
+        self.assertEqual(resultado.warnings, ["fechas_no_verificadas: 5"])
+        self.assertTrue(all(f.estado == "no_verificada" and f.actividad is None for f in resultado.fechas))
 
-    def test_ninguna_se_decide_por_choice(self):
-        for probabilidad, estado in [(0.5, "fuera_del_cronograma"), (0.49, "no_verificada")]:
-            with self.subTest(probabilidad=probabilidad):
-                jev = JevFalso({"c0": "ninguna"}, probabilidad=probabilidad, respaldo=0.1)
-                resultado = self.extraer(RecuperadorFalso([busqueda(FRAGMENTOS_222[:1])] * 5), jev)
-                self.assertEqual(resultado.fechas[0].estado, estado)
-                self.assertEqual(resultado.needs_human_review, estado == "no_verificada")
-
-    def test_fallas_jev_no_publican_verificacion_parcial(self):
-        for error in (FallaJev("api"), TimeoutError(),
-                      ValidationError.from_exception_data("Respuesta", []), None):
-            with self.subTest(error=error):
-                resultado = self.extraer(jev=JevFalso(error=error, incompleta=error is None))
-                self.assertIn("jev_no_disponible", resultado.warnings)
-                self.assertTrue(resultado.needs_human_review)
-                self.assertTrue(all(f.estado == "no_verificada" and f.prob_actividad is None
-                                    for f in resultado.fechas))
-
-    def test_estado_publico_preguntas_y_una_solicitud(self):
-        jev = JevFalso()
-        self.extraer(jev=jev)
-        self.assertEqual(len(jev.llamadas), 1)
-        estado, preguntas = jev.llamadas[0]
-        self.assertEqual(set(estado), {"candidatas"})
-        self.assertEqual(list(estado["candidatas"]), [f"c{i}" for i in range(5)])
-        for identificador, candidata in estado["candidatas"].items():
-            self.assertEqual(set(candidata), {"seccion", "pasaje", "fecha"})
-            self.assertTrue(all(isinstance(v, str) for v in candidata.values()))
-            self.assertLessEqual(len(candidata["pasaje"]), 300 + len(candidata["fecha"]))
-            for prefijo, tipo in (("actividad", "choice"), ("respaldo", "noul")):
-                pregunta = preguntas[f"{prefijo}_{identificador}"]
-                self.assertEqual(pregunta["type"], tipo)
-                self.assertIn(f"`candidatas.{identificador}.", pregunta["instructions"])
-            self.assertEqual(preguntas[f"actividad_{identificador}"]["criteria"], ACTIVIDADES_CRONOGRAMA)
-        self.assertEqual(estado["candidatas"]["c1"]["seccion"], FRAGMENTOS_222[2]["seccion"])
-        self.assertIn("recepción de OFERTAS", estado["candidatas"]["c3"]["pasaje"])
-        serializado = json.dumps(jev.llamadas)
-        for privado in ("ctx", "tenant_id", "empresa_privada", "usuario_privado"):
-            self.assertNotIn(privado, serializado)
-        self.assertEqual(preguntas, preguntas_fechas(estado["candidatas"]))
-
-    def test_limita_envio_y_conserva_sobrantes(self):
-        fragmento = {**FRAGMENTOS_222[0], "texto": "31 de julio de 2023; " * (MAX_CANDIDATAS_JEV + 2)}
-        jev = JevFalso()
-        resultado = self.extraer(RecuperadorFalso([busqueda([fragmento])] * 5), jev)
-        self.assertEqual(len(jev.llamadas), 1)
-        self.assertEqual(len(jev.llamadas[0][0]["candidatas"]), MAX_CANDIDATAS_JEV)
-        self.assertEqual(len(jev.llamadas[0][1]), 2 * MAX_CANDIDATAS_JEV)
-        self.assertEqual([f.estado for f in resultado.fechas[-2:]], ["no_verificada"] * 2)
-        self.assertIn("candidatas_sin_verificar: 2", resultado.warnings)
+    def test_a1_prosa_que_menciona_dos_actividades_pide_revision_aunque_haya_otra_fecha_verificada(self):
+        tabla = {**FRAGMENTOS_222[2], "chunk_id": "b1", "texto": "| 2.2.6 | Recepción de OFERTAS | 31 de julio de 2023 |"}
+        prosa = {**FRAGMENTOS_222[0], "chunk_id": "b2",
+                 "texto": "La recepción de ofertas y apertura de plicas se realizará el 06 de octubre de 2023."}
+        resultado = self.extraer(RecuperadorFalso([busqueda([tabla, prosa])] * 5))
+        self.assertEqual([f.estado for f in resultado.fechas], ["verificada", "no_verificada"])
         self.assertTrue(resultado.needs_human_review)
+        self.assertIn("fecha_ambigua: apertura_plicas, recepcion_ofertas", resultado.warnings)
+
+    def test_a2_prosa_con_una_actividad_no_se_verifica_y_pide_revision(self):
+        prosa = {**FRAGMENTOS_222[0],
+                 "texto": "Dentro del plazo para adjudicar, la JUNTA resolverá hasta el 31 de marzo de 2027."}
+        resultado = self.extraer(RecuperadorFalso([busqueda([prosa])] * 5))
+        self.assertEqual([(f.estado, f.actividad) for f in resultado.fechas], [("no_verificada", None)])
+        self.assertTrue(resultado.needs_human_review)
+        self.assertIn("fecha_ambigua: adjudicacion", resultado.warnings)
+
+    def test_a1_la_solvencia_no_pide_revision_solo_avisa(self):
+        resultado = self.extraer(RecuperadorFalso([busqueda([FRAGMENTOS_222[3]])] * 5))
+        self.assertFalse(resultado.needs_human_review)
+        self.assertEqual(resultado.warnings, ["fechas_no_verificadas: 1"])
+
+    def test_f7c_222_con_dos_fechas_por_actividad_produce_fechas_distintas(self):
+        def fila(chunk, tipo, numeral, titulo, dia):
+            return {**FRAGMENTOS_222[2], "chunk_id": chunk, "tipo_documento": tipo,
+                    "texto": f"| {numeral} | {titulo} | hasta el día {dia} |"}
+        fragmentos = [
+            fila("b1", "bases", "2.2.1", "Período para adquirir los DOCUMENTOS DE LICITACIÓN", "31 de julio de 2023"),
+            fila("b2", "bases", "2.2.6", "Lugar, dirección, fecha y hora para la recepción de OFERTAS", "31 de julio de 2023"),
+            fila("m1", "modificacion", "2.2.1", "Período para adquirir los DOCUMENTOS DE LICITACIÓN", "06 de octubre de 2023"),
+            fila("m2", "modificacion", "2.2.6", "Lugar, dirección, fecha y hora para la recepción de OFERTAS", "06 de octubre de 2023")]
+        jev = JevFalso()
+        resultado = self.extraer(RecuperadorFalso([busqueda(fragmentos)] * 5), jev)
+        self.assertEqual(sorted(w for w in resultado.warnings if w.startswith("fechas_distintas")),
+                         ["fechas_distintas: adquirir_documentos", "fechas_distintas: recepcion_ofertas"])
+        self.assertTrue(resultado.needs_human_review)
+        self.assertEqual(jev.llamadas, [])
+
+    def test_f7c_no_hay_tope_de_candidatas_y_no_se_pide_revision_por_sobrantes(self):
+        filas = "\n".join(f"| 2.2.6 | Recepción de OFERTAS | {dia} de julio de 2023 |" for dia in range(1, 23))
+        resultado = self.extraer(RecuperadorFalso([busqueda([{**FRAGMENTOS_222[2], "texto": filas}])] * 5))
+        self.assertEqual(len(resultado.fechas), 22)
+        self.assertTrue(all(f.estado == "verificada" for f in resultado.fechas))
+        self.assertFalse(any(w.startswith("candidatas_sin_verificar") for w in resultado.warnings))
 
     def test_ventana_conserva_espacios_a_ambos_lados_de_la_fecha(self):
         texto = "La recepción será el \n 31 de julio de 2023 \n a las once horas."
-        fragmento = {**FRAGMENTOS_222[0], "texto": texto}
-        jev = JevFalso()
-        self.extraer(RecuperadorFalso([busqueda([fragmento])] * 5), jev)
-        candidata = jev.llamadas[0][0]["candidatas"]["c0"]
-        self.assertEqual(candidata["pasaje"],
-                         "La recepción será el 31 de julio de 2023 a las once horas.")
+        _, candidatas = armar_candidatas([FragmentoRecuperado.model_validate({**FRAGMENTOS_222[0], "texto": texto})])
+        self.assertEqual(candidatas["c0"]["pasaje"], "La recepción será el 31 de julio de 2023 a las once horas.")
 
     def test_fechas_distintas_dentro_del_mismo_documento(self):
-        fragmento = {**FRAGMENTOS_222[0], "texto": "31 de julio de 2023 y 06 de octubre de 2023"}
-        resultado = self.extraer(RecuperadorFalso([busqueda([fragmento])] * 5), JevFalso())
+        fragmento = {**FRAGMENTOS_222[0], "texto": "| 2.2.6 | Recepción de OFERTAS | 31 de julio de 2023 y 06 de octubre de 2023 |"}
+        resultado = self.extraer(RecuperadorFalso([busqueda([fragmento])] * 5))
         self.assertIn("fechas_distintas: recepcion_ofertas", resultado.warnings)
         self.assertTrue(resultado.needs_human_review)
 
     def test_fechas_iguales_no_son_conflicto(self):
-        resultado = self.extraer(RecuperadorFalso([busqueda(FRAGMENTOS_222[:1])] * 5), JevFalso())
+        resultado = self.extraer(RecuperadorFalso([busqueda(FRAGMENTOS_222[2:3])] * 5))
         self.assertFalse(resultado.needs_human_review)
         self.assertEqual(resultado.warnings, [])
 

@@ -10,12 +10,12 @@ from licigt.ingesta.pipeline import SUSPICIOUS
 from .esquemas import (
     BuscarDocumentosParams, Categoria, CompararVersionesParams, ExtraerRequisitosParams, NombreHerramienta,
 )
-from .jev import ClienteJev, FallaJev, validar_respuesta
+from .fechas_reglas import verificar_fechas as verificar_por_reglas
+from .jev import ClienteJev
 from .lectura import (
     TIPOS_ALERTA_CONOCIDOS, Alerta, DocumentoComparado, FragmentoRecuperado, es_tabla,
     ResultadoBusqueda, ResultadoComparacion,
 )
-from .preguntas_jev import CHOICE_MIN, MAX_CANDIDATAS_JEV, NOUL_SI, preguntas_fechas
 from .requisitos import (
     CONSULTAS_POR_CATEGORIA, CONSULTA_CRONOGRAMA, FechaCandidata, encontrar_fechas,
 )
@@ -232,9 +232,40 @@ def comparar_versiones(ctx, params: CompararVersionesParams,
         warnings=avisos, error=None)
 
 
+def armar_candidatas(fragmentos: list[FragmentoRecuperado]):
+    """Fechas literales de los fragmentos y, para cada una, su sección y el pasaje (antes, literal y después) que lee quien la verifica."""
+    fechas, candidatas = [], {}
+    for fragmento in fragmentos:
+        for literal, fecha, posicion in encontrar_fechas(fragmento.texto):
+            identificador = f"c{len(fechas)}"
+            fechas.append(FechaCandidata(
+                chunk_id=fragmento.chunk_id, doc_id=fragmento.doc_id,
+                tipo_documento=fragmento.tipo_documento, pagina=fragmento.pagina_inicio,
+                literal=literal, fecha=fecha))
+            # Compactar espacios conserva contexto útil en las tablas extraídas del PDF.
+            # En una tabla el contexto es la fila (numeral y título incluidos), no los 150 caracteres previos.
+            tabla = es_tabla(fragmento.texto)
+            inicio_fila = fragmento.texto.rfind("\n", 0, posicion) + 1 if tabla else 0
+            antes = re.sub(r"\s+", " ", fragmento.texto[inicio_fila:posicion])[-400 if tabla else -150:]
+            resto = fragmento.texto[posicion + len(literal):]
+            # En una tabla el contexto posterior termina en el fin de la fila: la siguiente es otra actividad.
+            if tabla and "\n" in resto:
+                resto = resto[:resto.index("\n")]
+            despues = re.sub(r"\s+", " ", resto)[:150]
+            candidatas[identificador] = {
+                "seccion": fragmento.seccion,
+                "pasaje": antes + literal + despues,
+                "fecha": literal,
+            }
+    return fechas, candidatas
+
+
 def extraer_requisitos(ctx, params: ExtraerRequisitosParams, recuperador: Recuperador,
-                       cliente_jev: ClienteJev | None = None) -> ResultadoHerramienta:
-    """Reúne requisitos y fechas; compara actividades sin decidir la vigencia documental."""
+                       cliente_jev: ClienteJev | None = None, verificar_fechas: bool = False) -> ResultadoHerramienta:
+    """Reúne requisitos y fechas; compara actividades sin decidir la vigencia documental.
+
+    `cliente_jev` se acepta por compatibilidad y no se usa. Con `verificar_fechas` (la propuesta de lista, que es lo que
+    midió F7b) las fechas de filas de tabla se verifican por reglas (fechas_reglas.py); sin él quedan `no_verificada`."""
     consultas = ([(params.categoria, CONSULTAS_POR_CATEGORIA[params.categoria])]
                  if params.categoria is not None else list(CONSULTAS_POR_CATEGORIA.items()))
     # La pregunta del usuario va primero y sin categoría: sus fragmentos no se etiquetan como requisito de una.
@@ -279,63 +310,19 @@ def extraer_requisitos(ctx, params: ExtraerRequisitosParams, recuperador: Recupe
                   for d, (n, c) in por_documento.items()]
     abstener = not any(r.suficiente for r in resultados) or not fragmentos
 
-    fechas, candidatas = [], {}
-    for fragmento in fragmentos.values():
-        for literal, fecha, posicion in encontrar_fechas(fragmento.texto):
-            identificador = f"c{len(fechas)}"
-            fechas.append(FechaCandidata(
-                chunk_id=fragmento.chunk_id, doc_id=fragmento.doc_id,
-                tipo_documento=fragmento.tipo_documento, pagina=fragmento.pagina_inicio,
-                literal=literal, fecha=fecha))
-            if len(candidatas) < MAX_CANDIDATAS_JEV:
-                # Compactar espacios conserva contexto útil en las tablas extraídas del PDF.
-                # En una tabla el contexto es la fila (numeral y título incluidos), no los 150 caracteres previos.
-                tabla = es_tabla(fragmento.texto)
-                inicio_fila = fragmento.texto.rfind("\n", 0, posicion) + 1 if tabla else 0
-                antes = re.sub(r"\s+", " ", fragmento.texto[inicio_fila:posicion])[-400 if tabla else -150:]
-                resto = fragmento.texto[posicion + len(literal):]
-                # En una tabla el contexto posterior termina en el fin de la fila: la siguiente es otra actividad.
-                if tabla and "\n" in resto:
-                    resto = resto[:resto.index("\n")]
-                despues = re.sub(r"\s+", " ", resto)[:150]
-                candidatas[identificador] = {
-                    "seccion": fragmento.seccion,
-                    "pasaje": antes + literal + despues,
-                    "fecha": literal,
-                }
-
-    if fechas and (cliente_jev is None or abstener):
+    fechas, candidatas = armar_candidatas(list(fragmentos.values()))
+    if fechas and (not verificar_fechas or abstener):
         avisos.append(f"fechas_no_verificadas: {len(fechas)}")
     elif fechas:
-        sobrantes = len(fechas) - len(candidatas)
-        if sobrantes:
-            avisos.append(f"candidatas_sin_verificar: {sobrantes}")
-            revisar = True
-        preguntas = preguntas_fechas(candidatas)
-        try:
-            respuesta = validar_respuesta(
-                cliente_jev.preguntar({"candidatas": candidatas}, preguntas), preguntas)
-            verificadas = []
-            for indice, identificador in enumerate(candidatas):
-                eleccion = respuesta.respuestas[f"actividad_{identificador}"]
-                actividad = eleccion["choice"]
-                prob_actividad = eleccion["probabilities"][actividad]
-                prob_respaldo = respuesta.respuestas[f"respaldo_{identificador}"]["noul"]
-                confianza = min(prob_actividad, prob_respaldo)
-                if actividad == "ninguna" and prob_actividad >= CHOICE_MIN:
-                    estado = "fuera_del_cronograma"
-                elif (actividad != "ninguna" and confianza >= CHOICE_MIN
-                      and prob_respaldo >= NOUL_SI):
-                    estado = "verificada"
-                else:
-                    estado = "no_verificada"
-                    revisar = True
-                verificadas.append(FechaCandidata(
-                    **{**fechas[indice].model_dump(), "actividad": actividad, "estado": estado,
-                       "prob_actividad": prob_actividad, "prob_respaldo": prob_respaldo}))
-            fechas = verificadas + fechas[len(candidatas):]
-        except (FallaJev, TimeoutError, ValidationError):
-            avisos.append("jev_no_disponible")
+        # F7b: la propuesta de lista verifica por reglas las fechas de filas de tabla; JEV no se llama (Experimento_JEV.md).
+        fechas, ambiguas = verificar_por_reglas(
+            fechas, candidatas, {f.chunk_id: es_tabla(f.texto) for f in fragmentos.values()})
+        sin_verificar = sum(1 for f in fechas if f.estado == "no_verificada")
+        if sin_verificar:
+            avisos.append(f"fechas_no_verificadas: {sin_verificar}")
+        # Dato crítico ambiguo: una fecha que menciona una actividad y las reglas no pudieron asignar pide revisión.
+        for actividades in dict.fromkeys(", ".join(a) for a in ambiguas.values()):
+            avisos.append(f"fecha_ambigua: {actividades}")
             revisar = True
 
     por_actividad = {}

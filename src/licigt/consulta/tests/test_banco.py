@@ -126,14 +126,14 @@ class EjecucionTests(unittest.TestCase):
         self.assertEqual(r.evento["herramienta"], "buscar_documentos")
         self.assertFalse(r.salida.abstained)
 
-    def test_jev_caido_en_extraer_requisitos_marca_fechas_sin_verificar(self):
+    def test_jev_caido_no_afecta_a_las_fechas_de_extraer_requisitos(self):
+        # F7b: las fechas se verifican por reglas; JEV ya no interviene en extraer_requisitos.
         c = caso(question="¿Cuáles son los requisitos del evento?", simulacion={"jev": "caido"},
                  esperado={"accion": "usar_herramienta", "tool_used": "extraer_requisitos"})
         r = self.ejecutar(c)
         self.assertEqual(r.evento["herramienta"], "extraer_requisitos")
-        self.assertIn("jev_no_disponible", r.salida.warnings)
-        self.assertTrue(r.salida.needs_human_review)
-        self.assertTrue(r.degradado)
+        self.assertNotIn("jev_no_disponible", r.salida.warnings)
+        self.assertFalse(r.degradado)
 
     def test_recuperacion_falla_abstiene_con_error_controlado(self):
         r = self.ejecutar(caso(simulacion={"recuperacion": "falla"}))
@@ -361,7 +361,8 @@ class CorrerTests(unittest.TestCase):
         self.assertIn("perfil", datos["parametros_generador"])
         self.assertIs(type(datos["commit_sucio"]), bool)
         self.assertEqual(datos["version_prompt"], VERSION_PROMPT)
-        for clave in ("perfil", "modelo", "semilla", "max_tokens", "temperatura_regeneracion"):
+        for clave in ("perfil", "modelo", "semilla", "max_tokens", "max_tokens_requisitos", "temperatura_regeneracion",
+                      "tiempo_espera", "presupuesto_segundos", "estimacion_regeneracion_segundos"):
             self.assertIn(clave, datos["parametros_generador"])
         self.assertNotIn("archivo_clave", datos["parametros_generador"])
         self.assertEqual([r["id"] for r in datos["resultados"]], ["a", "b", "c"])

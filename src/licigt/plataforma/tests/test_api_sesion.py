@@ -43,7 +43,6 @@ class SesionTests(unittest.TestCase):
         api.app.dependency_overrides[api.resolver_evento] = lambda evento_id: evento_id
         api.app.dependency_overrides[api.obtener_recuperador] = lambda: self.recuperador
         api.app.dependency_overrides[api.obtener_generador] = GeneradorFalso
-        api.app.dependency_overrides[api.obtener_cliente_jev] = lambda: None
         api.app.dependency_overrides[api.obtener_repositorio] = lambda: self.repositorio
         lector = LectorFalso({"222": {f["chunk_id"]: f for f in (
             tl.FUNDAMENTAL, tl.NO_FUNDAMENTAL, tl.FECHA_BASES, tl.FECHA_MOD)}})
