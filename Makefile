@@ -39,7 +39,7 @@ EVENTO ?= 222-IGSS-2023
 .PHONY: help setup env-init keys-init keys-status key-set db-up db-down db-password-sync db-password-rotar db-rol-app \
         importar evaluar buscar models-status claude opencode codex test-consulta test-ingesta test-recuperacion corpus \
         diagramas llm-descargar llm-servidor llm-estado llm-detener deps-consulta sondeo-jev api banco experimento-jev experimento-llm fechas-preparar fechas-reglas experimento-jev-fechas fechas-comparar web web-ejemplos web-build lista-schema test-consulta-sql \
-        usuarios-demo empresa-b test-plataforma reporte deps presentacion-pptx
+        usuarios-demo empresa-b test-plataforma reporte deps presentacion-pptx anteproyecto-pdf informe-pdf evaluacion-paquete
 
 help: ## Muestra esta ayuda
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(firstword $(MAKEFILE_LIST)) \
@@ -239,6 +239,12 @@ diagramas: ## Exporta los diagramas HTML a PNG con Chrome
 presentacion-pptx: ## Genera docs/presentacion/Diapositivas.pptx desde el Markdown con pandoc
 	@cd docs/presentacion && pandoc Diapositivas.md -o Diapositivas.pptx
 	@printf 'ok\tdocs/presentacion/Diapositivas.pptx\n'
+
+informe-pdf: ## Genera el informe técnico en PDF y verifica que tenga de 10 a 15 páginas
+	@bash scripts/exportar_informe.sh
+
+evaluacion-paquete: ## Empaqueta los bancos y la corrida oficial existente, sin volver a evaluar
+	@$(PYTHON) scripts/empaquetar_evaluacion.py
 
 anteproyecto-pdf: ## Genera docs/anteproyecto/Anteproyecto.pdf desde el Markdown (pandoc + Chrome sin interfaz)
 	@tmp=$$(mktemp -d) && pandoc docs/anteproyecto/Anteproyecto.md -s --self-contained --resource-path=.:docs/anteproyecto \
