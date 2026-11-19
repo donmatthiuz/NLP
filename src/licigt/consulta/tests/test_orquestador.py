@@ -27,7 +27,7 @@ class GeneradorFalso:
         self.salidas = salidas or [json.dumps(salida_222(), ensure_ascii=False)]
         self.llamadas, self.semillas = [], []
 
-    def generar(self, mensajes, esquema, semilla_extra=0):
+    def generar(self, mensajes, esquema, semilla_extra=0, **_limites):
         self.llamadas.append((deepcopy(mensajes), deepcopy(esquema)))
         self.semillas.append(semilla_extra)
         salida = self.salidas[len(self.llamadas) - 1]
@@ -188,11 +188,169 @@ class OrquestadorTests(unittest.TestCase):
         r = self.consultar(recuperador=RecuperadorFalso(), generador=generador)
         self.assertFalse(r.abstained)
         self.assertEqual(len(r.answer.splitlines()), 7)
-        self.assertEqual(r.coverage_status, "parcial")
+        self.assertEqual(r.coverage_status, "sin_faltantes_detectados")
         self.assertIn("afirmaciones_descartadas: 1", r.warnings)
         self.assertEqual(self.eventos[0]["afirmaciones_descartadas"], 1)
         self.assertEqual(self.eventos[0]["validacion"], "parcial")
         self.assertNotIn("entrega", repr(self.eventos[0]))
+        self.assertEqual(len(generador.llamadas), 2)
+
+    def test_c21_cobertura_parcial_del_inventario_sobrevive_a_la_publicacion_parcial(self):
+        base = salida_222()["afirmaciones"][0]
+        mala = {"texto": "Las bases indican entrega el {1}.",
+                "citas": [{"fragmento": "F1", "cita": "texto que no existe en el fragmento F1"}],
+                "datos": [{"cita": 1, "literal": "31 de julio de 2023"}]}
+        salida = json.dumps({"abstener": False, "revision_humana": False, "afirmaciones": [base, mala]})
+        r = self.consultar(recuperador=RecuperadorFalso(parcial=True), generador=GeneradorFalso([salida, salida]))
+        self.assertFalse(r.abstained)
+        self.assertEqual(r.coverage_status, "parcial")
+        self.assertIn("afirmaciones_descartadas: 1", r.warnings)
+
+    def reloj_falso(self, segundos_por_llamada):
+        t = [0.0]
+        generador = GeneradorFalso([self.salida_invalida()] * 2)
+        generar = generador.generar
+
+        def con_tiempo(*a, **k):
+            try:
+                return generar(*a, **k)
+            finally:
+                t[0] += segundos_por_llamada
+        generador.generar = con_tiempo
+        return generador, lambda: t[0]
+
+    def salida_invalida(self):
+        return json.dumps({"abstener": False, "revision_humana": False, "afirmaciones": [{
+            "texto": "Recepción {a}.", "citas": salida_222()["afirmaciones"][0]["citas"],
+            "datos": [{"cita": 1, "literal": "31 de julio de 2023"}]}]})
+
+    def test_c21_con_presupuesto_regenera(self):
+        generador, reloj = self.reloj_falso(2)
+        r = self.consultar(generador=generador, reloj=reloj)
+        self.assertEqual(len(generador.llamadas), 2)
+        self.assertTrue(r.abstained)
+
+    def test_c21_sin_presupuesto_no_regenera_y_abstiene(self):
+        generador, reloj = self.reloj_falso(9)
+        r = self.consultar(generador=generador, reloj=reloj)
+        self.assertEqual(len(generador.llamadas), 1)
+        self.assertTrue(r.abstained)
+        self.assertIn("citas_no_validas", r.warnings)
+
+    def test_c21_sin_presupuesto_publica_lo_valido(self):
+        base = salida_222()["afirmaciones"][0]
+        mala = {"texto": "Las bases indican entrega el {1}.",
+                "citas": [{"fragmento": "F1", "cita": "texto que no existe en el fragmento F1"}],
+                "datos": [{"cita": 1, "literal": "31 de julio de 2023"}]}
+        salida = json.dumps({"abstener": False, "revision_humana": False, "afirmaciones": [base, mala]})
+        generador = GeneradorFalso([salida, salida])
+        t = [0.0]
+        generar = generador.generar
+        generador.generar = lambda *a, **k: (t.__setitem__(0, t[0] + 9), generar(*a, **k))[1]
+        r = self.consultar(recuperador=RecuperadorFalso(), generador=generador, reloj=lambda: t[0])
+        self.assertEqual(len(generador.llamadas), 1)
+        self.assertFalse(r.abstained)
+        self.assertIn("afirmaciones_descartadas: 1", r.warnings)
+
+    def test_c21_a2_salida_cortada_sin_presupuesto_no_reintenta_y_lo_registra(self):
+        cortada = FallaGenerador("respuesta_cortada")
+        for segundos, llamadas, omitida in ((20, 1, "tiempo"), (2, 2, None)):
+            with self.subTest(segundos=segundos):
+                self.eventos.clear()
+                t = [0.0]
+                generador = GeneradorFalso([cortada, json.dumps(salida_222())])
+                generar = generador.generar
+
+                def con_tiempo(*a, _g=generar, _t=t, _s=segundos, **k):
+                    try:
+                        return _g(*a, **k)
+                    finally:
+                        _t[0] += _s
+                generador.generar = con_tiempo
+                r = self.consultar(generador=generador, reloj=lambda: t[0])
+                self.assertEqual(len(generador.llamadas), llamadas)
+                self.assertEqual(self.eventos[0].get("regeneracion_omitida"), omitida)
+                self.assertEqual(r.abstained, llamadas == 1)
+
+    def test_c21_a3_regeneracion_omitida_por_tiempo_queda_en_la_auditoria(self):
+        generador, reloj = self.reloj_falso(9)
+        self.consultar(generador=generador, reloj=reloj)
+        self.assertEqual(self.eventos[0]["regeneracion_omitida"], "tiempo")
+        generador, reloj = self.reloj_falso(2)
+        self.eventos.clear()
+        self.consultar(generador=generador, reloj=reloj)
+        self.assertNotIn("regeneracion_omitida", self.eventos[0])
+
+    def generador_con_reloj(self, segundos, t):
+        class ConLimites(GeneradorFalso):
+            def generar(self, mensajes, esquema, semilla_extra=0, max_tokens=None, tiempo_espera=None):
+                self.extras = getattr(self, "extras", []) + [(max_tokens, tiempo_espera)]
+                try:
+                    return super().generar(mensajes, esquema, semilla_extra)
+                finally:
+                    t[0] += segundos
+        return ConLimites([self.salida_invalida()] * 2)
+
+    def test_c21_a5_la_regeneracion_limita_su_espera_al_presupuesto_restante(self):
+        for segundos, esperado in ((6, 9), (1, 14)):
+            with self.subTest(segundos=segundos):
+                self.eventos.clear()
+                t = [0.0]
+                generador = self.generador_con_reloj(segundos, t)
+                self.consultar(generador=generador, reloj=lambda: t[0])
+                self.assertEqual([e[1] for e in generador.extras], [None, esperado])
+
+    def test_c21_a5_el_restante_nunca_baja_de_cinco_segundos(self):
+        t = [0.0]
+
+        class RecuperadorLento(RecuperadorFalso):
+            def buscar(self, *a, **k):
+                t[0] += 12  # la recuperación ya gastó casi todo el presupuesto
+                return super().buscar(*a, **k)
+        generador = self.generador_con_reloj(1, t)
+        self.consultar(generador=generador, recuperador=RecuperadorLento(), reloj=lambda: t[0])
+        self.assertEqual([e[1] for e in generador.extras], [None, 5])  # 15 - 13 = 2, con piso de 5
+
+    def test_c21_a1_max_tokens_por_herramienta(self):
+        class ConLimites(GeneradorFalso):
+            def generar(self, mensajes, esquema, semilla_extra=0, max_tokens=None):
+                self.max_tokens = max_tokens
+                return super().generar(mensajes, esquema, semilla_extra)
+        entorno = {"LICIGT_LLM_MAX_TOKENS": "111", "LICIGT_LLM_MAX_TOKENS_REQUISITOS": "222"}
+        for pregunta, esperado in (("¿Cuál es la fecha de recepción de ofertas?", 111),
+                                   ("¿Qué requisitos tiene la plica?", 222)):
+            with self.subTest(pregunta=pregunta), patch.dict(os.environ, entorno):
+                obtener_configuracion_llm.cache_clear()
+                generador = ConLimites()
+                self.eventos.clear()
+                self.consultar(pregunta, generador=generador)
+                self.assertEqual(generador.max_tokens, esperado)
+
+    def test_c21_generador_con_la_firma_del_protocolo_no_recibe_limites(self):
+        class SoloProtocolo(GeneradorFalso):
+            def generar(self, mensajes, esquema, semilla_extra: int = 0):
+                return super().generar(mensajes, esquema, semilla_extra)
+        generador = SoloProtocolo([self.salida_invalida()] * 2)
+        self.consultar("¿Qué requisitos tiene la plica?", generador=generador)
+        self.assertEqual(len(generador.llamadas), 2)
+
+    def test_c21_la_estimacion_de_la_regeneracion_tiene_tope(self):
+        # Presupuesto 40 s; el primer intento tardó 25 s. Sin tope: 25 + 25 > 40 y se omitía; con tope de 10 s: 35 <= 40.
+        for estimacion, llamadas in (("10", 2), ("25", 1)):
+            with self.subTest(estimacion=estimacion):
+                generador, reloj = self.reloj_falso(25)
+                self.eventos.clear()
+                entorno = {"LICIGT_PRESUPUESTO_SEGUNDOS": "40", "LICIGT_ESTIMACION_REGENERACION_SEGUNDOS": estimacion}
+                with patch.dict(os.environ, entorno):
+                    obtener_configuracion_llm.cache_clear()
+                    self.consultar(generador=generador, reloj=reloj)
+                self.assertEqual(len(generador.llamadas), llamadas)
+
+    def test_c21_el_limite_sale_del_entorno(self):
+        generador, reloj = self.reloj_falso(9)
+        with patch.dict(os.environ, {"LICIGT_PRESUPUESTO_SEGUNDOS": "60"}):
+            obtener_configuracion_llm.cache_clear()
+            self.consultar(generador=generador, reloj=reloj)
         self.assertEqual(len(generador.llamadas), 2)
 
     def test_c16_vigencia_en_una_afirmacion_descartada_pide_revision_humana(self):
@@ -458,8 +616,8 @@ class OrquestadorTests(unittest.TestCase):
             self.eventos.clear()
             generador = GeneradorFalso([inicial, json.dumps(salida_222())])
             presupuestos = []
-            def nuevo():
-                p = Presupuesto()
+            def nuevo(**kw):
+                p = Presupuesto(**kw)
                 presupuestos.append(p)
                 return p
             with patch("licigt.consulta.orquestador.Presupuesto", side_effect=nuevo):

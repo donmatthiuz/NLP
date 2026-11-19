@@ -64,15 +64,21 @@ class ClienteGeneradorOpenAI:
         except Exception:
             raise FallaGenerador("api") from None
 
-    def generar(self, mensajes: list[dict], esquema: dict, semilla_extra: int = 0) -> str:
-        """semilla_extra > 0 marca la regeneración: suma a la semilla y sube la temperatura para no repetir la salida."""
+    def generar(self, mensajes: list[dict], esquema: dict, semilla_extra: int = 0, *,
+                max_tokens: int | None = None, tiempo_espera: float | None = None) -> str:
+        """semilla_extra > 0 marca la regeneración: suma a la semilla y sube la temperatura para no repetir la salida.
+
+        max_tokens sustituye al tope de la configuración (el orquestador pasa el de cada herramienta);
+        tiempo_espera solo puede acortar la espera configurada, nunca alargarla."""
         if self.perfil == "openai":
             esquema = _esquema_openai(esquema)
         argumentos = dict(model=self.config.modelo, messages=mensajes,
                           temperature=self.config.temperatura_regeneracion if semilla_extra else 0,
-                          seed=self.config.semilla + semilla_extra, max_tokens=self.config.max_tokens,
+                          seed=self.config.semilla + semilla_extra, max_tokens=max_tokens or self.config.max_tokens,
                           response_format={"type": "json_schema", "json_schema": {
                               "name": "salida_licigt", "schema": esquema, "strict": True}})
+        if tiempo_espera is not None:
+            argumentos["timeout"] = min(tiempo_espera, self.config.tiempo_espera)
         if self.perfil == "local":
             argumentos["extra_body"] = {"chat_template_kwargs": {"enable_thinking": False}}
         try:

@@ -44,7 +44,9 @@ class SalidaModelo(BaseModel):
 
 
 class ClienteGenerador(Protocol):
-    def generar(self, mensajes: list[dict], esquema: dict, semilla_extra: int = 0) -> str: ...
+    def generar(self, mensajes: list[dict], esquema: dict, semilla_extra: int = 0) -> str:
+        """Un generador puede aceptar además `max_tokens` y `tiempo_espera` (solo palabra clave); el orquestador los pasa si existen."""
+        ...
 
 
 def esquema_salida(alias) -> dict:

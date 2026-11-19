@@ -29,3 +29,22 @@ class PresupuestoTests(unittest.TestCase):
         for cambios in ({"max_llamadas": -1}, {"max_regeneraciones": True}):
             with self.subTest(cambios=cambios), self.assertRaises(ValueError):
                 Presupuesto(**cambios)
+
+
+class PresupuestoTiempoTests(unittest.TestCase):
+    def test_sin_limite_de_tiempo_siempre_cabe(self):
+        self.assertTrue(Presupuesto().cabe_generacion(1e9))
+
+    def test_cabe_si_gastado_mas_estimado_no_supera_el_limite(self):
+        t = [0.0]
+        presupuesto = Presupuesto(max_segundos=15, reloj=lambda: t[0])
+        t[0] = 6
+        self.assertTrue(presupuesto.cabe_generacion(9))
+        self.assertFalse(presupuesto.cabe_generacion(9.1))
+        t[0] = 15
+        self.assertFalse(presupuesto.cabe_generacion(0.1))
+
+    def test_limite_invalido(self):
+        for malo in (0, -1, float("nan")):
+            with self.subTest(malo=malo), self.assertRaises(ValueError):
+                Presupuesto(max_segundos=malo)

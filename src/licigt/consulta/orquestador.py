@@ -1,5 +1,6 @@
 """Flujo de consulta con una herramienta, una regeneración y auditoría en toda salida."""
 
+import inspect
 import json
 import re
 import time
@@ -113,12 +114,23 @@ def _atributo_seguro(objeto, nombre):
         return None
 
 
+def _con_limites(generador, **limites):
+    """Los límites por llamada solo se pasan a un generador que los acepta; uno con la firma del protocolo no los recibe."""
+    try:
+        parametros = inspect.signature(generador.generar).parameters
+    except (TypeError, ValueError):
+        return {}
+    libre = any(p.kind is inspect.Parameter.VAR_KEYWORD for p in parametros.values())
+    return {k: v for k, v in limites.items() if v is not None and (libre or k in parametros)}
+
+
 class _Ejecucion:
     """Lo que la ejecución de una herramienta deja para la auditoría y para quien la llamó."""
     def __init__(self):
         self.resultado, self.fragmentos, self.error, self.validacion = None, [], None, "no_aplica"
         self.citas_jev, self.datos_descartados, self.datos_desde_cita = None, 0, 0
         self.afirmaciones_descartadas = 0
+        self.regeneracion_omitida = None
 
 
 def _ejecutar(ctx, evento_id, evento_salida, pregunta, herramienta, presupuesto, *, recuperador,
@@ -133,6 +145,8 @@ def _ejecutar(ctx, evento_id, evento_salida, pregunta, herramienta, presupuesto,
             error = "config_llm_invalida"
             respuesta = _abstencion(evento_salida, aviso="generador_no_disponible", herramienta=herramienta)
             return respuesta
+        presupuesto.max_segundos = config.presupuesto_segundos
+        tope_tokens = config.max_tokens_requisitos if herramienta == "extraer_requisitos" else config.max_tokens
         presupuesto.usar_llamada()
         observado = _RecuperadorObservado(recuperador, evento_id)
         if herramienta == "buscar_documentos":
@@ -188,7 +202,16 @@ def _ejecutar(ctx, evento_id, evento_salida, pregunta, herramienta, presupuesto,
         for intento in range(2):
             try:
                 # La regeneración cambia la semilla: con temperatura 0 la misma semilla repite la misma salida.
-                crudo = generador.generar(mensajes, esquema, semilla_extra=intento)
+                limites = {"max_tokens": tope_tokens}
+                if intento and presupuesto.max_segundos:
+                    # Sin esto el peor caso sumaría dos esperas completas; el piso evita una espera inútil.
+                    limites["tiempo_espera"] = max(5, presupuesto.max_segundos - (presupuesto.reloj() - presupuesto.inicio))
+                antes = presupuesto.reloj()
+                try:
+                    crudo = generador.generar(mensajes, esquema, semilla_extra=intento,
+                                              **_con_limites(generador, **limites))
+                finally:
+                    duracion = presupuesto.reloj() - antes
                 cortada = False
             except FallaGenerador as exc:
                 if exc.codigo != "respuesta_cortada":
@@ -218,7 +241,10 @@ def _ejecutar(ctx, evento_id, evento_salida, pregunta, herramienta, presupuesto,
                     respuesta, ejecucion.citas_jev = aplicar_citas(respuesta, fragmentos, cliente_jev)
                 return respuesta
             validacion = "fallida"
-            if intento:
+            # Sin tiempo para otra generación (estimada como la que acaba de terminar, con tope en la regeneración típica medida) no se regenera: se publica lo válido o se abstiene.
+            if not intento and not presupuesto.cabe_generacion(min(duracion, config.estimacion_regeneracion_segundos)):
+                ejecucion.regeneracion_omitida = "tiempo"
+            if intento or ejecucion.regeneracion_omitida:
                 parcial = None if cortada else _publicacion_parcial(
                     crudo, verificada, evidencia, resultado, evento_id=evento_id, conflictos=conflictos)
                 if parcial:
@@ -299,7 +325,7 @@ def _publicacion_parcial(crudo, errores, evidencia, resultado, *, evento_id, con
             if verificada.abstained:
                 return None
             avisos = [*verificada.warnings, f"afirmaciones_descartadas: {descartadas}"]
-            cambios = {"warnings": avisos, "coverage_status": "parcial"}
+            cambios = {"warnings": avisos}
             if con_vigencia:
                 cambios["needs_human_review"] = True
             return verificada.model_copy(update=cambios), descartadas
@@ -366,7 +392,7 @@ def _desajustes(crudo, errores):
 
 def _registrar(auditar, usuario, tenant_id, evento_salida, intencion, respuesta, fragmentos,
                validacion, inicio, error, generador, citas_jev=None, jev_sustituida=None, datos_descartados=0,
-               datos_desde_cita=0, afirmaciones_descartadas=0):
+               datos_desde_cita=0, afirmaciones_descartadas=0, regeneracion_omitida=None):
     """Evento de auditoría de una consulta; si el registro falla, la respuesta no cambia."""
     try:
         auditar({
@@ -384,13 +410,14 @@ def _registrar(auditar, usuario, tenant_id, evento_salida, intencion, respuesta,
             **({"datos_descartados": datos_descartados} if datos_descartados else {}),
             **({"datos_desde_cita": datos_desde_cita} if datos_desde_cita else {}),
             **({"afirmaciones_descartadas": afirmaciones_descartadas} if afirmaciones_descartadas else {}),
+            **({"regeneracion_omitida": regeneracion_omitida} if regeneracion_omitida else {}),
         })
     except Exception:
         pass
 
 
 def consultar(ctx, evento_id, pregunta, *, enrutador, recuperador, generador,
-              cliente_jev=None, auditar=lambda evento: None) -> RespuestaEstructurada:
+              cliente_jev=None, auditar=lambda evento: None, reloj=time.monotonic) -> RespuestaEstructurada:
     inicio = time.monotonic()
     usuario = _atributo_seguro(ctx, "usuario")
     tenant_id = _atributo_seguro(ctx, "tenant_id")
@@ -399,12 +426,12 @@ def consultar(ctx, evento_id, pregunta, *, enrutador, recuperador, generador,
     respuesta = _abstencion(evento_salida)
     resultado, herramienta, error, citas_jev = None, None, None, None
     jev_sustituida, datos_descartados, datos_desde_cita = None, 0, 0
-    afirmaciones_descartadas = 0
+    afirmaciones_descartadas, regeneracion_omitida = 0, None
     fragmentos = []
     intencion = None
     validacion = "no_aplica"
     try:
-        presupuesto = Presupuesto()
+        presupuesto = Presupuesto(reloj=reloj)
         if evento_salida != evento_id:
             error = "parametros_invalidos"
             return respuesta
@@ -434,6 +461,7 @@ def consultar(ctx, evento_id, pregunta, *, enrutador, recuperador, generador,
             citas_jev, datos_descartados = ejecucion.citas_jev, ejecucion.datos_descartados
             datos_desde_cita = ejecucion.datos_desde_cita
             afirmaciones_descartadas = ejecucion.afirmaciones_descartadas
+            regeneracion_omitida = ejecucion.regeneracion_omitida
     except LimiteAgotado:
         error = "presupuesto_agotado"
         respuesta = _abstencion(evento_salida, resultado, "citas_no_validas", herramienta)
@@ -449,4 +477,4 @@ def consultar(ctx, evento_id, pregunta, *, enrutador, recuperador, generador,
     finally:
         _registrar(auditar, usuario, tenant_id, evento_salida, intencion, respuesta, fragmentos,
                    validacion, inicio, error, generador, citas_jev, jev_sustituida, datos_descartados,
-                   datos_desde_cita, afirmaciones_descartadas)
+                   datos_desde_cita, afirmaciones_descartadas, regeneracion_omitida)

@@ -48,19 +48,23 @@ class LlmTests(unittest.TestCase):
                 c = obtener_configuracion_llm()
                 self.assertEqual((c.perfil, c.url, c.modelo), (perfil, url, modelo))
                 self.assertEqual((c.tiempo_espera, c.max_tokens, c.semilla, c.max_caracteres_evidencia),
-                                 (20, 3072, 42, 36000))
+                                 (40, 1536, 42, 36000))
+                self.assertEqual(c.presupuesto_segundos, 15)
         env = {"LICIGT_LLM": "openai", "LICIGT_LLM_URL": "http://servidor/v1",
                "LICIGT_LLM_MODELO": "personalizado", "LICIGT_LLM_API_KEY_FILE": "/tmp/llave-falsa",
                "LICIGT_LLM_TIEMPO_ESPERA": "3", "LICIGT_LLM_MAX_TOKENS": "50",
-               "LICIGT_LLM_SEMILLA": "9", "LICIGT_LLM_MAX_CARACTERES_EVIDENCIA": "400"}
+               "LICIGT_LLM_SEMILLA": "9", "LICIGT_LLM_MAX_CARACTERES_EVIDENCIA": "400",
+               "LICIGT_PRESUPUESTO_SEGUNDOS": "7"}
         with patch.dict(os.environ, env, clear=True):
             obtener_configuracion_llm.cache_clear()
             c = obtener_configuracion_llm()
             self.assertEqual((c.url, c.modelo, c.archivo_clave),
                              ("http://servidor/v1", "personalizado", Path("/tmp/llave-falsa")))
             self.assertEqual((c.tiempo_espera, c.max_tokens, c.semilla, c.max_caracteres_evidencia), (3, 50, 9, 400))
+            self.assertEqual(c.presupuesto_segundos, 7)
         for campos in ({"perfil": "otro"}, {"tiempo_espera": 0}, {"max_tokens": -1},
-                       {"max_caracteres_evidencia": 0}, {"tiempo_espera": float("nan")}):
+                       {"max_caracteres_evidencia": 0}, {"tiempo_espera": float("nan")},
+                       {"presupuesto_segundos": 0}):
             with self.assertRaises(ValidationError):
                 ConfiguracionLlm(**campos)
 
@@ -76,14 +80,14 @@ class LlmTests(unittest.TestCase):
                 argumentos = crear.call_args.kwargs
                 self.assertEqual(argumentos["temperature"], 0)
                 self.assertEqual(argumentos["seed"], 42)
-                self.assertEqual(argumentos["max_tokens"], 3072)
+                self.assertEqual(argumentos["max_tokens"], 1536)
                 enviado = argumentos["response_format"]["json_schema"]["schema"]
                 self.assertEqual(argumentos["response_format"]["type"], "json_schema")
                 self.assertEqual(argumentos["response_format"]["json_schema"]["name"], "salida_licigt")
                 self.assertIs(argumentos["response_format"]["json_schema"]["strict"], True)
                 if perfil == "local":
                     self.assertEqual(enviado, esquema)
-                self.assertEqual(sdk.OpenAI.call_args.kwargs["timeout"], 20)
+                self.assertEqual(sdk.OpenAI.call_args.kwargs["timeout"], 40)
                 self.assertEqual(sdk.OpenAI.call_args.kwargs["max_retries"], 0)
                 self.assertEqual(c.modelo_generador, "modelo-resuelto")
                 self.assertEqual(c.perfil, perfil)
@@ -123,6 +127,17 @@ class LlmTests(unittest.TestCase):
             c.generar([], esquema_salida(["F1"]))
             c.generar([], esquema_salida(["F1"]), semilla_extra=1)
         self.assertEqual([x.kwargs["seed"] for x in crear.call_args_list], [42, 43])
+
+    def test_c21_limites_por_llamada(self):
+        sdk, crear = sdk_falso()
+        with patch.dict(sys.modules, {"openai": sdk}):
+            c = ClienteGeneradorOpenAI(ConfiguracionLlm(tiempo_espera=30, max_tokens=1536))
+            c.generar([], esquema_salida(["F1"]))
+            c.generar([], esquema_salida(["F1"]), max_tokens=2500, tiempo_espera=9)
+            c.generar([], esquema_salida(["F1"]), tiempo_espera=99)
+        llamadas = [x.kwargs for x in crear.call_args_list]
+        self.assertEqual([x["max_tokens"] for x in llamadas], [1536, 2500, 1536])
+        self.assertEqual([x.get("timeout") for x in llamadas], [None, 9, 30])
 
     def test_expone_el_uso_de_tokens_acumulado(self):
         sdk, crear = sdk_falso()

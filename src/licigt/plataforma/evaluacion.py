@@ -19,6 +19,7 @@ import subprocess
 import time
 import unittest
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
@@ -244,6 +245,19 @@ def correr_pruebas(suites):
     return resultados
 
 
+@contextmanager
+def con_admin(url):
+    """La conexión de administrador solo existe mientras corren las pruebas de integración: el resto del proceso no la ve."""
+    if not url:
+        yield
+        return
+    os.environ["LICIGT_DB_ADMIN_URL"] = url
+    try:
+        yield
+    finally:
+        os.environ.pop("LICIGT_DB_ADMIN_URL", None)
+
+
 def suites_de_plataforma():
     from licigt.plataforma.tests import test_integracion
     base = f"{test_integracion.__name__}.IntegracionPermisosTests"
@@ -447,6 +461,8 @@ def main():
     from licigt.recuperacion.busqueda import Contexto
     from licigt.recuperacion.indice import REVISION, conectar, dispositivo, dtype_modelo
 
+    # make la entrega con otro nombre; se retira del entorno aquí y solo vuelve con su nombre dentro de con_admin.
+    url_admin = os.environ.pop("LICIGT_REPORTE_ADMIN_URL", None)
     avisos = []
     ahora = datetime.now(timezone.utc)
     sello = ahora.strftime("%Y%m%dT%H%M%SZ")
@@ -529,7 +545,12 @@ def main():
 
     if not corta:
         registros = [c for b in e2e.values() for c in b["casos"]]
-    seguridad = [] if corta else suite_seguridad(registros, correr_pruebas(suites_de_plataforma()))
+    pruebas = {}
+    if not corta:
+        # test_integracion decide si corre al importarse: el import también va dentro del bloque.
+        with con_admin(url_admin):
+            pruebas = correr_pruebas(suites_de_plataforma())
+    seguridad = [] if corta else suite_seguridad(registros, pruebas)
 
     reporte = {
         "fecha": ahora.isoformat(), "commit": banco._commit(), "commit_sucio": banco._commit_sucio(),

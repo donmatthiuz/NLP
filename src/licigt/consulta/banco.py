@@ -455,7 +455,10 @@ def _parametros_generador():
     c = obtener_configuracion_llm()
     # Sin rutas de keys/; la temperatura base es 0 y solo la regeneración usa la configurada.
     return {"perfil": c.perfil, "modelo": c.modelo, "temperatura": 0, "semilla": c.semilla,
-            "max_tokens": c.max_tokens, "temperatura_regeneracion": c.temperatura_regeneracion}
+            "max_tokens": c.max_tokens, "max_tokens_requisitos": c.max_tokens_requisitos,
+            "temperatura_regeneracion": c.temperatura_regeneracion,
+            "tiempo_espera": c.tiempo_espera, "presupuesto_segundos": c.presupuesto_segundos,
+            "estimacion_regeneracion_segundos": c.estimacion_regeneracion_segundos}
 
 
 def correr(ruta, directorio, *, ctx, recuperador, generador, enrutador, resolver, leer_lista=None) -> Path:

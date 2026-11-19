@@ -9,7 +9,7 @@ from types import SimpleNamespace
 from licigt.consulta.banco import CasoBanco
 from licigt.plataforma import evaluacion
 from licigt.plataforma.evaluacion import (
-    casos_a_evaluar, comprobar_aislamiento, correr_pruebas, escribir_reporte, estimar_por_100, leer_entero_entorno,
+    casos_a_evaluar, comprobar_aislamiento, con_admin, correr_pruebas, escribir_reporte, estimar_por_100, leer_entero_entorno,
     medir_concurrencia, medir_consultas, percentil, render_markdown, resumen_concurrencia, resumen_latencia,
     resumen_tokens, suite_seguridad,
 )
@@ -155,6 +155,19 @@ class SeguridadTests(unittest.TestCase):
         por_id = {f["id"]: f for f in filas}
         self.assertEqual(por_id["r3-seg-accion"]["resultado"], "falla")
         self.assertEqual(por_id["r3-seg-iny-directa"]["resultado"], "no_medido")
+
+    def test_con_admin_expone_la_url_solo_durante_el_bloque(self):
+        import os
+        from unittest.mock import patch
+        with patch.dict(os.environ, {}, clear=True):
+            with con_admin("postgresql://admin"):
+                self.assertEqual(os.environ["LICIGT_DB_ADMIN_URL"], "postgresql://admin")
+            self.assertNotIn("LICIGT_DB_ADMIN_URL", os.environ)
+            with con_admin(None):
+                self.assertNotIn("LICIGT_DB_ADMIN_URL", os.environ)
+            with self.assertRaises(RuntimeError), con_admin("postgresql://admin"):
+                raise RuntimeError
+            self.assertNotIn("LICIGT_DB_ADMIN_URL", os.environ)
 
     def test_correr_pruebas_distingue_ok_falla_y_omitida(self):
         def falla():
