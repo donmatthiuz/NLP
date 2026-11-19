@@ -1,38 +1,51 @@
-import { useState } from 'react'
-import { Label } from './ui/label'
-import { NativeSelect, NativeSelectOption } from './ui/native-select'
+import { useEffect, useState } from 'react'
+import { MoonIcon, SunIcon } from 'lucide-react'
+import { Button } from './ui/button'
 
-type Tema = 'sistema' | 'claro' | 'oscuro'
+type Tema = 'claro' | 'oscuro'
 const CLAVE = 'licigt-tema'
+const PREFERENCIA_OSCURA = '(prefers-color-scheme: dark)'
+const TEMAS = {
+  claro: { nombre: 'Claro', siguiente: 'oscuro', Icono: SunIcon },
+  oscuro: { nombre: 'Oscuro', siguiente: 'claro', Icono: MoonIcon },
+} as const
 
-function guardado(): Tema {
+function guardado(): Tema | null {
   try {
     const t = localStorage.getItem(CLAVE)
-    return t === 'claro' || t === 'oscuro' ? t : 'sistema'
+    return t === 'claro' || t === 'oscuro' ? t : null
   } catch {
-    return 'sistema'
+    return null
   }
 }
 
 export function SelectorTema() {
-  const [tema, setTema] = useState<Tema>(guardado)
+  const [preferencia, setPreferencia] = useState<Tema | null>(guardado)
+  const [temaSistema, setTemaSistema] = useState<Tema>(() => (
+    typeof window !== 'undefined' && window.matchMedia(PREFERENCIA_OSCURA).matches ? 'oscuro' : 'claro'
+  ))
+  useEffect(() => {
+    if (preferencia !== null) return
+    const medio = window.matchMedia(PREFERENCIA_OSCURA)
+    const actualizar = () => setTemaSistema(medio.matches ? 'oscuro' : 'claro')
+    medio.addEventListener('change', actualizar)
+    actualizar()
+    return () => medio.removeEventListener('change', actualizar)
+  }, [preferencia])
+  const tema = preferencia ?? temaSistema
+  const { nombre, siguiente, Icono } = TEMAS[tema]
+  const descripcion = `Tema actual: ${nombre}. Cambiar a ${TEMAS[siguiente].nombre}.`
   const cambiar = (t: Tema) => {
-    setTema(t)
-    if (t === 'sistema') delete document.documentElement.dataset.tema
-    else document.documentElement.dataset.tema = t
+    setPreferencia(t)
+    document.documentElement.dataset.tema = t
     try {
-      if (t === 'sistema') localStorage.removeItem(CLAVE)
-      else localStorage.setItem(CLAVE, t)
+      localStorage.setItem(CLAVE, t)
     } catch { /* sin almacenamiento: sigue la elección en esta sesión */ }
   }
   return (
-    <div className="flex items-center gap-2">
-      <Label htmlFor="tema" className="text-sm">Tema</Label>
-      <NativeSelect id="tema" value={tema} onChange={(e) => cambiar(e.target.value as Tema)}>
-        <NativeSelectOption value="sistema">Sistema</NativeSelectOption>
-        <NativeSelectOption value="claro">Claro</NativeSelectOption>
-        <NativeSelectOption value="oscuro">Oscuro</NativeSelectOption>
-      </NativeSelect>
-    </div>
+    <Button id="tema" type="button" variant="outline" size="icon"
+      aria-label={descripcion} title={descripcion} onClick={() => cambiar(siguiente)}>
+      <Icono aria-hidden="true" />
+    </Button>
   )
 }

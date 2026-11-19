@@ -33,17 +33,23 @@ export function ListaDocumentos({ documentos }: { documentos: DocumentoEvento[] 
         const faltantes = advertenciasDe(d)
         return (
           <Card asChild key={d.doc_id}
-            className="gap-2 px-4 py-3 data-[faltantes=true]:border-2 data-[faltantes=true]:border-estado-revision data-[faltantes=true]:bg-estado-revision-fondo">
+            className="@container gap-2 px-4 py-3 data-[faltantes=true]:border-2 data-[faltantes=true]:border-estado-revision data-[faltantes=true]:bg-estado-revision-fondo">
             <li data-faltantes={faltantesDe(d).length > 0}>
               <p className="flex flex-wrap items-center gap-2 font-semibold">
                 <Badge>{rotuloTipoDocumento(d.tipo_documento)}</Badge>
                 {d.version_oficial ? <span>{d.version_oficial}</span> : <Badge variant="suave">Versión oficial no indicada</Badge>}
                 <Badge variant="suave">v{d.version_ingesta}</Badge>
               </p>
-              <p><code className="font-mono text-sm wrap-anywhere">{d.doc_id}</code></p>
-              <p className="text-sm text-muted-foreground">
-                {textoPaginas(d)}; estado: {rotuloEstadoDocumento(d.estado).toLowerCase()}
-              </p>
+              <dl className="grid min-w-0 gap-x-4 gap-y-2 text-sm @md:grid-cols-2">
+                <div className="flex min-w-0 flex-wrap content-start gap-x-1">
+                  <dt className="sr-only">Documento</dt>
+                  <dd className="min-w-0 wrap-anywhere"><code className="font-mono text-sm wrap-anywhere">{d.doc_id}</code></dd>
+                </div>
+                <div className="flex min-w-0 flex-wrap content-start gap-x-1">
+                  <dt className="sr-only">Páginas y estado</dt>
+                  <dd className="min-w-0 wrap-anywhere">{textoPaginas(d)}; estado: {rotuloEstadoDocumento(d.estado).toLowerCase()}</dd>
+                </div>
+              </dl>
               {faltantes.length > 0 && (
                 <div className="grid justify-items-start gap-2">
                   <Badge variant="aviso">Falta información</Badge>
@@ -62,7 +68,7 @@ export function DocumentosEvento({ carga }: { carga: Carga }) {
   const resumen = carga.tipo === 'listo' ? resumenCobertura(carga.datos.documentos) : null
   return (
     <section className="grid gap-3" aria-labelledby="titulo-documentos">
-      <div className="grid gap-1">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <h2 id="titulo-documentos">Documentos del evento</h2>
         {resumen && (
           <p className="text-sm font-semibold data-[faltantes=true]:text-estado-revision" data-faltantes={resumen.conFaltantes > 0}>{resumen.texto}</p>

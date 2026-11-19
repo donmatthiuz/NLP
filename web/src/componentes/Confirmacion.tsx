@@ -30,7 +30,7 @@ export function Confirmacion({ titulo, lineas, textoConfirmar, guardando, alConf
   return (
     <dialog
       ref={dialogo} aria-labelledby={id} onCancel={(e) => { e.preventDefault(); alCancelar() }}
-      className="m-auto w-[min(36rem,calc(100vw-2rem))] max-w-none gap-4 rounded-xl border-2 border-foreground bg-card p-4 text-card-foreground shadow-dialogo backdrop:bg-velo open:grid sm:p-6"
+      className="m-auto w-[min(36rem,calc(100vw-2rem))] max-w-none gap-4 rounded-xl border-2 border-foreground bg-card p-4 text-card-foreground shadow-dialogo backdrop:bg-velo open:grid motion-safe:open:animate-confirmacion sm:p-6"
     >
       <div className="grid gap-1">
         <h2 id={id} ref={tituloRef} tabIndex={-1}>{titulo}</h2>

@@ -60,7 +60,7 @@ export function FilaItem({ fila, tipos, soloLectura = false, idExplicacion, alIn
   const pendiente = sinGuardar(fila)
   const idLeyenda = useId()
   return (
-    <Card asChild className="gap-0 py-0 data-[revision=true]:border-2 data-[revision=true]:border-estado-revision">
+    <Card asChild className="@container gap-0 py-0 data-[revision=true]:border-2 data-[revision=true]:border-estado-revision">
       <li data-revision={i.requiere_revision}>
         {i.requiere_revision && (
           <p className="border-b-2 border-estado-revision bg-estado-revision-fondo px-4 py-3 font-semibold text-foreground forced-colors:border-[CanvasText]">
@@ -75,10 +75,24 @@ export function FilaItem({ fila, tipos, soloLectura = false, idExplicacion, alIn
             {etiqueta && <Badge variant="suave">{etiqueta}</Badge>}
           </p>
           <blockquote className={CLASE_CITA} lang="es" id={idCita}>{mostrarCita(cita)}</blockquote>
-          <p className="text-sm text-muted-foreground wrap-anywhere">
-            <span className="font-mono">{rotuloDocumento(f.doc_id, tipos)}</span>, {textoPagina(f)}; versión de ingesta v{f.version_ingesta};
-            versión oficial: {f.version_oficial ?? 'No indicada'}
-          </p>
+          <dl className="grid min-w-0 gap-x-4 gap-y-2 text-sm @md:grid-cols-2">
+            <div className="flex min-w-0 flex-wrap content-start gap-x-1">
+              <dt className="text-muted-foreground after:content-[':']">Documento</dt>
+              <dd className="min-w-0 font-mono wrap-anywhere">{rotuloDocumento(f.doc_id, tipos)}</dd>
+            </div>
+            <div className="flex min-w-0 flex-wrap content-start gap-x-1">
+              <dt className="text-muted-foreground after:content-[':']">Página</dt>
+              <dd className="min-w-0 wrap-anywhere">{textoPagina(f)}</dd>
+            </div>
+            <div className="flex min-w-0 flex-wrap content-start gap-x-1">
+              <dt className="text-muted-foreground after:content-[':']">Versión de ingesta</dt>
+              <dd className="min-w-0 wrap-anywhere">v{f.version_ingesta}</dd>
+            </div>
+            <div className="flex min-w-0 flex-wrap content-start gap-x-1">
+              <dt className="text-muted-foreground after:content-[':']">Versión oficial</dt>
+              <dd className="min-w-0 wrap-anywhere">{f.version_oficial ?? 'No indicada'}</dd>
+            </div>
+          </dl>
           {guardado ? (
             <fieldset className="grid min-w-0 gap-2" disabled={soloLectura} aria-describedby={soloLectura ? idExplicacion : undefined}>
               <legend id={idLeyenda} className="mb-2 text-sm text-muted-foreground">Estado de «{nombre(i)}»</legend>
@@ -88,7 +102,7 @@ export function FilaItem({ fila, tipos, soloLectura = false, idExplicacion, alIn
               >
                 {ESTADOS_ITEM.map((e) => (
                   <Label key={e} data-activo={fila.estado === e}
-                    className="min-h-11 rounded-lg border border-input px-3 font-normal transition-colors hover:[&:not(:has(:disabled))]:bg-muted-hover has-disabled:text-muted-foreground data-[activo=true]:border-2 data-[activo=true]:border-foreground data-[activo=true]:bg-muted data-[activo=true]:font-semibold">
+                    className="min-h-11 rounded-lg border-2 border-input px-3 font-semibold transition-colors duration-150 hover:[&:not(:has(:disabled))]:bg-muted-hover has-disabled:text-muted-foreground data-[activo=true]:border-foreground data-[activo=true]:bg-muted">
                     <RadioGroupItem value={e} />
                     <IconoItem estado={e} />
                     <span>{ROTULOS_ESTADO_ITEM[e]}</span>
@@ -214,23 +228,25 @@ export function ListaVerificacion({ eventoId, modoEjemplos, tipos, soloLectura =
 
   return (
     <section className="grid gap-4" aria-labelledby="titulo-lista">
-      <h2 id="titulo-lista" ref={titulo} tabIndex={-1}>Lista de verificación</h2>
+      <div className="grid gap-2">
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
+          <h2 id="titulo-lista" ref={titulo} tabIndex={-1}>Lista de verificación</h2>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={() => void proponer()} disabled={cargando || soloLectura}>Proponer lista</Button>
+            <Button
+              type="button" size="sm" disabled={porGuardar.length === 0 || guardando || soloLectura}
+              onClick={(e) => { origen.current = e.currentTarget; setConfirmando({ tipo: 'guardar', items: porGuardar }) }}
+            >
+              Guardar {porGuardar.length} {porGuardar.length === 1 ? 'ítem' : 'ítems'}
+            </Button>
+          </div>
+        </div>
+        {soloLectura && <p id={idRol} className="text-sm text-muted-foreground">{MENSAJE_ROL}.</p>}
+      </div>
       <Alert variant="neutro" className="text-sm font-semibold">
         <IconoInfo />
         <AlertDescription>Los estados de la lista no certifican cumplimiento.</AlertDescription>
       </Alert>
-      <div className="grid gap-2">
-        <div className="flex flex-wrap gap-3">
-          <Button type="button" variant="outline" size="sm" onClick={() => void proponer()} disabled={cargando || soloLectura}>Proponer lista</Button>
-          <Button
-            type="button" size="sm" disabled={porGuardar.length === 0 || guardando || soloLectura}
-            onClick={(e) => { origen.current = e.currentTarget; setConfirmando({ tipo: 'guardar', items: porGuardar }) }}
-          >
-            Guardar {porGuardar.length} {porGuardar.length === 1 ? 'ítem' : 'ítems'}
-          </Button>
-        </div>
-        {soloLectura && <p id={idRol} className="text-sm text-muted-foreground">{MENSAJE_ROL}.</p>}
-      </div>
       <div role="status" className="sr-only">{anuncio}</div>
       {aviso && (
         <Alert variant={aviso.tipo === 'conflicto' ? 'revision' : 'destructive'} role="alert" className="justify-items-start gap-3">
@@ -240,7 +256,7 @@ export function ListaVerificacion({ eventoId, modoEjemplos, tipos, soloLectura =
       )}
       {abstencion && <p className="text-sm text-muted-foreground">{abstencion}</p>}
       {filas.length === 0 && !cargando && !abstencion && (
-        <p className="p-4 text-sm text-muted-foreground">Todavía no hay ítems. Use «Proponer lista» para obtener una propuesta del evento; no se guarda nada hasta que usted lo confirme.</p>
+        <p className="text-sm text-muted-foreground">Proponga una lista para comenzar. Solo se guarda al confirmar</p>
       )}
       {GRUPOS.map(({ tipo, titulo: tituloGrupo }) => {
         const delGrupo = filas.filter((f) => f.item.tipo === tipo)

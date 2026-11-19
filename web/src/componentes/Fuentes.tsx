@@ -20,9 +20,9 @@ export const CLASE_CITA = 'max-w-[70ch] rounded-lg border-l-3 border-input bg-mu
 
 function Dato({ rotulo, children, mono = false }: { rotulo: string; children: ReactNode; mono?: boolean }) {
   return (
-    <div className="flex min-w-0 flex-wrap gap-x-1">
+    <div className="flex min-w-0 flex-wrap content-start gap-x-1">
       <dt className="text-muted-foreground after:content-[':']">{rotulo}</dt>
-      <dd className={mono ? 'min-w-0 font-mono wrap-anywhere' : 'font-semibold wrap-anywhere'}>{children}</dd>
+      <dd className={mono ? 'min-w-0 font-mono wrap-anywhere' : 'min-w-0 font-semibold wrap-anywhere'}>{children}</dd>
     </div>
   )
 }
@@ -34,13 +34,15 @@ function TarjetaFuente({ f, n, tipos, eventoId }: { f: Fuente; n: number; tipos?
   return (
     <Card asChild className="@container gap-3 p-4">
       <article aria-labelledby={id}>
-        <h3 id={id} className="wrap-anywhere">[{n}] {rotuloDocumento(f.doc_id, tipos)}</h3>
-        <dl className="grid gap-x-4 gap-y-1 text-sm @md:grid-cols-2">
-          <Dato rotulo="Página">{textoPagina(f)}</Dato>
-          <Dato rotulo="Versión de ingesta">v{f.version_ingesta}</Dato>
-          <Dato rotulo="Versión oficial">{f.version_oficial ?? 'No indicada'}</Dato>
-          <Dato rotulo="Fragmento" mono>{f.chunk_id}</Dato>
-        </dl>
+        <header className="grid min-w-0 gap-3">
+          <h3 id={id} className="wrap-anywhere">[{n}] {rotuloDocumento(f.doc_id, tipos)}</h3>
+          <dl className="grid gap-x-4 gap-y-2 text-sm @md:grid-cols-2">
+            <Dato rotulo="Página">{textoPagina(f)}</Dato>
+            <Dato rotulo="Versión de ingesta">v{f.version_ingesta}</Dato>
+            <Dato rotulo="Versión oficial">{f.version_oficial ?? 'No indicada'}</Dato>
+            <Dato rotulo="Fragmento" mono>{f.chunk_id}</Dato>
+          </dl>
+        </header>
         <blockquote className={CLASE_CITA} lang="es">{mostrarCita(f.cita)}</blockquote>
         <div className="flex flex-wrap gap-x-6 gap-y-1 border-t border-border pt-2 text-sm wrap-anywhere">
           {eventoId && (

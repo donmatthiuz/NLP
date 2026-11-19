@@ -9,14 +9,14 @@ function NativeSelect({ className, ...props }: NativeSelectProps) {
   return (
     <div
       className={cn(
-        "group/native-select relative w-fit max-w-full has-[select:disabled]:opacity-60",
+        "group/native-select relative w-fit min-w-0 max-w-full has-[select:disabled]:opacity-60",
         className
       )}
       data-slot="native-select-wrapper"
     >
       <select
         data-slot="native-select"
-        className="min-h-11 w-full min-w-0 appearance-none rounded-lg border border-input bg-card py-2 pr-9 pl-3 text-base text-foreground transition-colors hover:not-disabled:bg-muted-hover disabled:cursor-not-allowed aria-invalid:border-destructive"
+        className="min-h-11 w-full min-w-0 max-w-full appearance-none rounded-lg border border-input bg-card py-2 pr-9 pl-3 text-base text-foreground transition-colors duration-150 hover:not-disabled:bg-muted-hover disabled:cursor-not-allowed aria-invalid:border-destructive"
         {...props}
       />
       <ChevronDownIcon className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-muted-foreground select-none" aria-hidden="true" data-slot="native-select-icon" />

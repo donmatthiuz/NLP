@@ -13,7 +13,7 @@ import { Alert, AlertDescription } from './componentes/ui/alert'
 import { Button } from './componentes/ui/button'
 import { Card } from './componentes/ui/card'
 import { Label } from './componentes/ui/label'
-import { NativeSelect, NativeSelectOption } from './componentes/ui/native-select'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './componentes/ui/select'
 import { Textarea } from './componentes/ui/textarea'
 import { mapaTipos } from './cobertura'
 import { EJEMPLOS } from './ejemplos'
@@ -124,25 +124,27 @@ export default function App() {
 
   return (
     <>
-      {MODO_EJEMPLOS && <p className="border-b border-border bg-muted px-4 py-2 text-sm">Modo ejemplos: respuestas fijas, no se consulta la API.</p>}
+      {MODO_EJEMPLOS && (
+        <div className="border-b border-border bg-muted">
+          <p className={`${CONTENEDOR} py-2 text-sm`}>Modo ejemplos: respuestas fijas, no se consulta la API.</p>
+        </div>
+      )}
       <header className="border-b border-border bg-card">
-        <div className={`${CONTENEDOR} flex flex-wrap items-start justify-between gap-4 py-4`}>
-          <div className="grid gap-1">
-            <div>
+        <div className={`${CONTENEDOR} grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-4 gap-y-4 py-5 sm:py-6`}>
+          <div className="grid min-w-0 gap-1">
+            <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
               <h1>LiciGT</h1>
-              <p className="text-muted-foreground">Consulta de licitaciones</p>
+              <p className="text-sm font-semibold wrap-anywhere">Evento {EVENTO_ID}</p>
             </div>
-            <p className="font-semibold">Evento {EVENTO_ID}</p>
+            <p className="text-sm text-muted-foreground">Consulta de licitaciones</p>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
-            {sesion && (
-              <p className="flex flex-wrap items-center gap-2 text-sm">
-                <span className="wrap-anywhere">{textoSesion(sesion)}</span>
-                <Button type="button" variant="outline" size="sm" onClick={() => void salir()}>Cerrar sesión</Button>
-              </p>
-            )}
-            <SelectorTema />
-          </div>
+          <SelectorTema />
+          {sesion && (
+            <div className="col-span-2 flex min-w-0 flex-col items-start gap-3 border-t border-border pt-4 text-sm sm:flex-row sm:items-center sm:justify-between">
+              <p className="min-w-0 wrap-anywhere">{textoSesion(sesion)}</p>
+              <Button type="button" variant="outline" size="sm" onClick={() => void salir()}>Cerrar sesión</Button>
+            </div>
+          )}
         </div>
       </header>
       {!conSesion ? (
@@ -159,14 +161,20 @@ export default function App() {
             aria-label="Consulta"
             onSubmit={(e) => { e.preventDefault(); void consultar() }}
           >
-            {MODO_EJEMPLOS && (
-              <div className="grid gap-2">
-                <Label htmlFor="ejemplo">Ejemplo</Label>
-                <NativeSelect id="ejemplo" className="w-full" value={ejemploId} onChange={(e) => elegirEjemplo(e.target.value)}>
-                  {EJEMPLOS.map((e) => <NativeSelectOption key={e.id} value={e.id}>{e.titulo}</NativeSelectOption>)}
-                </NativeSelect>
-              </div>
-            )}
+            <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <h2>Consulta</h2>
+              {MODO_EJEMPLOS && (
+                <div className="grid min-w-0 gap-2 sm:w-80">
+                  <Label htmlFor="ejemplo" className="text-sm">Ejemplo</Label>
+                  <Select value={ejemploId} onValueChange={elegirEjemplo}>
+                    <SelectTrigger id="ejemplo"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {EJEMPLOS.map((e) => <SelectItem key={e.id} value={e.id}>{e.titulo}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
             <div className="grid gap-2">
               <Label htmlFor="pregunta">Pregunta sobre el evento</Label>
               <Textarea
@@ -178,7 +186,7 @@ export default function App() {
                 }}
               />
             </div>
-            <div className="flex items-center justify-end gap-4">
+            <div className="flex flex-wrap items-center justify-end gap-4">
               <span id="contador" className="text-xs text-muted-foreground" aria-live={texto.length > 450 ? 'polite' : 'off'}>
                 {texto.length}/{MAXIMO}
               </span>
@@ -196,7 +204,7 @@ export default function App() {
         <div role="status" className="sr-only">{anuncio}</div>
 
         {situacion.tipo === 'vacia' && (
-          <p className="p-4 text-sm text-muted-foreground">Escriba una pregunta sobre los documentos del evento. Cada dato de la respuesta trae su fuente.</p>
+          <p className="text-sm text-muted-foreground">La respuesta aparecerá aquí con sus fuentes</p>
         )}
         {cargando && <p className="p-4 text-sm text-muted-foreground" aria-busy="true">Consultando…</p>}
         {situacion.tipo === 'error' && (
@@ -225,9 +233,6 @@ export default function App() {
         <ListaVerificacion eventoId={EVENTO_ID} modoEjemplos={MODO_EJEMPLOS} tipos={tipos} soloLectura={sesion?.rol === 'lector'} />
       </main>
       )}
-      <footer className="border-t border-border py-6 text-sm text-muted-foreground">
-        <div className={CONTENEDOR}>LiciGT, proyecto CC3103 (UVG). No presenta ofertas ni decide la vigencia de documentos.</div>
-      </footer>
     </>
   )
 }

@@ -7,7 +7,7 @@ import { Slot } from "radix-ui"
 // deshabilitado con opacidad y cursor not-allowed (sin pointer-events-none) y texto que puede
 // partirse para no desbordar a 320 px.
 const buttonVariants = cva(
-  "inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border text-center text-base font-semibold leading-titulo transition-colors select-none motion-safe:active:translate-y-px disabled:cursor-not-allowed disabled:opacity-60 aria-invalid:border-destructive [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-5",
+  "inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border text-center text-base font-semibold leading-titulo transition-colors duration-150 select-none disabled:cursor-not-allowed disabled:opacity-60 aria-invalid:border-destructive [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-5",
   {
     variants: {
       variant: {
