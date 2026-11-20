@@ -238,6 +238,8 @@ La IA se usó con papeles separados: quien implementa no audita. Ninguna cifra d
 - Faltan: latencia bajo 15 s y una evaluación con usuarios más allá de la exploratoria.
 - Siguiente paso: acortar la evidencia al LLM y reaplicar la regla de adopción de JEV.
 - "El sistema no decide cuál está vigente."
+- Repositorio: https://github.com/donmatthiuz/NLP/tree/proyecto
+- Video: https://youtu.be/Qe2aDF0s1E0
 
 ::: notes
 Cierre: el sistema cumple trazabilidad y aislamiento; falta la latencia y la evaluación con humanos. Preguntas.

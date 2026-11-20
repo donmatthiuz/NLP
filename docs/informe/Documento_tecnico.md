@@ -1,6 +1,6 @@
 # LiciGT: documento técnico
 
-Proyecto final de CC3103 (UVG). Integrantes: Edwin Jose (22809), Gustavo Cruz (22779), Josue Say (22801) y Mathew Cordero (22982). Documentación completa en el [anteproyecto](https://github.com/donmatthiuz/NLP/blob/proyecto/docs/anteproyecto/Anteproyecto.md); decisiones de diseño vigentes en [`DESIGN.md`](https://github.com/donmatthiuz/NLP/blob/proyecto/DESIGN.md). Repositorio: <https://github.com/donmatthiuz/NLP/tree/proyecto>. Este documento resume y enlaza: el detalle vive en los documentos del repositorio que se citan en cada sección.
+Proyecto final de CC3103 (UVG). Integrantes: Edwin Jose (22809), Gustavo Cruz (22779), Josue Say (22801) y Mathew Cordero (22982). Documentación completa en el [anteproyecto](https://github.com/donmatthiuz/NLP/blob/proyecto/docs/anteproyecto/Anteproyecto.md); decisiones de diseño vigentes en [`DESIGN.md`](https://github.com/donmatthiuz/NLP/blob/proyecto/DESIGN.md). Repositorio: <https://github.com/donmatthiuz/NLP/tree/proyecto>. Este documento resume y enlaza: el detalle vive en los documentos del repositorio que se citan en cada sección. Repositorio: [https://github.com/donmatthiuz/NLP/tree/proyecto](https://github.com/donmatthiuz/NLP/tree/proyecto). Video de la demostración: [https://youtu.be/Qe2aDF0s1E0](https://youtu.be/Qe2aDF0s1E0).
 
 **Lectura de las cifras.** Las metas se distinguen de los resultados medidos. La corrida oficial es `20261119T061552Z` (19 de noviembre de 2026, `make reporte`, servicios reales, commit `3085334`, con cambios locales solo en `web/` que no intervienen en la medición); su copia versionada es el [reporte de evaluación](https://github.com/donmatthiuz/NLP/blob/proyecto/docs/plataforma/Reporte_evaluacion.md).
 
@@ -222,7 +222,7 @@ Consulta completa dentro del proceso con `consultar()` real, 83 consultas, corri
 
 ### Casos de extremo a extremo
 
-La demo del evento 222 ([`Demo_222.md`](https://github.com/donmatthiuz/NLP/blob/proyecto/docs/consulta/Demo_222.md)) es anterior a C21; sus seis pasos dan el resultado esperado. La figura 8 muestra un recorrido completo; la 9 (sección 9) y la 6 (sección 6.3), los otros dos.
+La demo del evento 222 ([`Demo_222.md`](https://github.com/donmatthiuz/NLP/blob/proyecto/docs/consulta/Demo_222.md); grabada en el [video](https://youtu.be/Qe2aDF0s1E0)) es anterior a C21; sus seis pasos dan el resultado esperado. La figura 8 muestra un recorrido completo; la 9 (sección 9) y la 6 (sección 6.3), los otros dos.
 
 La figura 8 compara la fecha de recepción del 222 entre las bases y la Modificación 1: la respuesta cita ambos documentos y pide revisión humana, con cobertura parcial (9,7 s).
 

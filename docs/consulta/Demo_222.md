@@ -22,6 +22,8 @@ Pasos de F6 de [`Plan_rol_3.md`](Plan_rol_3.md).
 - Recuperación en GPU y `llama-server` con contexto 12288.
 - Los tiempos son de la petición completa, en una sola corrida, y varían entre corridas con el LLM local.
 
+Video de la demostración grabada (19 de noviembre de 2026): [https://youtu.be/Qe2aDF0s1E0](https://youtu.be/Qe2aDF0s1E0).
+
 ## Preparación
 
 - `make db-up`, `make importar` y `make llm-servidor`.

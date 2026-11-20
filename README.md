@@ -2,6 +2,8 @@
 
 Proyecto final de CC3103 (UVG): un sistema RAG que analiza licitaciones de medicamentos del IGSS y responde con citas verificables (documento, página, versión y fragmento). Cuando no hay evidencia suficiente se abstiene, y ante una contradicción pide revisión humana en lugar de decidir qué documento está vigente.
 
+- Repositorio: [https://github.com/donmatthiuz/NLP/tree/proyecto](https://github.com/donmatthiuz/NLP/tree/proyecto).
+- Video de la demostración: [https://youtu.be/Qe2aDF0s1E0](https://youtu.be/Qe2aDF0s1E0).
 - Documentación completa: [`docs/anteproyecto/Anteproyecto.md`](docs/anteproyecto/Anteproyecto.md).
 - Decisiones de diseño: [`DESIGN.md`](DESIGN.md).
 - Informe y resultados: [`docs/informe/`](docs/informe/).
