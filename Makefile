@@ -37,7 +37,7 @@ WITH_DB = LICIGT_DB_URL="postgresql://$(LICIGT_DB_APP_USER):$$(tr -d '\r\n' < $(
 EVENTO ?= 222-IGSS-2023
 
 .PHONY: help setup env-init keys-init keys-status key-set db-up db-down db-password-sync db-password-rotar db-rol-app \
-        importar evaluar buscar models-status claude opencode codex test-consulta test-ingesta test-recuperacion corpus \
+        importar evaluar buscar consultar models-status claude opencode codex test-consulta test-ingesta test-recuperacion corpus \
         diagramas llm-descargar llm-servidor llm-estado llm-detener deps-consulta sondeo-jev api banco experimento-jev experimento-llm fechas-preparar fechas-reglas experimento-jev-fechas fechas-comparar web web-ejemplos web-build lista-schema test-consulta-sql \
         usuarios-demo empresa-b test-plataforma reporte deps presentacion-pptx anteproyecto-pdf informe-pdf evaluacion-paquete
 
@@ -117,6 +117,12 @@ evaluar: ## Hit@5, MRR@5, suficiencia y latencia de las dos variantes con los ca
 
 buscar: ## Búsqueda de prueba. Uso: make buscar Q="fecha de recepción de ofertas" [EVENTO=222-IGSS-2023]
 	@$(WITH_DB) PYTHONPATH=src $(PYTHON) -m licigt.recuperacion buscar --evento "$(EVENTO)" "$(Q)"
+
+consultar: export DIAG_PREGUNTA := $(Q)
+consultar: export DIAG_EVENTO := $(EVENTO)
+consultar: export DIAG_VECES := $(or $(VECES),1)
+consultar: ## Diagnóstico de consulta real (db-up, importar y el LLM). Uso: make consultar Q="..." [EVENTO=222-IGSS-2023] [VECES=1]; los datos viajan por entorno, sin pasar por el shell, y el intérprete no se sobrescribe
+	@$(WITH_DB) PYTHONPATH=src $(if $(wildcard .venv/bin/python),.venv/bin/python,python3) -m licigt.consulta.diagnostico
 
 models-status: ## Lista los modelos descargados en models/ con su revisión exacta
 	@shopt -s nullglob; found=0; for d in "$(HF_HOME)"/hub/models--*; do \

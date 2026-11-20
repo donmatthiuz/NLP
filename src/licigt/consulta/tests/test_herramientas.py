@@ -7,7 +7,9 @@ import unittest
 from pathlib import Path
 
 from licigt.consulta.esquemas import BuscarDocumentosParams, CompararVersionesParams, ExtraerRequisitosParams
-from licigt.consulta.herramientas import armar_candidatas, buscar_documentos, comparar_versiones, extraer_requisitos, tema_comparacion
+from licigt.consulta.herramientas import (
+    armar_candidatas, buscar_documentos, comparar_versiones, consulta_de_busqueda, extraer_requisitos, tema_comparacion,
+)
 from licigt.consulta.lectura import FragmentoRecuperado
 from licigt.consulta.requisitos import CONSULTAS_POR_CATEGORIA, CONSULTA_CRONOGRAMA
 
@@ -74,6 +76,33 @@ def params_buscar(**cambios):
 def params_comparar(**cambios):
     datos = {"evento_id": "222", "tema": "cláusula 2.2.6"}
     return CompararVersionesParams(**{**datos, **cambios})
+
+
+class ConsultaDeBusquedaTests(unittest.TestCase):
+    """El evento ya acota la búsqueda: su referencia en la pregunta solo parece el título de la portada al reranker."""
+
+    def test_quita_la_referencia_al_evento_del_inicio(self):
+        for pregunta, esperada in (
+            ("Según las bases del evento 222-IGSS-2023, ¿cómo deben presentarse el original y la copia de la oferta?",
+             "¿cómo deben presentarse el original y la copia de la oferta?"),
+            ("De acuerdo con las bases del evento 222-IGSS-2023, ¿en qué plazo se paga?", "¿en qué plazo se paga?"),
+            ("Según los documentos de licitación del evento 222-IGSS-2023: ¿dónde se reciben las ofertas?",
+             "¿dónde se reciben las ofertas?"),
+        ):
+            with self.subTest(pregunta=pregunta):
+                self.assertEqual(consulta_de_busqueda(pregunta, "222-IGSS-2023"), esperada)
+
+    def test_solo_quita_el_evento_de_la_sesion(self):
+        p = "Según las bases del evento 399-IGSS-2026, ¿cuál es el plazo del pago?"
+        self.assertEqual(consulta_de_busqueda(p, "222-IGSS-2023"), p)
+        self.assertEqual(consulta_de_busqueda(p, "399-IGSS-2026"), "¿cuál es el plazo del pago?")
+        self.assertEqual(consulta_de_busqueda(p), p)
+
+    def test_sin_referencia_o_sin_resto_la_deja_igual(self):
+        for pregunta in ("¿Dónde se reciben ofertas?", "¿Qué dice el evento 222-IGSS-2023 sobre el pago?",
+                         "Según las bases del evento 222-IGSS-2023,", "Según las bases, ¿cuál es el código?"):
+            with self.subTest(pregunta=pregunta):
+                self.assertEqual(consulta_de_busqueda(pregunta, "222-IGSS-2023"), pregunta)
 
 
 class RecuperadorFalso:

@@ -96,6 +96,32 @@ describe('página del PDF y página impresa', () => {
   })
 })
 
+describe('enlaces que abren en la página citada', () => {
+  const base = comparacion.sources[0]
+  const tarjeta = (f: typeof base, eventoId?: string) =>
+    renderToStaticMarkup(createElement(ZonaFuentes, { fuentes: [f], abstencion: false, conflicto: false, eventoId }))
+  const hrefs = (h: string) => [...h.matchAll(/href="([^"]+)"/g)].map((m) => m[1].replace(/&amp;/g, '&'))
+
+  it('la copia archivada lleva una URL única por página y el fragmento de la página física', () => {
+    const h = tarjeta({ ...base, page: 20, page_end: null, printed_page: 19 }, 'E1')
+    expect(hrefs(h)).toContain('/api/eventos/E1/documentos/' + base.doc_id + '/original?p=20#page=20')
+    const otra = tarjeta({ ...base, page: 24, page_end: null }, 'E1')
+    expect(otra).toContain('/original?p=24#page=24')
+  })
+
+  it('el enlace externo a un PDF directo conserva #page=N con la página física', () => {
+    const h = tarjeta({ ...base, page: 20, page_end: null, printed_page: 19, source: 'https://www.igssgt.org/wp-content/uploads/2026/10/222-IGSS-2023.pdf' }, 'E1')
+    expect(hrefs(h)).toContain('https://www.igssgt.org/wp-content/uploads/2026/10/222-IGSS-2023.pdf#page=20')
+    expect(h).toContain('Publicación en igssgt.org, p. 20 del PDF')
+  })
+
+  it('si la publicación no es un PDF directo no promete la página', () => {
+    const h = tarjeta({ ...base, page: 20, page_end: null, source: 'https://www.igssgt.org/proveedores/?y=2023' }, 'E1')
+    expect(hrefs(h)).toContain('https://www.igssgt.org/proveedores/?y=2023')
+    expect(h).toContain('Publicación en igssgt.org (página sin enlace directo)')
+  })
+})
+
 describe('misma cita en las dos vistas', () => {
   it('una cita de tabla se ve igual en la tarjeta de fuente y en el ítem', () => {
     const f = { ...comparacion.sources[0], cita: 'Apertura de PLICAS | Después del período' }

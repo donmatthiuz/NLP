@@ -1,6 +1,7 @@
 """Búsqueda autorizada: línea base semántica y versión mejorada híbrida con reranking."""
 
 import re
+from collections import Counter
 from dataclasses import dataclass
 from contextlib import nullcontext
 from functools import lru_cache
@@ -17,6 +18,8 @@ UMBRAL = {"base": 0.45, "mejorada": 0.005}
 NUMERAL = re.compile(r"\b\d+(?:\.\d+)+\b")
 CODIGO = re.compile(r"\b\d{2,6}\b")
 NUMERAL_MODIFICADO = re.compile(r"(?:sub)?numeral\s+(\d+(?:\.\d+)*)", re.I)
+# "la literal e) del subnumeral 2.7": cambia ese literal, no todo el numeral.
+LITERAL_MODIFICADO = re.compile(r"literal\s+([a-z])\)\s+del\s+(?:sub)?numeral\s+(\d+(?:\.\d+)*)", re.I)
 
 COLUMNAS = """chunk_id, doc_id, tipo_documento, version_ingesta, pagina_inicio, pagina_fin,
               seccion, texto, url_origen, meta->>'identificador_version_oficial', pagina_impresa"""
@@ -109,6 +112,16 @@ def _bajo_numeral(seccion, numeral):
     return tok == numeral or tok.startswith(numeral + ".")
 
 
+def literales_modificados(textos):
+    """Numeral a letras de los literales que la modificación cambia; solo los numerales que menciona únicamente por literal.
+
+    Una mención del numeral entero ("Subnumeral 2.2") o de uno sin letra lo deja fuera: ese se cambia completo."""
+    menciones = Counter(n for t in textos for n in NUMERAL_MODIFICADO.findall(t))
+    por_literal = Counter(n for t in textos for _, n in LITERAL_MODIFICADO.findall(t))
+    return {n: sorted({l.lower() for t in textos for l, m in LITERAL_MODIFICADO.findall(t) if m == n})
+            for n in menciones if menciones[n] == por_literal[n] > 0}
+
+
 def _alertas(conn, ctx, evento_id, pregunta, resultados):
     """Cobertura incompleta y posibles conflictos con modificaciones o aclaraciones del evento."""
     docs = conn.execute(
@@ -125,11 +138,13 @@ def _alertas(conn, ctx, evento_id, pregunta, resultados):
         textos = conn.execute("SELECT texto FROM fragmentos WHERE doc_id = %s AND variante = 'mejorada'",
                               (doc_id,)).fetchall()
         modificados = {n for (t,) in textos for n in NUMERAL_MODIFICADO.findall(t)}
+        literales = literales_modificados([t for (t,) in textos])
         afectados = [r["chunk_id"] for r in resultados if r["doc_id"] != doc_id and r["seccion"]
                      and any(_bajo_numeral(r["seccion"], n) for n in modificados)]
         if afectados or any(r["doc_id"] == doc_id for r in resultados):
             alertas.append({"tipo": "posible_conflicto", "doc_id": doc_id, "documento": oficial,
-                            "numerales_modificados": sorted(modificados), "chunk_ids_afectados": afectados})
+                            "numerales_modificados": sorted(modificados), "literales_modificados": literales,
+                            "chunk_ids_afectados": afectados})
             if afectados and not any(r["doc_id"] == doc_id for r in resultados):
                 # Conservar la cláusula base y el documento que la modifica.
                 extra += _semantica(conn, ctx, evento_id, pregunta, "mejorada", 1, doc_id=doc_id)

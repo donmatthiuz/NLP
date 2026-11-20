@@ -29,6 +29,9 @@ PATRONES_PROHIBIDOS = (
 PATRON_FECHA = r"\b(?:fechas?|plazos?|horas?)\b"
 PATRON_ACTIVIDAD = (r"\b(?:recepcion|apertura|adjudicacion|presentacion|entrega|aclaraciones|consultas|"
                     r"publicacion|firma|pago|inicio|garantia|vigencia del contrato)\b")
+# El plazo de una cláusula que nombra su objeto ("el plazo del pago", "cuánto dura el contrato") es específico: no pide
+# actividad y no es el cronograma. Sin plazo o sin objeto ("la fecha del contrato", "ese plazo") sigue pidiendo aclaración.
+PATRON_PLAZO_CLAUSULA = r"\b(?:plazo|dura\w*|duracion|vigencia)\b.{0,40}\b(?:pago|contrato)\b"
 ADAPTADOR_TEXTO = TypeAdapter(TextoRecortado)
 
 
@@ -60,4 +63,5 @@ def evaluar_entrada(pregunta: str) -> JuiciosEntrada:
         longitud_valida=True,
         inyeccion=any(re.search(p, texto) for p in PATRONES_INYECCION),
         fuera_de_alcance=any(re.search(p, texto) for p in PATRONES_PROHIBIDOS),
-        especifica=not fecha or bool(re.search(PATRON_ACTIVIDAD, texto)), menciona_fecha=fecha)
+        especifica=not fecha or any(re.search(p, texto) for p in (PATRON_ACTIVIDAD, PATRON_PLAZO_CLAUSULA)),
+        menciona_fecha=fecha)

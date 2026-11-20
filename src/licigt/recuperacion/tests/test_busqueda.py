@@ -4,7 +4,7 @@ docker compose up -d && PYTHONPATH=src python -m licigt.recuperacion importar"""
 import unittest
 from pathlib import Path
 
-from licigt.recuperacion.busqueda import Contexto, _bajo_numeral, _redundante, buscar, comparar_versiones, rrf
+from licigt.recuperacion.busqueda import Contexto, _bajo_numeral, _redundante, buscar, comparar_versiones, literales_modificados, rrf
 from licigt.recuperacion.indice import MODELO_BASE, conectar, leer_paquete, modelo, ventanas_base
 from licigt.recuperacion.evaluar import leer_como
 
@@ -21,6 +21,15 @@ class UnidadTests(unittest.TestCase):
         self.assertTrue(_bajo_numeral("2.2.6 Recepción", "2.2"))
         self.assertTrue(_bajo_numeral("2.2      CRONOGRAMA", "2.2"))
         self.assertFalse(_bajo_numeral("2.21 Otra", "2.2"))
+
+    def test_literales_modificados_solo_si_el_numeral_se_menciona_por_literal(self):
+        # Modificación 1 del 222: cambia el 2.2 entero y solo el literal e) del 2.7.
+        textos = ["Punto 1: Se modifica el subnumeral 2.2 CRONOGRAMA DE ACTIVIDADES, de acuerdo a lo siguiente:",
+                  "Punto 2: Se modifica la literal e) del subnumeral 2.7 LISTADO DE DOCUMENTOS",
+                  "modificar el PUNTO 1: Subnumeral 2.2 CRONOGRAMA, y, PUNTO 2: Literal e) del Subnumeral 2.7 LISTADO"]
+        self.assertEqual(literales_modificados(textos), {"2.7": ["e"]})
+        self.assertEqual(literales_modificados(textos + ["se ajusta el subnumeral 2.7"]), {})
+        self.assertEqual(literales_modificados(["Se modifica el numeral 2.2"]), {})
 
     def test_otra_version_no_es_redundante(self):
         f = {"doc_id": "x", "pagina_inicio": 1, "pagina_fin": 1, "texto": "plazo de recepción de ofertas"}
@@ -81,6 +90,9 @@ class IntegracionTests(unittest.TestCase):
         tipos = {a["tipo"] for a in r["alertas"]}
         self.assertIn("posible_conflicto", tipos)
         self.assertIn("cobertura_incompleta", tipos)
+        conflicto = next(a for a in r["alertas"] if a["tipo"] == "posible_conflicto")
+        self.assertEqual(conflicto["numerales_modificados"], ["2.2", "2.7"])
+        self.assertEqual(conflicto["literales_modificados"], {"2.7": ["e"]})
         self.assertEqual({f["tipo_documento"] for f in r["fragmentos"]}, {"bases", "modificacion"})
         for f in r["fragmentos"]:
             self.assertTrue({"chunk_id", "doc_id", "pagina_inicio", "version_ingesta", "score"} <= f.keys())

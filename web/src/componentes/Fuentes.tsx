@@ -1,6 +1,6 @@
 import { useId } from 'react'
 import type { ReactNode } from 'react'
-import { rutaOriginal } from '../api'
+import { rutaOriginal, urlExternaConPagina } from '../api'
 import { rotuloDocumento } from '../cobertura'
 import type { MapaTipos } from '../cobertura'
 import { agruparPorDocumento, esHttps } from '../estado'
@@ -51,8 +51,8 @@ function TarjetaFuente({ f, n, tipos, eventoId }: { f: Fuente; n: number; tipos?
             </a>
           )}
           {esHttps(f.source) ? (
-            <a className="inline-block py-1" href={f.source} target="_blank" rel="noopener noreferrer">
-              Publicación en igssgt.org <span className="sr-only">(abre en una pestaña nueva)</span>
+            <a className="inline-block py-1" href={urlExternaConPagina(f.source, f.page) ?? f.source} target="_blank" rel="noopener noreferrer">
+              {urlExternaConPagina(f.source, f.page) ? `Publicación en igssgt.org, p. ${f.page} del PDF` : 'Publicación en igssgt.org (página sin enlace directo)'} <span className="sr-only">(abre en una pestaña nueva)</span>
             </a>
           ) : (
             <p className="py-1 text-muted-foreground">Publicación externa no disponible ({f.doc_id})</p>

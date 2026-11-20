@@ -38,7 +38,7 @@ La conexión exige `LICIGT_DB_URL` y no tiene valor por defecto. Con el `Makefil
                  "seccion": "2.2 CRONOGRAMA ...", "texto": "...", "url_origen": "https://...",
                  "score": 0.91, "reranker": 0.91, "semantico": 0.62, "lexico": 0.4, "rrf": 0.016}],
  "alertas": [{"tipo": "posible_conflicto", "doc_id": "...", "numerales_modificados": ["2.2", "2.7"],
-              "chunk_ids_afectados": ["..."]},
+              "literales_modificados": {"2.7": ["e"]}, "chunk_ids_afectados": ["..."]},
              {"tipo": "cobertura_incompleta", "doc_id": "...", "paginas_no_indexadas": [4],
               "status": "requiere_revision", "warnings": ["..."]},
              {"tipo": "evento_con_modificaciones", "doc_id": "...", "documento": "Modificación Número 1"}]}
@@ -47,6 +47,7 @@ La conexión exige `LICIGT_DB_URL` y no tiene valor por defecto. Con el `Makefil
 - `ctx` es un `Contexto(tenant_id)` que entrega el rol 4 desde la sesión autenticada. El `tenant_id` del paquete no autoriza nada por sí solo.
 - Cada consulta filtra por empresa y evento en el `WHERE` y además activa la seguridad por fila (`SET LOCAL ROLE licigt_app`).
 - `suficiente=false` significa que la evidencia no supera el umbral, y en ese caso el rol 3 debe abstenerse.
+- `literales_modificados` va de numeral a letras solo si la modificación menciona el numeral únicamente por literal ("la literal e) del subnumeral 2.7"); un numeral cambiado entero ("subnumeral 2.2") no aparece. El rol 3 lo usa para no exigir la modificación al citar otro literal del mismo numeral.
 - `evento_con_modificaciones` indica que el evento tiene una modificación que no aparece en los resultados.
 - `comparar_versiones(ctx, evento_id, pregunta, k=2)` devuelve los `k` mejores fragmentos de cada documento del evento. El anteproyecto declara `comparar_versiones(evento_id, doc_base_id, doc_cambio_id)`; el rol 3 lo adapta (su herramienta recibe `tema` y ids opcionales y llama a esta función con `tema` como `pregunta`).
 - `resolver_evento(ctx, evento)` devuelve el `evento_id` interno a partir del id o del `numero_evento`, o `None`.

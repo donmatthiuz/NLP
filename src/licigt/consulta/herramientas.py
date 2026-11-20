@@ -50,6 +50,24 @@ def tema_comparacion(pregunta: str) -> str:
     return texto
 
 
+# "Según las bases del evento 222-IGSS-2023, ..." al inicio: el evento ya acota la búsqueda y su número copia el título
+# de la portada, que el reranker pone arriba de la cláusula que se pregunta.
+REFERENCIA_EVENTO = re.compile(
+    r"^\s*(?:seg[uú]n|de acuerdo (?:con|a)|conforme a|en)\s+(?:las?\s+|los\s+)?"
+    r"(?:bases|documentos(?:\s+de\s+licitaci[oó]n)?)\s+(?:del|de\s+la)\s+(?:evento|licitaci[oó]n)\s+(\d+-IGSS-\d{4})\s*[,:]\s*",
+    re.IGNORECASE)
+
+
+def consulta_de_busqueda(pregunta: str, numero_evento: str | None = None) -> str:
+    """La pregunta sin la referencia al evento del inicio, solo si ese número es el del evento de la consulta.
+
+    Otro evento, una referencia sin número, o sin numero_evento (no se sabe cuál es), la deja igual."""
+    m = REFERENCIA_EVENTO.match(pregunta)
+    if not m or not numero_evento or m.group(1).casefold() != numero_evento.strip().casefold():
+        return pregunta
+    return pregunta[m.end():] if pregunta[m.end():].strip() else pregunta
+
+
 class Recuperador(Protocol):
     """Firmas exactas del rol 2; licigt.recuperacion.busqueda las cumple por tipado estructural."""
 

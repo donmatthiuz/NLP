@@ -817,6 +817,176 @@ class OrquestadorTests(unittest.TestCase):
         self.assertIn("agrega una afirmación con lo que dice ese documento", mensaje)
         self.assertIn("abstén", mensaje)
 
+    def _recuperador_fiel(self, afectados=True, numerales=True):
+        """Como el rol 2 en el 222: 00001 'Sin sección', la modificación (2.2, 2.7), el 2.2 de las bases como afectado y 2.14."""
+        recuperador = RecuperadorFalso()
+        doc = DATOS_222[0]["doc_id"]
+        def frag(n, pagina, seccion, texto, score):
+            f = deepcopy(DATOS_222[0])
+            f.update(chunk_id=f"{doc}:{n}", pagina_inicio=pagina, pagina_fin=pagina, seccion=seccion, texto=texto, score=score)
+            return f
+        recuperador.busqueda["fragmentos"] = [
+            frag("00063", 20, "2.14     APERTURA DE PLICAS",
+                 "la JUNTA procederá a la apertura de PLICAS en el orden que fueron recibidas, dando lectura", 0.95),
+            deepcopy(DATOS_222[0]), deepcopy(DATOS_222[1]),
+            frag("00032", 8, "2.2      CRONOGRAMA DE ACTIVIDADES", "Cronograma de actividades de la licitación", 0.7)]
+        recuperador.busqueda["alertas"] = [{
+            "tipo": "posible_conflicto", "doc_id": DATOS_222[1]["doc_id"],
+            "numerales_modificados": ["2.2", "2.7"] if numerales else [],
+            "chunk_ids_afectados": [f"{doc}:00032"] if afectados else []}]
+        return recuperador
+
+    def _salida_ajena(self):
+        return {"abstener": False, "revision_humana": False, "afirmaciones": [
+            {"texto": "Las bases abren las plicas en el orden en que fueron recibidas.", "datos": [],
+             "citas": [{"fragmento": "F1", "cita": "apertura de PLICAS en el orden que fueron recibidas"}]}]}
+
+    def _salida_solo_00001(self):
+        return {"abstener": False, "revision_humana": False, "afirmaciones": [
+            {"texto": "Las bases fijan la recepción el {1}.",
+             "citas": [{"fragmento": "F2", "cita": "La recepción de ofertas se llevará a cabo el 31 de julio de 2023"}],
+             "datos": [{"cita": 1, "literal": "31 de julio de 2023"}]}]}
+
+    def test_a1_cita_solo_sin_seccion_que_repite_la_fecha_modificada_exige_ambas_fuentes(self):
+        generador = GeneradorFalso([json.dumps(self._salida_solo_00001())] * 2)
+        r = self.consultar(recuperador=self._recuperador_fiel(), generador=generador)
+        self.assertTrue(r.abstained)
+        self.assertIn("falta_segunda_fuente", generador.llamadas[1][0][-1]["content"])
+
+    def test_a2_sin_numerales_se_exigen_ambos_lados(self):
+        generador = GeneradorFalso([json.dumps(self._salida_ajena())] * 2)
+        r = self.consultar(recuperador=self._recuperador_fiel(numerales=False), generador=generador)
+        self.assertTrue(r.abstained)
+        self.assertIn("falta_segunda_fuente", generador.llamadas[1][0][-1]["content"])
+
+    def test_sin_chunks_afectados_basta_el_numeral_explicito_fuera_de_lo_modificado(self):
+        # Con la consulta sin la referencia al evento, el 2.2 de las bases ya no sale y no hay afectados; el 2.14 sigue fuera.
+        generador = GeneradorFalso([json.dumps(self._salida_ajena())])
+        r = self.consultar(recuperador=self._recuperador_fiel(afectados=False), generador=generador)
+        self.assertFalse(r.abstained)
+        self.assertEqual([s.chunk_id for s in r.sources], [DATOS_222[0]["doc_id"] + ":00063"])
+        # Citar la sección modificada sigue exigiendo ambos aunque no haya afectados identificados.
+        generador = GeneradorFalso([json.dumps({"abstener": False, "revision_humana": False,
+                                                "afirmaciones": salida_222()["afirmaciones"][:1]})] * 2)
+        self.eventos.clear()
+        r = self.consultar(recuperador=self._recuperador_fiel(afectados=False), generador=generador)
+        self.assertTrue(r.abstained)
+
+    def test_conflicto_ajeno_a_la_clausula_citada_no_exige_la_modificacion(self):
+        # Regresión del caso 222 (plicas, p. 20): la modificación toca 2.2 y 2.7, no 2.14; no se fuerza una segunda fuente.
+        generador = GeneradorFalso([json.dumps(self._salida_ajena())])
+        r = self.consultar(recuperador=self._recuperador_fiel(), generador=generador)
+        self.assertFalse(r.abstained)
+        self.assertEqual([s.chunk_id for s in r.sources], [DATOS_222[0]["doc_id"] + ":00063"])
+        self.assertEqual(len(generador.llamadas), 1)
+        self.assertTrue(r.needs_human_review)
+        self.assertEqual(self.eventos[0]["validacion"], "ok")
+
+    def test_conflicto_citar_la_clausula_afectada_sigue_exigiendo_la_modificacion(self):
+        solo_bases = {"abstener": False, "revision_humana": False, "afirmaciones": salida_222()["afirmaciones"][:1]}
+        generador = GeneradorFalso([json.dumps(solo_bases)] * 2)
+        r = self.consultar(recuperador=self._recuperador_fiel(), generador=generador)
+        self.assertTrue(r.abstained)
+        self.assertIn("falta_segunda_fuente", generador.llamadas[1][0][-1]["content"])
+
+    def test_conflicto_citar_la_modificacion_sola_sigue_exigiendo_las_bases(self):
+        solo_mod = {"abstener": False, "revision_humana": False, "afirmaciones": salida_222()["afirmaciones"][1:]}
+        generador = GeneradorFalso([json.dumps(solo_mod)] * 2)
+        r = self.consultar(recuperador=self._recuperador_fiel(), generador=generador)
+        self.assertTrue(r.abstained)
+
+    def test_clausula_ajena_sin_evidencia_suficiente_sigue_absteniendose(self):
+        recuperador = self._recuperador_fiel()
+        recuperador.busqueda["suficiente"] = False
+        generador = GeneradorFalso([json.dumps(self._salida_ajena())])
+        r = self.consultar(recuperador=recuperador, generador=generador)
+        self.assertTrue(r.abstained)
+        self.assertEqual(generador.llamadas, [])
+
+    def _recuperador_literal(self, texto_41="a) FORMULARIO ELECTRÓNICO generado electrónicamente, de uso obligatorio, el cual deberá ser llenado, impreso y firmado.",
+                             literales=True):
+        """Como el rol 2 en el 222: la modificación toca el 2.2 completo y solo el literal e) del 2.7; 00041 es el 2.7 a)."""
+        recuperador = RecuperadorFalso()
+        doc = DATOS_222[0]["doc_id"]
+        def frag(n, pagina, seccion, texto, score):
+            f = deepcopy(DATOS_222[0])
+            f.update(chunk_id=f"{doc}:{n}", pagina_inicio=pagina, pagina_fin=pagina, seccion=seccion, texto=texto, score=score)
+            return f
+        recuperador.busqueda["fragmentos"] = [
+            frag("00041", 11, "2.7 LISTADO DE DOCUMENTOS QUE DEBERÁ CONTENER LA PLICA", texto_41, 0.9),
+            deepcopy(DATOS_222[1])]
+        alerta = {"tipo": "posible_conflicto", "doc_id": DATOS_222[1]["doc_id"],
+                  "numerales_modificados": ["2.2", "2.7"], "chunk_ids_afectados": [f"{doc}:00041"]}
+        if literales:
+            alerta["literales_modificados"] = literales if isinstance(literales, dict) else {"2.7": ["e"]}
+        recuperador.busqueda["alertas"] = [alerta]
+        return recuperador
+
+    def _salida_formulario(self):
+        return {"abstener": False, "revision_humana": False, "afirmaciones": [
+            {"texto": "El formulario electrónico deberá ser llenado, impreso y firmado.", "datos": [],
+             "citas": [{"fragmento": "F1", "cita": "deberá ser llenado, impreso y firmado"}]}]}
+
+    def test_conflicto_en_otro_literal_del_mismo_numeral_no_exige_la_modificacion(self):
+        # Caso 222 de la evaluación humana: la modificación cambia el literal e) del 2.7; el a) (formulario) no cambia.
+        generador = GeneradorFalso([json.dumps(self._salida_formulario())])
+        r = self.consultar("¿Qué se hace con el formulario electrónico?", recuperador=self._recuperador_literal(), generador=generador)
+        self.assertFalse(r.abstained)
+        self.assertEqual([s.chunk_id for s in r.sources], [DATOS_222[0]["doc_id"] + ":00041"])
+        self.assertEqual(len(generador.llamadas), 1)
+        self.assertTrue(r.needs_human_review)
+
+    def test_conflicto_si_el_fragmento_trae_el_literal_modificado_exige_ambos(self):
+        texto = "a) FORMULARIO ELECTRÓNICO deberá ser llenado, impreso y firmado. e) Solvencia Patronal extendida por el INSTITUTO."
+        for kw in ({"texto_41": texto}, {"literales": False}):
+            with self.subTest(kw=list(kw)):
+                self.eventos.clear()
+                generador = GeneradorFalso([json.dumps(self._salida_formulario())] * 2)
+                r = self.consultar("¿Qué se hace con el formulario electrónico?", recuperador=self._recuperador_literal(**kw), generador=generador)
+                self.assertTrue(r.abstained)
+                self.assertIn("falta_segunda_fuente", generador.llamadas[1][0][-1]["content"])
+
+    def test_conflicto_literal_por_rango_de_marcadores_del_fragmento(self):
+        cuerpo = "deberá ser llenado, impreso y firmado"
+        for nombre, texto, literales, publica in (
+            ("real_a_con_encabezado", "2.7 LISTADO DE DOCUMENTOS QUE DEBERÁ CONTENER LA PLICA a) FORMULARIO " + cuerpo + ".", None, True),
+            ("sub_f3_modifica_f", "f.3) FORMULARIO " + cuerpo + ".", {"2.7": ["f"]}, False),
+            ("sub_e2_modifica_e", "e.2) FORMULARIO " + cuerpo + ".", {"2.7": ["e"]}, False),
+            ("rango_d_a_f_modifica_e", "d.3) FORMULARIO " + cuerpo + ". f.1) otro.", {"2.7": ["e"]}, False),
+            ("rango_a_c_modifica_e", "a) FORMULARIO " + cuerpo + ". c) otro.", {"2.7": ["e"]}, True),
+            ("continuacion_sin_marcador", "FORMULARIO " + cuerpo + ".", {"2.7": ["e"]}, False),
+            ("tabla_sin_marcadores", "| Requisito | FORMULARIO " + cuerpo + " |", {"2.7": ["e"]}, False),
+        ):
+            with self.subTest(nombre):
+                self.eventos.clear()
+                generador = GeneradorFalso([json.dumps(self._salida_formulario())] * 2)
+                r = self.consultar("¿Qué se hace con el formulario electrónico?", generador=generador,
+                                   recuperador=self._recuperador_literal(texto_41=texto, literales=literales or True))
+                self.assertEqual(not r.abstained, publica)
+                if not publica:
+                    self.assertIn("falta_segunda_fuente", generador.llamadas[1][0][-1]["content"])
+
+    def test_la_consulta_de_busqueda_no_lleva_la_referencia_al_evento(self):
+        # Con la referencia, el reranker pone arriba la portada y el modelo local escribe "{1} días" fuera del literal (6 de 6).
+        recuperador, generador = RecuperadorFalso(), GeneradorFalso()
+        self.consultar("Según las bases del evento 222-IGSS-2023, ¿dónde se reciben ofertas?", recuperador=recuperador,
+                       generador=generador, numero_evento="222-IGSS-2023")
+        self.assertEqual(recuperador.llamadas[0][2], "¿dónde se reciben ofertas?")
+        mensajes = json.dumps(generador.llamadas[0][0], ensure_ascii=False)
+        self.assertIn("¿dónde se reciben ofertas?", mensajes)
+        self.assertNotIn("Según las bases del evento", mensajes)
+
+    def test_referencia_a_otro_evento_se_conserva(self):
+        # La sesión es del 222: otro número (o "licitación anterior") es parte de la pregunta, no un eco de la portada.
+        for pregunta in ("Según las bases del evento 399-IGSS-2026, ¿cuál es el plazo del pago?",
+                         "Según las bases de la licitación anterior, ¿cuál es el plazo del pago?"):
+            with self.subTest(pregunta=pregunta):
+                self.eventos.clear()
+                recuperador, generador = RecuperadorFalso(), GeneradorFalso()
+                self.consultar(pregunta, recuperador=recuperador, generador=generador, numero_evento="222-IGSS-2023")
+                self.assertEqual(recuperador.llamadas[0][2], pregunta)
+                self.assertIn(pregunta, json.dumps(generador.llamadas[0][0], ensure_ascii=False))
+
     def test_c13_relleno_con_el_otro_documento_no_publica(self):
         propia = {"texto": "Las bases fijan el lugar de recepción de ofertas.", "datos": [],
                   "citas": [{"fragmento": "F1", "cita": "La recepción de ofertas se llevará a cabo el 31 de julio de 2023"}]}

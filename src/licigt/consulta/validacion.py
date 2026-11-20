@@ -422,11 +422,63 @@ def _datos_desde_cita(afirmacion: Afirmacion, evidencia: dict[str, FragmentoRecu
     return afirmacion.model_copy(update={"texto": texto, "datos": datos}), len(datos) - n
 
 
+NUMERAL_EXPLICITO = re.compile(r"^\d+(?:\.\d+)*")
+
+
+def _bajo_numeral(seccion, numeral):
+    token = (seccion or "").split()[:1]
+    return bool(token) and (token[0].rstrip(".") == numeral or token[0].rstrip(".").startswith(numeral + "."))
+
+
+MARCADOR_LITERAL = re.compile(r"(?<![\w.])([a-z])(?:\.\d+)*\)", re.IGNORECASE)
+
+
+def _trae_literal(f, letras) -> bool:
+    """True salvo que el texto (sin el encabezado del numeral) empiece con un marcador de literal ('d)', 'e.2)') y
+    ninguna letra modificada caiga entre su primer y su último marcador; una continuación o una tabla sin marcador
+    inicial puede traer cualquier literal."""
+    texto = " ".join((f.texto or "").split())
+    encabezado = " ".join((f.seccion or "").split())
+    if encabezado and texto.startswith(encabezado):
+        texto = texto[len(encabezado):].lstrip()
+    inicial = MARCADOR_LITERAL.match(texto)
+    if not inicial:
+        return True
+    marcadores = [m.group(1).lower() for m in MARCADOR_LITERAL.finditer(texto)]
+    primero, ultimo = sorted((marcadores[0], marcadores[-1]))
+    return any(primero <= letra.lower() <= ultimo for letra in letras)
+
+
+def _no_toca_lo_modificado(citados, afectados, numerales, literales=None) -> bool:
+    """Prueba positiva: cada fragmento citado es de un documento base, con numeral explícito, y no está bajo lo modificado.
+
+    Bajo un numeral que la modificación cambia solo en algunos literales, el fragmento queda fuera si su texto no trae
+    ninguno de esos literales; bajo uno cambiado entero, nunca."""
+    literales, afectados = literales or {}, afectados or ()
+    if not numerales:
+        return False
+    for f in citados:
+        if f.tipo_documento in ("modificacion", "aclaracion"):
+            return False
+        if not NUMERAL_EXPLICITO.match((f.seccion or "").strip()):
+            return False
+        bajo = [n for n in numerales if _bajo_numeral(f.seccion.strip(), n)]
+        if not bajo and f.chunk_id in afectados:
+            return False
+        if any(n not in literales or _trae_literal(f, literales[n]) for n in bajo):
+            return False
+    return True
+
+
 def validar(salida_cruda: str, evidencia: dict[str, FragmentoRecuperado],
             resultado_herramienta: ResultadoHerramienta, *, evento_id: str,
-            conflictos=(), informe: dict | None = None) -> RespuestaEstructurada | list[ErrorValidacion]:
+            conflictos=(), informe: dict | None = None,
+            afectados=None, numerales_modificados=None, literales_modificados=None) -> RespuestaEstructurada | list[ErrorValidacion]:
     """Ocho etapas en orden; los errores solo llevan código y posiciones desde uno.
 
+    Un conflicto exige ambos documentos salvo prueba positiva de que la respuesta no toca lo modificado: hay numerales
+    modificados y todo fragmento citado tiene un numeral explícito en su sección
+    que no está bajo ninguno de ellos, o bajo uno que solo cambia literales fuera del rango de marcadores del fragmento. Sin eso (None, vacíos, 'Sin sección', tablas sin numeral) se exigen ambos.
     En informe deja datos_descartados (los que el código quitó antes de validar) y datos_desde_cita (los que creó desde la cita)."""
     try:
         salida = SalidaModelo.model_validate_json(salida_cruda, strict=True)
@@ -569,9 +621,12 @@ def validar(salida_cruda: str, evidencia: dict[str, FragmentoRecuperado],
     disponibles = {f.doc_id for f in evidencia.values()}
     if resultado.herramienta == "comparar_versiones" and len(citados) < 2:
         return [ErrorValidacion(codigo="falta_segunda_fuente")]
+    citados_tocan = not _no_toca_lo_modificado(
+        [evidencia[c.fragmento] for a in salida.afirmaciones for c in a.citas], afectados, numerales_modificados,
+        literales_modificados)
     for grupo in conflictos:
         presentes = set(grupo) & disponibles
-        if len(presentes) >= 2 and not presentes <= citados:
+        if len(presentes) >= 2 and not presentes <= citados and citados_tocan:
             return [ErrorValidacion(codigo="falta_segunda_fuente")]
 
     fuentes, indices, lineas = [], {}, []

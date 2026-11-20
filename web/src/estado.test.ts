@@ -23,8 +23,12 @@ describe('motivo de la banda de revisión', () => {
   const comparacion = EJEMPLOS.find((e) => e.id === 'comparacion')!.respuesta
   it('sin revisión no hay banda', () =>
     expect(motivoRevision({ needs_human_review: false, sources: comparacion.sources })).toBeNull())
-  it('con fuentes de dos documentos dice que las fuentes difieren', () =>
-    expect(motivoRevision(comparacion)).toContain('Las fuentes difieren'))
+  it('dos documentos requieren comprobación sin presumir contradicción', () => {
+    const m = motivoRevision(comparacion)
+    expect(m).toContain('Compruebe las citas de los distintos documentos')
+    expect(m).toContain('El sistema no decide cuál está vigente')
+    expect(m).not.toMatch(/Las fuentes difieren|ambigu|desactualiz/i)
+  })
   it('una abstención sin fuentes no dice que las fuentes difieren', () => {
     const m = motivoRevision({ needs_human_review: true, sources: [] })
     expect(m).not.toBeNull()
@@ -35,8 +39,13 @@ describe('motivo de la banda de revisión', () => {
     expect(m).toBe('El sistema marcó esta consulta para revisión humana; revise los documentos originales.')
     expect(m).not.toMatch(/ambigu|desactualiz|vigen/i)
   })
-  it('fuentes de un solo documento tampoco', () =>
-    expect(motivoRevision({ needs_human_review: true, sources: [comparacion.sources[0]] })).not.toContain('Las fuentes difieren'))
+  it('una cita con revisión no se presenta como un dato ambiguo o desactualizado', () => {
+    const m = motivoRevision({ needs_human_review: true, sources: [comparacion.sources[0]] })
+    expect(m).toContain('Compruebe las citas')
+    expect(m).toContain('Este aviso no implica que se haya detectado un error')
+    expect(m).toContain('El sistema no decide cuál está vigente')
+    expect(m).not.toMatch(/Las fuentes difieren|ambigu|desactualiz/i)
+  })
 })
 
 describe('auxiliares', () => {

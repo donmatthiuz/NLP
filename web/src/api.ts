@@ -88,7 +88,19 @@ export async function documentosApi(eventoId: string): Promise<DocumentosEvento>
 }
 
 export const rutaOriginal = (eventoId: string, docId: string, pagina: number) =>
-  `/api/eventos/${encodeURIComponent(eventoId)}/documentos/${encodeURIComponent(docId)}/original#page=${pagina}`
+  `/api/eventos/${encodeURIComponent(eventoId)}/documentos/${encodeURIComponent(docId)}/original?p=${pagina}#page=${pagina}`
+
+// Enlace externo: solo un PDF directo (la ruta termina en .pdf) abre en la página; si no, no hay fragmento útil.
+export function urlExternaConPagina(url: string, pagina: number): string | null {
+  try {
+    const u = new URL(url)
+    if (!u.pathname.toLowerCase().endsWith('.pdf')) return null
+    u.hash = `page=${pagina}`
+    return u.toString()
+  } catch {
+    return null
+  }
+}
 
 export const MENSAJE_CONFLICTO = 'Otro usuario cambió este ítem. Recargue la lista antes de guardar.'
 

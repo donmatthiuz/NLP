@@ -108,7 +108,7 @@ describe('original del PDF en cada fuente', () => {
   it('con evento, el enlace lleva el doc_id y la página de la fuente y se abre en pestaña nueva', () => {
     const h = zona('222-IGSS-2023')
     const f = fuentes[0]
-    expect(h).toContain(`href="/api/eventos/222-IGSS-2023/documentos/${f.doc_id}/original#page=${f.page}"`)
+    expect(h).toContain(`href="/api/eventos/222-IGSS-2023/documentos/${f.doc_id}/original?p=${f.page}#page=${f.page}"`)
     expect(h).toContain(`Ver copia archivada, p. ${f.page}`)
     expect(h).toContain('target="_blank"')
     expect(h.match(/rel="noopener"/g)?.length).toBe(fuentes.length)
@@ -118,7 +118,7 @@ describe('original del PDF en cada fuente', () => {
     const f = { ...fuentes[0], source: 'https://igssgt.org/doc.pdf' }
     const h = renderToStaticMarkup(createElement(ZonaFuentes, { fuentes: [f], abstencion: false, conflicto: false, eventoId: 'E1' }))
     expect(h).toMatch(/<a [^>]*href="\/api\/eventos\/E1[^"]*"[^>]*>Ver copia archivada, p\. /)
-    expect(h).toMatch(/<a [^>]*href="https:\/\/igssgt\.org\/doc\.pdf"[^>]*>Publicación en igssgt\.org/)
+    expect(h).toMatch(/<a [^>]*href="https:\/\/igssgt\.org\/doc\.pdf#page=\d+"[^>]*>Publicación en igssgt\.org/)
     expect(h).not.toContain('Abrir documento original')
   })
 
@@ -130,7 +130,7 @@ describe('original del PDF en cada fuente', () => {
   it('codifica el doc_id de la fuente en la ruta', () => {
     const raro = [{ ...fuentes[0], doc_id: 'a/b?c' }]
     const h = renderToStaticMarkup(createElement(ZonaFuentes, { fuentes: raro, abstencion: false, conflicto: false, eventoId: 'E1' }))
-    expect(h).toContain('/api/eventos/E1/documentos/a%2Fb%3Fc/original#page=')
+    expect(h).toContain('/api/eventos/E1/documentos/a%2Fb%3Fc/original?p=')
   })
 })
 

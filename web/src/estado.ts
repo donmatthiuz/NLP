@@ -24,15 +24,15 @@ export function agruparPorDocumento(fuentes: Fuente[]): { doc_id: string; fuente
   return [...grupos].map(([doc_id, fs]) => ({ doc_id, fuentes: fs }))
 }
 
-// Banda de revisión: nombra el motivo; "las fuentes difieren" solo con fuentes de dos documentos o más.
+// La marca de revisión no explica su causa; el número de documentos tampoco prueba una contradicción.
 export function motivoRevision(r: Pick<RespuestaEstructurada, 'needs_human_review' | 'sources'>): string | null {
   if (!r.needs_human_review) return null
   const comun = 'El sistema no decide cuál está vigente; revise los documentos originales.'
   const documentos = new Set(r.sources.map((f) => f.doc_id)).size
   if (documentos === 0) return 'El sistema marcó esta consulta para revisión humana; revise los documentos originales.'
   return documentos >= 2
-    ? `Las fuentes difieren o un dato crítico es ambiguo. ${comun}`
-    : `Un dato crítico es ambiguo o puede estar desactualizado. ${comun}`
+    ? `Compruebe las citas de los distintos documentos antes de utilizar la respuesta. ${comun}`
+    : `Compruebe las citas antes de utilizar la respuesta. Este aviso no implica que se haya detectado un error en ella. ${comun}`
 }
 
 export function esHttps(url: string): boolean {

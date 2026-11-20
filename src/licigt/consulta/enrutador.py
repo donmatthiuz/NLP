@@ -8,7 +8,7 @@ from typing import Literal, Protocol
 from pydantic import BaseModel, ConfigDict, ValidationError, model_validator
 
 from .config import Configuracion, obtener_configuracion, obtener_configuracion_llm
-from .entrada import JuiciosEntrada, evaluar_entrada, normalizar
+from .entrada import PATRON_PLAZO_CLAUSULA, JuiciosEntrada, evaluar_entrada, normalizar
 from .esquemas import NombreHerramienta
 from .jev import ClienteJev, ClienteJevSdk, FallaJev, Probabilidad, validar_respuesta
 from .preguntas_jev import PREGUNTAS_ENTRADA, Umbrales
@@ -21,6 +21,10 @@ PATRON_DATO_UNICO = (r"\bcual es (?:la|el) (?:fecha|plazo|hora) (?:de|del)\b"
                      r"(?!.*\b(?:y|e)\s+(?:la\s+|el\s+)?(?:hora|fecha|plazo)\w*)"
                      r"(?!.*(?:,|\by)\s+(?:la|el)\s+de\b)(?!.*\by\s+cuando\b)"
                      r"(?!.*\b(?:requisito|lista|cronograma|documento)\w*)")
+# El plazo del pago o la duración del contrato es una cláusula de las bases, no una fecha del cronograma: lo contesta una
+# búsqueda. Si la pregunta suma fechas, horas, documentos, requisitos o listas, sigue siendo extraer_requisitos.
+EXCLUSION_CLAUSULA = (r"\b(?:fechas?|horas?|requisitos?|listas?|listado|cronograma|documentos?|cuando)\b"
+                      r"|\b(?:y|e)\s+(?:el\s+)?plazo")
 PATRONES_REQUISITOS = (r"\brequisito\w*", r"\blista\w*", r"\b(?:fecha|plazo|hora)s?\b",
                        r"\bcronograma\b", r"\bcuando\b",
                        r"\bdocumentos\b.{0,50}\b(?:presentar|contener|plica)\b")
@@ -118,6 +122,8 @@ class EnrutadorReglas:
             if any(re.search(p, texto) for p in PATRONES_COMPARACION):
                 herramienta = "comparar_versiones"
             elif re.search(PATRON_DATO_UNICO, texto):
+                herramienta = "buscar_documentos"
+            elif re.search(PATRON_PLAZO_CLAUSULA, texto) and not re.search(EXCLUSION_CLAUSULA, texto):
                 herramienta = "buscar_documentos"
             elif any(re.search(p, texto) for p in PATRONES_REQUISITOS):
                 herramienta = "extraer_requisitos"

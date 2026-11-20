@@ -285,7 +285,8 @@ def consultar_evento(
     generador: Annotated[object, Depends(obtener_generador)],
 ):
     respuesta = consultar(ctx, evento_id, entrada.pregunta, enrutador=enrutador,
-                          recuperador=recuperador, generador=generador, auditar=_auditar)
+                          recuperador=recuperador, generador=generador, auditar=_auditar,
+                          numero_evento=request.path_params["evento_id"])
     # El orquestador trabaja con el id interno; quien llama recibe el valor que pidió en la ruta.
     return respuesta.model_copy(update={"evento_id": request.path_params["evento_id"]})
 

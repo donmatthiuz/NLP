@@ -53,6 +53,8 @@ class Alerta(BaseModel):
     status: str | None = None
     paginas_no_indexadas: list[int] | None = None
     numerales_modificados: list[str] = []
+    # Numeral a letras de los literales que la modificación cambia, solo si todas sus menciones son de literales.
+    literales_modificados: dict[str, list[str]] = {}
     chunk_ids_afectados: list[str] = []
 
 

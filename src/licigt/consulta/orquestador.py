@@ -16,7 +16,7 @@ from .esquemas import (
     RespuestaEstructurada, TEXTO_ABSTENCION, TEXTO_ACLARACION,
 )
 from .generacion import VERSION_PROMPT, construir_prompt
-from .herramientas import buscar_documentos, comparar_versiones, extraer_requisitos, tema_comparacion
+from .herramientas import buscar_documentos, comparar_versiones, consulta_de_busqueda, extraer_requisitos, tema_comparacion
 from .lectura import ResultadoBusqueda
 from .llm import FallaGenerador
 from .presupuesto import LimiteAgotado, Presupuesto
@@ -93,6 +93,23 @@ def _conflictos(busquedas, fragmentos):
     return grupos, afectados
 
 
+def _numerales_modificados(busquedas):
+    """(numerales, literales): lo que las alertas posible_conflicto dicen que la modificación cambia.
+
+    literales va de numeral a letras solo cuando todas sus menciones son de literales; si otra alerta lo cambia entero, se quita."""
+    numerales, literales, enteros = set(), {}, set()
+    for crudo in busquedas:
+        for alerta in ResultadoBusqueda.model_validate(crudo).alertas:
+            if alerta.tipo == "posible_conflicto":
+                numerales.update(alerta.numerales_modificados)
+                for n in alerta.numerales_modificados:
+                    if n in alerta.literales_modificados:
+                        literales.setdefault(n, set()).update(alerta.literales_modificados[n])
+                    else:
+                        enteros.add(n)
+    return numerales, {n: letras for n, letras in literales.items() if n not in enteros}
+
+
 def _abstencion(evento_id, resultado=None, aviso=None, herramienta=None, conflicto=False):
     """Revisión humana en una abstención solo si la herramienta trajo un posible_conflicto o un fragmento sospechoso; la vigencia aplica al publicar."""
     avisos = list(resultado.warnings) if resultado else []
@@ -134,7 +151,7 @@ class _Ejecucion:
 
 
 def _ejecutar(ctx, evento_id, evento_salida, pregunta, herramienta, presupuesto, *, recuperador,
-              generador, cliente_jev, ejecucion, categoria=None):
+              generador, cliente_jev, ejecucion, categoria=None, numero_evento=None):
     """Ejecuta una herramienta ya elegida, genera y valida; devuelve la respuesta y deja el resto en ejecucion."""
     respuesta = _abstencion(evento_salida)
     resultado, fragmentos, error, validacion = None, [], None, "no_aplica"
@@ -150,7 +167,7 @@ def _ejecutar(ctx, evento_id, evento_salida, pregunta, herramienta, presupuesto,
         presupuesto.usar_llamada()
         observado = _RecuperadorObservado(recuperador, evento_id)
         if herramienta == "buscar_documentos":
-            params = BuscarDocumentosParams(query=pregunta, evento_id=evento_id)
+            params = BuscarDocumentosParams(query=consulta_de_busqueda(pregunta, numero_evento), evento_id=evento_id)
             resultado = buscar_documentos(ctx, params, observado)
         elif herramienta == "comparar_versiones":
             tema = tema_comparacion(pregunta)
@@ -186,12 +203,14 @@ def _ejecutar(ctx, evento_id, evento_salida, pregunta, herramienta, presupuesto,
             return respuesta
 
         conflictos, afectados = _conflictos(observado.busquedas, fragmentos)
+        numerales, literales = _numerales_modificados(observado.busquedas)
         # Una comparación necesita preservar los documentos aunque aún no haya alerta.
         protegidos = conflictos
         if herramienta == "comparar_versiones":
             protegidos = [*conflictos, {d.doc_id for d in resultado.documentos}]
+        # La referencia al evento tampoco ayuda al modelo: el evento ya está fijado y la pregunta queda más cerca de la cláusula.
         mensajes, evidencia, esquema, avisos = construir_prompt(
-            pregunta, fragmentos, fechas=resultado.fechas, conflictos=protegidos,
+            consulta_de_busqueda(pregunta, numero_evento) if herramienta == "buscar_documentos" else pregunta, fragmentos, fechas=resultado.fechas, conflictos=protegidos,
             chunk_ids_afectados=afectados,
             max_caracteres=config.max_caracteres_evidencia)
         resultado = resultado.model_copy(update={"warnings": list(dict.fromkeys([*resultado.warnings, *avisos]))})
@@ -204,7 +223,8 @@ def _ejecutar(ctx, evento_id, evento_salida, pregunta, herramienta, presupuesto,
             """Publicación parcial de una salida ya validada; None si no hay nada válido que publicar."""
             nonlocal validacion
             parcial = None if crudo is None else _publicacion_parcial(
-                crudo, errores, evidencia, resultado, evento_id=evento_id, conflictos=conflictos)
+                crudo, errores, evidencia, resultado, evento_id=evento_id, conflictos=conflictos, afectados=afectados,
+                numerales_modificados=numerales, literales_modificados=literales)
             if not parcial:
                 return None
             respuesta, ejecucion.afirmaciones_descartadas = parcial
@@ -246,7 +266,7 @@ def _ejecutar(ctx, evento_id, evento_salida, pregunta, herramienta, presupuesto,
                 verificada, crudo = [], None
             else:
                 verificada = validar(crudo, evidencia, resultado, evento_id=evento_id, conflictos=conflictos,
-                                     informe=informe)
+                                     informe=informe, afectados=afectados, numerales_modificados=numerales, literales_modificados=literales)
                 ejecucion.datos_descartados = informe.get("datos_descartados", 0)
                 ejecucion.datos_desde_cita = informe.get("datos_desde_cita", 0)
             if isinstance(verificada, RespuestaEstructurada):
@@ -308,7 +328,8 @@ def _ejecutar(ctx, evento_id, evento_salida, pregunta, herramienta, presupuesto,
         ejecucion.error, ejecucion.validacion = error, validacion
 
 
-def _publicacion_parcial(crudo, errores, evidencia, resultado, *, evento_id, conflictos):
+def _publicacion_parcial(crudo, errores, evidencia, resultado, *, evento_id, conflictos, afectados=None,
+                         numerales_modificados=None, literales_modificados=None):
     """Descarta las afirmaciones con error propio y revalida el resto; (respuesta, descartadas) o None.
 
     Un error de toda la salida (esquema, JSON, evento, segunda fuente de un conflicto) no es descartable: None.
@@ -333,7 +354,8 @@ def _publicacion_parcial(crudo, errores, evidencia, resultado, *, evento_id, con
         if not afirmaciones:
             return None
         verificada = validar(json.dumps({**salida, "afirmaciones": afirmaciones}, ensure_ascii=False),
-                             evidencia, resultado, evento_id=evento_id, conflictos=conflictos)
+                             evidencia, resultado, evento_id=evento_id, conflictos=conflictos, afectados=afectados,
+                             numerales_modificados=numerales_modificados, literales_modificados=literales_modificados)
         if isinstance(verificada, RespuestaEstructurada):
             if verificada.abstained:
                 return None
@@ -430,7 +452,8 @@ def _registrar(auditar, usuario, tenant_id, evento_salida, intencion, respuesta,
 
 
 def consultar(ctx, evento_id, pregunta, *, enrutador, recuperador, generador,
-              cliente_jev=None, auditar=lambda evento: None, reloj=time.monotonic) -> RespuestaEstructurada:
+              cliente_jev=None, auditar=lambda evento: None, reloj=time.monotonic,
+              numero_evento=None) -> RespuestaEstructurada:
     inicio = time.monotonic()
     usuario = _atributo_seguro(ctx, "usuario")
     tenant_id = _atributo_seguro(ctx, "tenant_id")
@@ -466,7 +489,7 @@ def consultar(ctx, evento_id, pregunta, *, enrutador, recuperador, generador,
         try:
             respuesta = _ejecutar(ctx, evento_id, evento_salida, pregunta, herramienta, presupuesto,
                                   recuperador=recuperador, generador=generador, cliente_jev=cliente_jev,
-                                  ejecucion=ejecucion)
+                                  ejecucion=ejecucion, numero_evento=numero_evento)
             return respuesta
         finally:
             resultado, fragmentos = ejecucion.resultado, ejecucion.fragmentos
