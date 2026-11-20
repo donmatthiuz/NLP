@@ -129,7 +129,9 @@ Cada estado lleva tres señales que no son color, más el color como refuerzo:
 - Cabecera: ícono, rótulo "Requiere revisión humana".
 - Con cero fuentes el motivo es neutro: "El sistema marcó esta consulta para revisión humana; revise los documentos originales." Sin ambigüedad ni vigencia.
 - El rótulo en negrita "Requiere revisión humana." va en la banda solo cuando el estado mostrado es otro (abstención, aclaración); en el estado de revisión ya está en el `h2` y no se repite.
-- **Banda de revisión**, arriba del texto, a todo el ancho del panel, con fondo `--estado-revision-fondo`, borde inferior sólido y el texto: "Las fuentes difieren o un dato crítico es ambiguo. El sistema no decide cuál está vigente; revise los documentos originales."
+- **Banda de revisión**, arriba del texto, a todo el ancho del panel, con fondo `--estado-revision-fondo` y borde inferior sólido. La marca de revisión y el número de documentos no demuestran una contradicción ni un dato ambiguo: no se infiere ese motivo.
+  - Con fuentes de un documento: "Compruebe las citas antes de utilizar la respuesta. Este aviso no implica que se haya detectado un error en ella. El sistema no decide cuál está vigente; revise los documentos originales."
+  - Con fuentes de varios documentos: "Compruebe las citas de los distintos documentos antes de utilizar la respuesta. El sistema no decide cuál está vigente; revise los documentos originales."
 - Luego `answer` tal cual, metadatos y avisos.
 - Si las fuentes vienen de dos o más `doc_id` distintos, la zona de fuentes se muestra como **contraste lado a lado** (ver "Contradicciones"). Si todas son del mismo documento, como lista normal.
 - La banda aparece siempre que `needs_human_review = true`, aunque el estado mostrado sea otro por la precedencia (por ejemplo, una abstención con revisión): la información nunca se esconde.
@@ -550,8 +552,9 @@ El borde discontinuo rodea todo el panel.
 | +==================================================================+ |
 | | /!\ Requiere revisión humana                      <h2>           | |
 | |##################################################################| |
-| |## Las fuentes difieren o un dato crítico es ambiguo. El sistema ##| |
-| |## no decide cuál está vigente; revise los documentos originales.##| |
+| |## Compruebe las citas de los distintos documentos antes de      ##| |
+| |## utilizar la respuesta. El sistema no decide cuál está vigente;##| |
+| |## revise los documentos originales.                            ##| |
 | |##################################################################| |
 | | <answer tal cual: menciona 31 de julio de 2023 en las bases y    | |
 | |  06 de octubre de 2023, a las 11:00 horas, en la modificación 1> | |
