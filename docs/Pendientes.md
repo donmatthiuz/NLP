@@ -66,7 +66,7 @@ Los cambios concretos por sección están en [Cambios_pendientes](anteproyecto/C
 - [x] Las diapositivas de `CC3103 - Procesamiento de Lenguaje Natural.pptx` son del docente, no del equipo (desde el 18 de noviembre están en `.referencias/`, fuera del repositorio). La presentación propia está armada en [Diapositivas.md](presentacion/Diapositivas.md) y se exporta con `make presentacion-pptx`; quedan por completar los nombres en la diapositiva de roles.
 - [x] Estructura: problema 2 min, arquitectura 3, demo 4, métricas 3, seguridad 2, cierre 1. Las 15 diapositivas siguen ese orden con notas del orador.
 - [x] Manifiesto del anteproyecto (diapositiva 20): usuario, problema, evidencia, demostración, riesgo y mitigación, en la diapositiva "Manifiesto: usuario, problema y riesgo".
-- [ ] Demo grabada en el video (el docente autorizó video en lugar de presentación en vivo, 15 minutos; [D3](consulta/delegacion/D3_actualizacion_y_cierre.md)): consulta nominal, trazabilidad de citas, abstención, herramientas, prueba de seguridad y diagnóstico de una falla real. Guion en [Guion_video](presentacion/Guion_video.md); la grabación es la quinta medición de [Demo_222](consulta/Demo_222.md).
+- [ ] Demo grabada en el video (el docente autorizó video en lugar de presentación en vivo, 15 minutos; [D3](consulta/delegacion/D3_actualizacion_y_cierre.md)): consulta nominal, trazabilidad de citas, abstención, herramientas, prueba de seguridad y diagnóstico de una falla real. Las diapositivas están en [Diapositivas](presentacion/Diapositivas.md); el texto hablado se guarda fuera del repositorio. La grabación es la quinta medición de [Demo_222](consulta/Demo_222.md).
 - [ ] Defensa individual: cada integrante debe poder explicar cada línea de su código.
 
 ### Entrega de código
