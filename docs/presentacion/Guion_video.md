@@ -10,7 +10,7 @@ Guion del video de la presentación final de CC3103. El usuario confirmó el 19 
 - **Quién habla:** ningún bloque está asignado todavía; se deja `[integrante]` (Edwin Jose, Gustavo Cruz, Josue Say, Mathew Cordero). Por la defensa individual, conviene que los cuatro hablen al menos una vez.
 
 | Bloque | Sección | Minutos | Acumulado | Diapositivas |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | 1 | Problema, usuario e hipótesis | 2:00 | 0:00 a 2:00 | 1 y 2 |
 | 2 | Arquitectura, flujo de datos y decisiones clave | 3:00 | 2:00 a 5:00 | 3 a 6 |
 | 3 | Demo grabada del evento 222 | 4:00 | 5:00 a 9:00 | 7 y video |
@@ -84,9 +84,9 @@ Cada decisión se dice en una o dos frases; los porqués completos están en las
 - **Ya medido en el commit `d347cd0`, corpus R6 (`Demo_222.md`, cuarta medición):** los 6 pasos dan el mismo resultado que en la tercera medición; tiempos de 9,7 s, 1,4 s, 5,6 s, 0,0 s, 0,0 s y 0,9 s. La grabación será la quinta medición.
 
 | Paso | Tiempo | Acción en pantalla | Texto a decir | Cifra y fuente |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | 1. Login | 5:00 a 5:15 | Iniciar sesión como `analista_demo` (empresa_demo). Se ve el panel "Documentos del evento". | "Entramos como analista de la empresa demo. El sistema fija la empresa desde la sesión." | Bases: 35 páginas indexadas; Modificación Número 1: 4 páginas, la 4 sin indexar y un anexo de 11 hojas no cargado. `Demo_222.md`, Preparación. |
-| 2. Pregunta con cita y página impresa | 5:15 a 5:50 | Preguntar "¿Cuál es la fecha de recepción de ofertas?". Señalar la cita [1] con su documento y página, y abrir el original. | "Cada dato trae su cita: documento, página y versión, y podemos abrir el PDF original en esa página." | Bases p. 8 (`:00041`) y Modificación p. 1 (`:00004`). `Demo_222.md`. [pendiente: si se quiere una respuesta de una sola fuente, ensayar la pregunta del código IGSS y confirmar que muestra la página impresa] |
+| 2. Pregunta con cita y página impresa | 5:15 a 5:50 | Preguntar "Según las bases del evento 222-IGSS-2023, ¿en qué orden abre la Junta las plicas?". Señalar la cita [1] con su documento y página, y abrir la copia archivada en esa página. | "Cada dato trae su cita: documento, página y versión, y podemos abrir el PDF original en esa página." | Bases p. 20 (impresa 19, `:00063`), verificada 5 de 5 tras la corrección `6d7d538`. La fecha de recepción de ofertas se abstiene por `dato_fuera_de_literal` (limitación declarada); no usarla aquí. |
 | 3. Conflicto bases y modificación | 5:50 a 6:25 | La misma respuesta trae dos columnas. Señalar "Bases" (31 de julio de 2023) y "Modificación" (06 de octubre de 2023), la marca de revisión humana y la frase "El sistema no decide cuál está vigente". Opcional: preguntar "Compara la fecha de recepción de ofertas entre las bases y la modificación". | "Aquí las bases y la modificación dicen cosas distintas. El sistema muestra las dos y pide revisión humana; no decide cuál vale." | `needs_human_review = true`, `coverage_status = parcial`. `Demo_222.md`. |
 | 4. Abstención | 6:25 a 6:40 | Preguntar "¿Cuál es el precio unitario por vial?". | "Si no hay evidencia, se abstiene, y avisa que la ausencia en lo cargado no prueba que no exista en el expediente." | `abstained = true`, sin fuentes. `Demo_222.md`. |
 | 5. Diagnóstico de una falla real: cobertura incompleta de la página 4 | 6:40 a 7:00 | Señalar en "Documentos del evento" la página 4 sin indexar y la advertencia del anexo de 11 hojas. No hacer la pregunta al chat. | "Esta es una falla real: la página 4 de la modificación no se pudo leer por OCR y un anexo no está publicado. El sistema lo declara y marca cobertura parcial, en vez de callarlo." | 28 fragmentos excluidos por ruido de OCR, todos de la modificación; avisos `cobertura_incompleta` y `evento_con_modificaciones`. `Demo_222.md` (paso 6) y `Documento_tecnico.md`, sección 4. |
@@ -116,7 +116,7 @@ Si el tiempo apremia, los cortes admisibles son el opcional del paso 3 y la aper
 **Cifras y fuentes** (todas de `data/plataforma/reporte/20261119T061552Z.md`, salvo la nota de GPU)
 
 | Cifra | Valor | Sección del reporte |
-|---|---|---|
+| --- | --- | --- |
 | Hit@5 y MRR@5, base contra mejorada, desarrollo (27 casos) | 0,560 a 1,000 y 0,330 a 0,900 | Recuperación |
 | Hit@5 y MRR@5, base contra mejorada, banco común (20 casos) | 0,625 a 0,875 y 0,516 a 0,512 | Recuperación |
 | Casos que cumplen de punta a punta | banco del rol 3: 19 de 23; banco común: 11 de 20 | Extremo a extremo |
@@ -129,7 +129,6 @@ Si el tiempo apremia, los cortes admisibles son el opcional del paso 3 y la aper
 | Costo | 0,75 llamadas, 3 938 tokens de entrada y 286 de salida por consulta; 0 en dinero | Costo |
 | Condición de hardware | modelos en `cuda`, fp16; LLM `qwen3.5-9b` en `llama-server` con 1 slot | Contexto y Latencia |
 | Búsqueda mejorada con GPU | de unos 13,6 s a 0,21 s (mediana) | `Experimento_JEV.md`, sección de la nueva medición con GPU |
-
 
 ## Bloque 5. Seguridad, guardrails y limitaciones (2:00)
 
@@ -151,10 +150,10 @@ Si el tiempo apremia, los cortes admisibles son el opcional del paso 3 y la aper
   - Generador de 9B local: ver `Documento_tecnico.md`, sección 10.
   - Banco común: 11 de 20. Reporte oficial.
   - n pequeño: 20 a 27 casos por banco; cinco licitaciones. `Documento_tecnico.md`, sección 10.
-  - Fidelidad factual (meta 90 %): [pendiente], requiere dos revisores.
-  - Cobertura de requisitos (meta 90 %): [pendiente], falta una lista anotada.
-  - Reducción del tiempo de revisión (meta 25 %): [pendiente], no medida con usuarios.
-  - Auditoría manual de que las citas respaldan la afirmación: [pendiente].
+  - Fidelidad factual (meta 90 %): no medida, requiere revisión por afirmación.
+  - Cobertura de requisitos (meta 90 %): no medida, falta una lista anotada.
+  - Reducción del tiempo de revisión (meta 25 %): exploratoria con n = 1 (el desarrollador), sin conclusión; la fase asistida se detuvo por dos defectos corregidos.
+  - Auditoría manual de que las citas respaldan la afirmación: no medida.
 
 ## Bloque 6. Roles y conclusiones (1:00)
 
@@ -223,10 +222,10 @@ for l in open("data/auditoria/2026-11-19.jsonl"):   # reemplazar por la fecha
 PY
 ```
 
-3. Emparejar cada línea con el paso del guion por orden de `momento` y registrar en `Demo_222.md` una sección "Quinta medición" con: fecha, commit, corpus (R6, 625 fragmentos), el LLM y que la recuperación va en GPU, y una tabla paso, herramienta, `latencia_ms` en segundos, `abstained`, `needs_human_review`. Los pasos de 0 s (aclaración, inyección) no pasan por el modelo.
-4. Comparar contra la cuarta medición (9,7 s, 1,4 s, 5,6 s, 0,0 s, 0,0 s, 0,9 s y propuesta de lista 5,0 s) y decir si el resultado de cada paso coincide. Reportar tal cual las diferencias, sin ajustar.
-5. En el video, los cortes de espera llevan el rótulo con el valor de `latencia_ms`, para que lo recortado no oculte la latencia real. Los pasos 8 y 9 son 404 y rechazos de rol: se registran como respuestas de la API, no como consultas al modelo.
-6. No copiar a ningún documento el contenido de la auditoría más allá de estas columnas.
+1. Emparejar cada línea con el paso del guion por orden de `momento` y registrar en `Demo_222.md` una sección "Quinta medición" con: fecha, commit, corpus (R6, 625 fragmentos), el LLM y que la recuperación va en GPU, y una tabla paso, herramienta, `latencia_ms` en segundos, `abstained`, `needs_human_review`. Los pasos de 0 s (aclaración, inyección) no pasan por el modelo.
+2. Comparar contra la cuarta medición (9,7 s, 1,4 s, 5,6 s, 0,0 s, 0,0 s, 0,9 s y propuesta de lista 5,0 s) y decir si el resultado de cada paso coincide. Reportar tal cual las diferencias, sin ajustar.
+3. En el video, los cortes de espera llevan el rótulo con el valor de `latencia_ms`, para que lo recortado no oculte la latencia real. Los pasos 8 y 9 son 404 y rechazos de rol: se registran como respuestas de la API, no como consultas al modelo.
+4. No copiar a ningún documento el contenido de la auditoría más allá de estas columnas.
 
 ## Diapositivas
 
@@ -300,7 +299,7 @@ La fuente vigente es [`Diapositivas.md`](Diapositivas.md) (17 diapositivas; `mak
     - Banco común 11 de 20; bancos pequeños; cinco licitaciones.
     - Página 4 sin indexar y anexo no publicado.
     - Pendientes: fidelidad, cobertura de requisitos y tiempo de revisión (revisión humana).
-    - Imagen: tabla de metas del anteproyecto con "[pendiente]" donde no hay medida.
+    - Imagen: tabla de metas del anteproyecto con "no medido" donde no hay medida.
 13. **Roles y uso de IA**
     - Rol 1 ingesta, rol 2 recuperación, rol 3 consulta, rol 4 plataforma y evaluación: [integrante] en cada uno.
     - Agentes con papeles separados: implementador, adversario, proponente y revisor de otra familia de modelos.

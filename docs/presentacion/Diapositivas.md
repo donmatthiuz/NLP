@@ -118,10 +118,11 @@ Comparación de línea base contra recuperación mejorada. En el banco común la
 - Citas válidas: 41 de 41; JSON válido en todos los casos.
 - Abstención correcta: 13 de 14 y 4 de 4.
 - El validador comprueba existencia y texto, no que la cita respalde la afirmación.
-- Métricas humanas (fidelidad, cobertura, tiempo de revisión): [pendiente].
+- Tiempo de revisión: exploratorio, n = 1 (el propio desarrollador); sin conclusión de reducción.
+- Fidelidad factual y cobertura de requisitos: no medidas.
 
 ::: notes
-Resultados medidos tal cual. Corrida oficial con la GPU de escritorio compartida: el LLM generó a 62,5 tokens por segundo de mediana. Como referencia, una corrida previa a 86 tokens por segundo dio P95 de 18,5 s; no es resultado, solo muestra la sensibilidad al hardware.
+Resultados medidos tal cual, de la corrida oficial anterior a las correcciones motivadas por la evaluación humana (no se volvieron a medir). Fase manual de la evaluación humana: 6 intentos, 2 correctos y 1 parcial, mediana 78,8 s; la fase asistida se detuvo por dos defectos que se corrigieron y su repetición no se cronometró. Corrida oficial con la GPU de escritorio compartida: el LLM generó a 62,5 tokens por segundo de mediana. Como referencia, una corrida previa a 86 tokens por segundo dio P95 de 18,5 s; no es resultado, solo muestra la sensibilidad al hardware.
 :::
 
 # Latencia, costo y condición de GPU
@@ -160,10 +161,11 @@ Suite de ocho pruebas con amenaza, mitigación y resultado. Todas cumplen, pero 
 - P95 sobre la meta; modelo local de 9B que se abstiene más de lo deseable.
 - Banco común 11 de 20; bancos pequeños; cinco licitaciones.
 - Página 4 sin indexar y anexo no publicado.
-- Pendientes de revisión humana: fidelidad, cobertura de requisitos y tiempo de revisión: [pendiente].
+- Evaluación humana exploratoria (n = 1) sin conclusión; fidelidad y cobertura de requisitos sin medir.
+- Correcciones posteriores a la corrida oficial sin nueva medición de los bancos.
 
 ::: notes
-Se reportan sin maquillar. Las metas del anteproyecto sin medida quedan como [pendiente].
+Se reportan sin maquillar. La evaluación humana reveló defectos (regla de conflicto, enrutamiento de plazos, enlaces al PDF) que se corrigieron y auditaron; las cifras de los bancos son anteriores. Las metas sin medida se declaran como no medidas.
 :::
 
 # Roles y uso de IA
