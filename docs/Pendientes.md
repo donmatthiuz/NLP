@@ -130,5 +130,6 @@ El plan por fases está en [Plan_rol_3](consulta/Plan_rol_3.md). Orden sugerido:
   - el repositorio sigue con el material del docente en su historial: hacerlo privado le corresponde a su dueño;
   - la quinta medición de la demo con sesión y la preparación de la demo con `make usuarios-demo`;
   - el P95 sigue sobre 15 s (32,0 s en la corrida oficial);
-  - las métricas con usuarios del documento técnico (sección "Métricas con usuarios") quedan pendientes de la medición.
+  - métricas con usuarios: hay una autoevaluación exploratoria (n = 1, desarrollador, tiempos autoinformados; manual 6 intentos, 2 correctas, 1 parcial, mediana 78,84 s) y la fase asistida quedó detenida y luego sin cronometraje; no permite concluir sobre la meta de reducción de tiempo. Sigue pendiente una medición con usuarios independientes;
+  - correcciones del commit `6d7d538` motivadas por esa evaluación (conflicto solo si la respuesta toca lo modificado, plazo de pago y contrato a búsqueda, preámbulo del evento fuera de la búsqueda, enlaces en su página, `make consultar`): auditadas, pero los bancos y la latencia no se volvieron a medir (corrida `20261119T061552Z`, commit `3085334`).
 - [ ] Carácter de los literales del numeral 2.7 (listado de documentos): hoy salen `no_indicado` porque `caracter_de_seccion` solo lee la sección del propio fragmento. Saber si cada documento es fundamental exige cruzarlo con lo que dicen los numerales 2.8 y 2.9 del mismo evento. Mientras tanto se declara como limitación: la lista no inventa el carácter.

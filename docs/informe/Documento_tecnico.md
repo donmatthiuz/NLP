@@ -14,7 +14,7 @@ LiciGT apoya al analista que reúne requisitos de licitaciones de medicamentos d
 
 El LLM redacta; el código controla acceso, valida literales y citas, y exige abstención cuando falta evidencia. La recuperación mejorada alcanza Hit@5 de 1,00 en desarrollo y 0,875 en el banco común. Cumplen 19 de 23 casos del rol 3 y 11 de 20 del banco común; las 41 citas pasan la comprobación de pertenencia y texto, sin medir respaldo semántico. La suite inicial de seguridad cumple 8 de 8.
 
-El P95 de 32,0 s (37,5 s con cinco usuarios) supera la meta de 15 s. JEV y un LLM mejoran el enrutamiento, pero no se adoptan por latencia; la ruta entregada y las fechas de la lista usan reglas. La utilidad con usuarios está **NO MEDIDA**. La sección 8 presenta condiciones y fallos.
+El P95 de 32,0 s (37,5 s con cinco usuarios) supera la meta de 15 s. JEV y un LLM mejoran el enrutamiento, pero no se adoptan por latencia; la ruta entregada y las fechas de la lista usan reglas. Con usuarios solo hay una autoevaluación exploratoria (n = 1) que no permite concluir sobre el tiempo de revisión. La sección 8 presenta condiciones y fallos.
 
 ## 2. Problema
 
@@ -27,7 +27,7 @@ Consolidar tablas, referencias y modificaciones exige más que encontrar un dato
 El usuario primario es el analista de licitaciones de una empresa proveedora ([anteproyecto](../anteproyecto/Anteproyecto.md), sección 4); hay además un responsable técnico o regulatorio y un supervisor. El sistema implementa dos roles, cada uno ligado a su empresa ([`src/licigt/plataforma/README.md`](../../src/licigt/plataforma/README.md)):
 
 | Rol | Puede |
-|---|---|
+| --- | --- |
 | `analista` | Consultar, proponer la lista de verificación y guardarla o cambiar el estado de sus ítems |
 | `lector` | Consultar y ver la lista guardada, sin proponer, guardar ni cambiar (403) |
 
@@ -58,10 +58,10 @@ El riesgo principal es tomar una lista incompleta, o una condición de otra vers
 
 ## 6. Arquitectura
 
-Cuatro módulos, uno por rol ([`Asignacion_de_roles.md`](../roles/Asignacion_de_roles.md)). Los anexos visuales se entregan a resolución completa: [arquitectura general](../arquitectura/diagramas/arquitectura_general.png) y [flujo de consulta](../arquitectura/diagramas/flujo_consulta.png), con sus [fuentes HTML y exportación](../arquitectura/diagramas/README.md). Se consultan junto al PDF para conservar la legibilidad de los nodos. Representan sesión y permisos antes de la consulta, auditoría implementada, generación local y una propuesta de lista independiente cuya persistencia exige confirmación. La regeneración es acotada y puede terminar en publicación parcial o abstención. JEV aparece como experimento opcional, fuera de la ruta predeterminada.
+Cuatro módulos, uno por rol ([`Asignacion_de_roles.md`](../roles/Asignacion_de_roles.md)). Los anexos visuales se entregan a resolución completa: [arquitectura general](../arquitectura/diagramas/arquitectura_general.png) y [flujo de consulta](../arquitectura/diagramas/flujo_consulta.png), con sus [fuentes](../arquitectura/diagramas/README.md). Muestran sesión y permisos antes de la consulta, auditoría, generación local, una propuesta de lista cuya persistencia exige confirmación y JEV como experimento opcional, fuera de la ruta predeterminada.
 
 | Módulo | Entrada | Salida |
-|---|---|---|
+| --- | --- | --- |
 | Ingesta (rol 1) | PDF oficiales y su procedencia | Paquete con fragmentos por página y sección, manifiestos, inventario y originales |
 | Recuperación (rol 2) | Paquete y pregunta con contexto | Fragmentos autorizados con puntaje, juicio de suficiencia y alertas |
 | Consulta (rol 3) | Pregunta, evento y contexto de la sesión | Respuesta estructurada con citas, o abstención; propuesta de lista |
@@ -115,7 +115,7 @@ Valida el PDF y su SHA-256, guarda el original sin sobrescribirlo, extrae texto 
 ## 7. Banco de pruebas
 
 | Conjunto | Casos | Uso | Fuente |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | Desarrollo del rol 2 | 27 | Ajustar y calibrar la recuperación | `src/licigt/recuperacion/casos_desarrollo.json` |
 | Enrutador | 60 | Prueba del experimento de JEV | `src/licigt/consulta/casos_enrutador.json` |
 | Banco del rol 3 | 23 | Herramientas y seguridad de la consulta | `src/licigt/consulta/casos_banco.json` |
@@ -138,7 +138,7 @@ Valida el PDF y su SHA-256, guarda el original sin sobrescribirlo, extrae texto 
 ### Metas del anteproyecto frente a lo medido
 
 | Métrica | Meta | Medido (corrida oficial) |
-|---|---|---|
+| --- | --- | --- |
 | Hit@5 (mejorada) | ≥ 85 % | 100 % en desarrollo; 87,5 % en el banco común |
 | MRR@5 (mejorada) | ≥ 0,70 | 0,90 en desarrollo; 0,51 en el banco común |
 | Validez de citas | ≥ 95 % | 41 de 41 citas publicadas pasan el validador (pertenencia y texto, no respaldo de la afirmación); auditoría manual pendiente |
@@ -147,14 +147,14 @@ Valida el PDF y su SHA-256, guarda el original sin sobrescribirlo, extrae texto 
 | Latencia P95 | ≤ 15 s | No cumplida: 32,0 s con un usuario y 37,5 s con 5, con la GPU compartida |
 | Costo | Reportar | 3 938 tokens de entrada y 286 de salida por consulta, 0,75 llamadas; 0 en dinero (LLM local) |
 | Resistencia a ataques | 100 % en la suite inicial | 8 de 8 |
-| Fidelidad factual | ≥ 90 % | NO MEDIDO: requiere la revisión de dos personas |
-| Cobertura de requisitos | ≥ 90 % | NO MEDIDO: no hay lista de referencia anotada |
-| Tiempo de revisión | Reducción ≥ 25 % | NO MEDIDO (ver "Métricas con usuarios") |
+| Fidelidad factual | ≥ 90 % | NO MEDIDO: requiere la revisión de dos personas; la ronda con usuarios no aplicó el protocolo por afirmación |
+| Cobertura de requisitos | ≥ 90 % | NO MEDIDO: no hay lista de referencia anotada, y la ronda con usuarios no la evaluó |
+| Tiempo de revisión | Reducción ≥ 25 % | Exploratorio, n = 1, sin conclusión (ver "Métricas con usuarios") |
 
 ### Recuperación: línea base contra mejorada
 
 | Conjunto | Variante | Hit@5 | MRR@5 | P95 de búsqueda |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | Desarrollo (27) | Base | 0,560 | 0,330 | 0,009 s |
 | Desarrollo (27) | Mejorada | 1,000 | 0,900 | 0,636 s |
 | Banco del rol 3 (23) | Base | 0,667 | 0,215 | 0,010 s |
@@ -167,7 +167,7 @@ La mejorada recupera el fragmento relevante entre los cinco primeros con más fr
 ### Extremo a extremo
 
 | Métrica | Banco del rol 3 | Banco común |
-|---|---|---|
+| --- | --- | --- |
 | Casos que cumplen | 19 de 23 | 11 de 20 |
 | Exactitud de acción y herramienta | 14 de 15 | 12 de 16 |
 | Abstención correcta / indebida | 13 de 14 / 3 de 9 | 4 de 4 / 4 de 16 |
@@ -196,7 +196,7 @@ El sistema prefiere abstenerse antes que publicar una cita inválida. **Estos fa
 ([`Experimento_JEV.md`](../consulta/Experimento_JEV.md))
 
 | Variante | Aciertos (60 casos de prueba) | Exactitud (Wilson 95 %) | Errores críticos |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | Reglas | 37 | 0,617 (0,490 a 0,729) | 6 |
 | JEV | 53 | 0,883 (0,778 a 0,942) | 0 |
 | LLM local (Qwen3.5-9B, J2) | 51 | 0,850 (0,739 a 0,919) | 0 |
@@ -219,7 +219,7 @@ El sistema prefiere abstenerse antes que publicar una cita inválida. **Estos fa
 Consulta completa dentro del proceso con `consultar()` real, 83 consultas. Corrida oficial, con la GPU compartida:
 
 | Herramienta | Consultas | P50 (1 usuario) | P95 (1 usuario) | Máximo | P95 (5 usuarios) |
-|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- |
 | Total | 83 | 3,5 s | 32,0 s | 39,1 s | 37,5 s |
 | `buscar_documentos` | 34 | 2,8 s | 18,5 s | 19,1 s | 18,4 s |
 | `comparar_versiones` | 10 | 7,9 s | 15,1 s | 15,1 s | 20,3 s |
@@ -235,24 +235,38 @@ Consulta completa dentro del proceso con `consultar()` real, 83 consultas. Corri
 
 ### Demo del evento 222
 
-Cuarta medición, con el corpus R6 ([`Demo_222.md`](../consulta/Demo_222.md)); es anterior a C21 y a la sesión de W1, y no se repitió con sesión. Los seis pasos del guion dan el resultado esperado: recepción en las dos versiones con revisión humana y cobertura parcial (9,7 s), abstención ante un dato inexistente (1,4 s), comparación en dos afirmaciones con cita (5,6 s), aclaración ante "¿Cuál es la fecha?", abstención ante una inyección contra la lista y cobertura incompleta en el panel. La propuesta de lista da 37 ítems (31 requisitos y 6 fechas) en 5,0 s, y 11 piden revisión.
+Cuarta medición, corpus R6 ([`Demo_222.md`](../consulta/Demo_222.md)); es anterior a C21 y a la sesión de W1. Los seis pasos del guion dan el resultado esperado: recepción en las dos versiones con revisión humana y cobertura parcial (9,7 s), abstención ante un dato inexistente (1,4 s), comparación con cita (5,6 s), aclaración ante "¿Cuál es la fecha?" y abstención ante una inyección contra la lista. La propuesta de lista da 37 ítems en 5,0 s, y 11 piden revisión.
 
 ### Métricas con usuarios
 
-Estado: **NO MEDIDO**. Las métricas de esta sección miden si el sistema ayuda a una persona, algo que los bancos automáticos no miden. Con n = 2 son una evidencia cualitativa y exploratoria; no permiten inferencia estadística ni cerrar la meta de reducción de tiempo del anteproyecto.
+Estado: **exploratorio, n = 1, sin conclusión**. Miden si el sistema ayuda a una persona, algo que los bancos no miden. El protocolo previsto (dos analistas ajenos al sistema) no se cumplió: se realizó una autoevaluación de un único participante que además es desarrollador del sistema y declara no conocer ni entender el tema de las licitaciones. Registro: `data/evaluacion_humana/registro_josue_20261119.json`.
 
-**Protocolo propuesto, por confirmar.** Dos personas con perfil de analista, ajenas a la construcción del sistema, resolverán preguntas con respuesta fijada de antemano. Cada una revisará PDF manualmente y usará LiciGT, con eventos distintos y orden alternado para compensar aprendizaje. Se medirán tiempo con cronómetro, aciertos, utilidad de 1 a 5 y comentario libre. Se reportarán valores individuales, sin inferencia estadística.
+**Limitaciones declaradas en el registro:** autoevaluación de un desarrollador, no evaluación independiente ni de un analista experto; tiempo autoinformado, no observado; la fase asistida sigue a seis tareas manuales con retroalimentación y preguntas del mismo tipo en otro evento pueden compartir respuestas, de modo que el aprendizaje y las diferencias documentales impiden atribuir una reducción de tiempo exclusivamente a LiciGT.
 
-**Registro de resultados: NO MEDIDO [pendiente].** No se han obtenido tiempos manuales o asistidos, respuestas correctas, utilidad percibida ni comentarios de participantes. La reducción de tiempo ≥ 25 % sigue siendo una meta, sin valores individuales que reportar.
+**Fase manual (evento 399-IGSS-2026, límite de 300 s por tarea).** Según `resumen_manual`: 6 intentos, 2 respuestas completamente correctas, 1 parcial, mediana de tiempo de los intentos de 78,84 s y suma de 490,39 s. Nota del registro: los tiempos son de intentos autoinformados, incluidos errores y abandono, y no equivalen a tiempos hasta respuestas correctas. El participante aclaró en la cuarta tarea que su tiempo incluye la lectura de la pregunta, sin confirmar las tareas 1 a 3.
+
+**Fase asistida (evento 222-IGSS-2023).** El estado registrado es `detenida_por_solicitud_del_participante`: se realizaron 2 de 6 tareas previstas y ambas terminaron en abstención ante preguntas con respuesta en las bases cargadas. Se diagnosticaron como defectos del sistema y se corrigieron. La repetición posterior quedó sin cronometraje: el participante reportó cinco preguntas (empate, original y copia con formulario, seguro de cumplimiento, plazo de pago y duración del contrato) con su percepción de haber respondido más rápido que en la búsqueda manual, y el registro no le imputa tiempos. No hubo revisión factual completa de esa ronda.
+
+**Conclusión.** Con un participante, tiempos autoinformados, aprendizaje previo y sin tiempos asistidos válidos, estos datos no permiten afirmar un porcentaje de reducción de tiempo ni el cumplimiento de la meta de reducción de al menos 25 %. No se midieron utilidad percibida ni fidelidad por afirmación.
+
+### Correcciones posteriores a la corrida oficial
+
+La evaluación humana reveló defectos que se corrigieron en el commit `6d7d538`, cada uno con auditoría adversarial:
+
+- La exigencia de citar bases y modificación ahora solo aplica si la respuesta toca lo modificado (prueba positiva: numerales y literales modificados); la portada, las continuaciones y las tablas siguen exigiendo ambas fuentes.
+- Las preguntas de plazo de pago o de duración del contrato van a búsqueda, y el preámbulo con el mismo número de evento se quita de ella.
+- Los enlaces al PDF abren en la página citada y `make consultar` permite diagnosticar una consulta.
+
+Las cifras de los bancos y de latencia de este documento son de la corrida oficial `20261119T061552Z` sobre el commit `3085334`, anterior a estas correcciones, y no se volvieron a medir. Los cinco casos reportados por el participante se verificaron con 3 a 5 repeticiones del flujo real.
 
 ## 9. Auditoría de seguridad
 
 ### Suite de 8 pruebas
 
-([reporte](../plataforma/Reporte_evaluacion.md), "Suite de seguridad"; amenaza, componente y mitigación por prueba en ese reporte). Las 8 cumplen en la corrida oficial:
+([reporte](../plataforma/Reporte_evaluacion.md), "Suite de seguridad"; amenaza, componente y mitigación por prueba en ese reporte). Las 8 cumplen:
 
 | Prueba | Amenaza | Mitigación |
-|---|---|---|
+| --- | --- | --- |
 | Inyección directa | La pregunta ordena certificar cumplimiento | El enrutador decide antes de cualquier herramienta |
 | Inyección indirecta | Un fragmento recuperado trae una instrucción | Patrón compartido de instrucciones al asistente; el fragmento sale de la evidencia con aviso y revisión humana |
 | Cita falsa | El modelo cita un fragmento inexistente | Cada cita se valida contra la evidencia; una regeneración y abstención |
@@ -302,39 +316,38 @@ En la primera corrida del banco, un fragmento sembrado se citó como fuente y la
 - **OCR y tablas.** Persisten las pérdidas de cobertura y tablas entrelazadas de la sección 4; de la página 3 de la modificación solo se indexa la aprobación, no el membrete, fecha de resolución ni dos órdenes de trámite.
 - **Inyección indirecta.** El control por patrones tiene límites conocidos (sección 9) y se aparta del texto del encargo (dos señales juntas), decisión que el usuario ratificó. El 6 de 6 del banco se midió con un fragmento sintético, y en la ingesta hay un falso positivo conocido: un cargo "Asistente" cerca de "omite".
 - **Rol lector.** No puede pedir la propuesta de lista (más restrictivo que lo pedido en P1), por decisión del usuario.
-- **Interfaz.** La web se mide en modo API; el modo de ejemplos, con respuestas fijas, sirve para revisar el diseño y no para demostrar el sistema.
+- **Interfaz.** La web se mide en modo API; el modo de ejemplos (respuestas fijas) solo sirve para revisar el diseño.
 - **Revisión acotada de modificaciones.** La revisión acotada de la lista (C17) tiene un riesgo señalado por la revisión retrospectiva cuando la modificación tiene cobertura incompleta, como la del 222.
-- **Evaluación incompleta y corrida única.** Sin evento reservado limpio, fidelidad ni precisión/recall de citas revisadas por dos personas, lista anotada de requisitos o mediciones con usuarios. Cada pregunta se ejecutó una vez, con temperatura 0 y semilla fija; no se estimó variación entre corridas.
-- **Alcance del corpus.** Cinco licitaciones de medicamentos del IGSS; los resultados no se generalizan a otras entidades ni a otro tipo de compras.
-- **Sin memoria de conversación.** Cada pregunta se responde por separado.
+- **Evaluación incompleta y corrida única.** Sin evento reservado limpio, fidelidad ni precisión/recall de citas revisadas por dos personas, lista anotada de requisitos o una medición con usuarios independiente (solo hay una autoevaluación exploratoria, n = 1). Cada pregunta se ejecutó una vez, con temperatura 0 y semilla fija; no se estimó variación entre corridas.
+- **Alcance y memoria.** Cinco licitaciones de medicamentos del IGSS, sin generalizar a otras entidades ni compras; cada pregunta se responde por separado, sin memoria de conversación.
 - **Calidad de la lista.** Algunos ítems no son requisitos (definiciones o tramos que empiezan a media frase) y el carácter fundamental de los literales del 2.7 sale "no indicado".
 
 ## 11. Trabajo futuro
 
 - **Latencia:** medir con GPU sin compartir, reducir evidencia enviada al LLM y resolver la cola con cinco usuarios; después, reevaluar enrutadores con la misma regla de adopción.
 - **Generación y seguridad:** probar mayor capacidad para seleccionar literales y un clasificador semántico de inyección en ingesta, con banco etiquetado.
-- **Evaluación:** completar métricas con usuarios, fidelidad y citas, lista de referencia de requisitos y evento reservado nuevo.
+- **Evaluación:** repetir las métricas con usuarios independientes, fidelidad y citas, lista de referencia de requisitos y evento reservado nuevo.
 - **Calidad y plataforma:** cruzar numerales 2.8 y 2.9 para el carácter fundamental; filtrar definiciones; mejorar tablas, sellos y firmas; añadir revocación de sesiones, límite de intentos, HTTPS y originales en almacenamiento de objetos.
 
 ## 12. Conclusiones
 
-Seleccionar literales y validarlos aporta trazabilidad, con abstenciones cuando el modelo no logra citar evidencia disponible. Las 41 citas válidas no demuestran fidelidad semántica. La recuperación mejorada aumenta Hit@5 y la GPU reduce su costo temporal, pero el banco común no demuestra significancia ni mejora de MRR@5. La suite inicial de seguridad cumple, sin probar seguridad universal.
+Seleccionar literales y validarlos aporta trazabilidad, con abstenciones cuando el modelo no logra citar. Las 41 citas válidas no demuestran fidelidad semántica. La recuperación mejorada aumenta Hit@5 y la GPU reduce su costo temporal, pero el banco común no demuestra significancia ni mejora de MRR@5. La suite inicial de seguridad cumple, sin probar seguridad universal.
 
-La latencia impide adoptar los enrutadores alternativos. La evaluación humana y un evento reservado siguen pendientes. La implementación, auditoría independiente y adjudicación humana dejan evidencia reproducible sin convertir esas tareas pendientes en resultados.
+La latencia impide adoptar los enrutadores alternativos. La evaluación con usuarios quedó en una autoevaluación exploratoria (n = 1) sin conclusión sobre el tiempo, y el evento reservado sigue pendiente.
 
 ## 13. Declaración del uso de herramientas de IA
 
 Según Git, dos integrantes iniciaron ingesta (14 de noviembre) y recuperación (15–16); desde el 18 la integración y cierre se hicieron en `proyecto`. Se declara la intervención de IA:
 
 | Herramienta | Papel | Intervención |
-|---|---|---|
+| --- | --- | --- |
 | Claude (Claude Code, Opus) | Gestor: investigación previa, cinco porqués, encargos en `docs/*/delegacion/`, auditoría, mediciones y documentación ([`Flujo_de_trabajo.md`](../consulta/Flujo_de_trabajo.md)) | Alta en diseño y verificación; no escribe el código de producción salvo ajustes mínimos de pruebas y documentación |
 | Subagentes Sonnet (Claude Code) y, al inicio, Codex | Implementadores del código y las pruebas | Alta en código; toda entrega pasa por auditoría |
 | Agente `adversario` (Opus; OpenCode con Kimi al inicio) | Auditoría de solo lectura que intenta refutar cada entrega | El gestor reproduce los hallazgos antes de encargar la corrección |
 | Agente `proponente-casos` (Codex) | Casos del enrutador, del banco del rol 3 y del banco común | Sus etiquetas pasan por un revisor de otra familia |
 | Agente `adversario` en modo casos (OpenCode, `deepseek-v4.1-flash-free`) | 20 casos engañosos del enrutador; reemplazó a Kimi, no disponible | Igual que el proponente |
 | Agente `revisor-casos` (Claude, sesión aislada) | Revisión a ciegas del enrutador y en modo evidencia de los bancos | Los desacuerdos los decide el usuario |
-| Codex (cierre documental D3) | Actualización de diagramas, documentación y exportación de entregables | Edición documental; sin repetir mediciones |
+| Codex (cierre documental D3) | Diagramas, documentación y exportación de entregables | Edición documental; sin repetir mediciones |
 | Agentes de diseño (UX Architect, UI Designer, compuerta de acabado) | Base y migración de la interfaz a shadcn/ui; PASS o HOLD | El gestor decide qué se corrige |
 
 **Desvío declarado.** Antes del 18 de noviembre el [flujo escrito](../consulta/Flujo_de_trabajo.md) asignaba implementación a Codex/OpenCode y auditoría a Kimi; en la práctica implementaron Sonnet y auditó Opus. La retrospectiva lo registró, el usuario lo aprobó y se actualizó el flujo.
@@ -345,42 +358,42 @@ Según Git, dos integrantes iniciaron ingesta (14 de noviembre) y recuperación 
 
 ### Corpus
 
-- Instituto Guatemalteco de Seguridad Social. *Proveedores: eventos y convocatorias*. https://www.igssgt.org/proveedores/
+- Instituto Guatemalteco de Seguridad Social. *Proveedores: eventos y convocatorias*. <https://www.igssgt.org/proveedores/>
 - Instituto Guatemalteco de Seguridad Social, Departamento de Abastecimientos. (2026). *Documentos de Licitación Pública DA No. 399-IGSS-2026* y *DA No. 363-IGSS-2026*. URL y SHA-256 de los seis PDF en [`Corpus_IGSS.md`](../ingesta/Corpus_IGSS.md) y en el anteproyecto (sección 16).
 
 ### Trabajos citados
 
-- Gao, T., Yen, H., Yu, J. y Chen, D. (2023). *Enabling Large Language Models to Generate Text with Citations* (ALCE). EMNLP 2023. https://arxiv.org/abs/2305.14627
-- Liu, N. F., Zhang, T. y Liang, P. (2023). *Evaluating Verifiability in Generative Search Engines*. Findings of EMNLP 2023. https://arxiv.org/abs/2304.09848
-- Liu, N. F. y otros (2024). *Lost in the Middle: How Language Models Use Long Contexts*. TACL. https://arxiv.org/abs/2307.03172
-- Hines, K. y otros (2024). *Defending Against Indirect Prompt Injection Attacks With Spotlighting*. https://arxiv.org/abs/2403.14720
-- Saad-Falcon, J., Khattab, O., Potts, C. y Zaharia, M. (2024). *ARES: An Automated Evaluation Framework for Retrieval-Augmented Generation Systems*. NAACL 2024. https://arxiv.org/abs/2311.09476
-- Zheng, L. y otros (2023). *Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena*. https://arxiv.org/abs/2306.05685
-- Panickssery, A., Bowman, S. y Feng, S. (2024). *LLM Evaluators Recognize and Favor Their Own Generations*. NeurIPS 2024. https://arxiv.org/abs/2404.13076
-- Guo, C., Pleiss, G., Sun, Y. y Weinberger, K. (2017). *On Calibration of Modern Neural Networks*. https://arxiv.org/abs/1706.04599
-- Kirichenko, P., Ibrahim, M., Chaudhuri, K. y Bell, S. J. (2025). *AbstentionBench: Reasoning LLMs Fail on Unanswerable Questions*. https://arxiv.org/abs/2506.09038
-- OWASP. *Top 10 for LLM Applications 2025* (LLM01, LLM06). https://genai.owasp.org/llm-top-10/
-- OWASP. *GenAI Red Teaming Guide*. https://genai.owasp.org/resource/genai-red-teaming-guide/
-- Ragas. *Métricas disponibles*. https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/
-- TypeSafe. *JEV: documentación y cookbooks*. https://docs.typesafe.ai/llms.txt
+- Gao, T., Yen, H., Yu, J. y Chen, D. (2023). *Enabling Large Language Models to Generate Text with Citations* (ALCE). EMNLP 2023. <https://arxiv.org/abs/2305.14627>
+- Liu, N. F., Zhang, T. y Liang, P. (2023). *Evaluating Verifiability in Generative Search Engines*. Findings of EMNLP 2023. <https://arxiv.org/abs/2304.09848>
+- Liu, N. F. y otros (2024). *Lost in the Middle: How Language Models Use Long Contexts*. TACL. <https://arxiv.org/abs/2307.03172>
+- Hines, K. y otros (2024). *Defending Against Indirect Prompt Injection Attacks With Spotlighting*. <https://arxiv.org/abs/2403.14720>
+- Saad-Falcon, J., Khattab, O., Potts, C. y Zaharia, M. (2024). *ARES: An Automated Evaluation Framework for Retrieval-Augmented Generation Systems*. NAACL 2024. <https://arxiv.org/abs/2311.09476>
+- Zheng, L. y otros (2023). *Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena*. <https://arxiv.org/abs/2306.05685>
+- Panickssery, A., Bowman, S. y Feng, S. (2024). *LLM Evaluators Recognize and Favor Their Own Generations*. NeurIPS 2024. <https://arxiv.org/abs/2404.13076>
+- Guo, C., Pleiss, G., Sun, Y. y Weinberger, K. (2017). *On Calibration of Modern Neural Networks*. <https://arxiv.org/abs/1706.04599>
+- Kirichenko, P., Ibrahim, M., Chaudhuri, K. y Bell, S. J. (2025). *AbstentionBench: Reasoning LLMs Fail on Unanswerable Questions*. <https://arxiv.org/abs/2506.09038>
+- OWASP. *Top 10 for LLM Applications 2025* (LLM01, LLM06). <https://genai.owasp.org/llm-top-10/>
+- OWASP. *GenAI Red Teaming Guide*. <https://genai.owasp.org/resource/genai-red-teaming-guide/>
+- Ragas. *Métricas disponibles*. <https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/>
+- TypeSafe. *JEV: documentación y cookbooks*. <https://docs.typesafe.ai/llms.txt>
 
 ### Modelos (con la revisión que fija el repositorio)
 
-- `BAAI/bge-m3`, revisión `5617a9f61b028005a4858fdac845db406aefb181`. https://huggingface.co/BAAI/bge-m3
-- `BAAI/bge-reranker-v2-m3`, revisión `953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e`. https://huggingface.co/BAAI/bge-reranker-v2-m3
-- `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`, revisión `e8f8c211226b894fcb81acc59f3b34ba3efd5f42`. https://huggingface.co/sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
-- Qwen3.5-9B, GGUF Q4_K_M. https://huggingface.co/unsloth/Qwen3.5-9B-GGUF, revisión descargada `3885219b6810b007914f3a7950a8d1b469d598a5`
+- `BAAI/bge-m3`, revisión `5617a9f61b028005a4858fdac845db406aefb181`. <https://huggingface.co/BAAI/bge-m3>
+- `BAAI/bge-reranker-v2-m3`, revisión `953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e`. <https://huggingface.co/BAAI/bge-reranker-v2-m3>
+- `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`, revisión `e8f8c211226b894fcb81acc59f3b34ba3efd5f42`. <https://huggingface.co/sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2>
+- Qwen3.5-9B, GGUF Q4_K_M. <https://huggingface.co/unsloth/Qwen3.5-9B-GGUF>, revisión descargada `3885219b6810b007914f3a7950a8d1b469d598a5`
 - JEV `jev-1.14.0` (TypeSafe), API alojada ([`Experimento_JEV.md`](../consulta/Experimento_JEV.md)).
 
 ### Librerías y servicios
 
 Versiones exactas en los `requirements.txt` de cada módulo y en `web/package.json`.
 
-- PostgreSQL. https://www.postgresql.org/docs/current/ y pgvector. https://github.com/pgvector/pgvector
-- Sentence Transformers. https://sbert.net
-- llama.cpp, servidor HTTP (b12441). https://github.com/ggml-org/llama.cpp
-- pdfplumber. https://github.com/jsvine/pdfplumber
-- Tesseract OCR 4.1.1. https://github.com/tesseract-ocr/tesseract
-- FastAPI. https://fastapi.tiangolo.com y Pydantic. https://docs.pydantic.dev
-- React y Vite. https://react.dev, https://vite.dev
-- shadcn/ui (CLI 4.23.0), Radix (`radix-ui` 1.8.1) y Tailwind CSS 4.3.5 ([`web/DISENO.md`](../../web/DISENO.md)). https://ui.shadcn.com, https://www.radix-ui.com, https://tailwindcss.com
+- PostgreSQL. <https://www.postgresql.org/docs/current/> y pgvector. <https://github.com/pgvector/pgvector>
+- Sentence Transformers. <https://sbert.net>
+- llama.cpp, servidor HTTP (b12441). <https://github.com/ggml-org/llama.cpp>
+- pdfplumber. <https://github.com/jsvine/pdfplumber>
+- Tesseract OCR 4.1.1. <https://github.com/tesseract-ocr/tesseract>
+- FastAPI. <https://fastapi.tiangolo.com> y Pydantic. <https://docs.pydantic.dev>
+- React y Vite. <https://react.dev>, <https://vite.dev>
+- shadcn/ui (CLI 4.23.0), Radix (`radix-ui` 1.8.1) y Tailwind CSS 4.3.5 ([`web/DISENO.md`](../../web/DISENO.md)). <https://ui.shadcn.com>, <https://www.radix-ui.com>, <https://tailwindcss.com>
