@@ -30,6 +30,18 @@ Presentación del proyecto. El analista de una empresa proveedora del IGSS cruza
 Se plantea la hipótesis y sus límites. El sistema ayuda a leer, no decide: nunca dice qué documento está vigente ni certifica cumplimiento.
 :::
 
+# Corpus utilizado
+
+- Portal de proveedores del IGSS (igssgt.org): 5 licitaciones de medicamentos.
+- 399-IGSS-2026, 363-IGSS-2026, 368-IGSS-2026, 327-IGSS-2023 y 222-IGSS-2023.
+- 6 PDF oficiales: cinco bases y la Modificación 1 del 222; 184 páginas.
+- 625 fragmentos indexados; 28 excluidos por ruido de OCR en la modificación.
+- La página 4 de la Modificación 1 remite a un anexo no publicado: cobertura parcial declarada.
+
+::: notes
+Corpus local del 14 de noviembre de 2026, empresa ficticia empresa_demo; una segunda empresa ficticia, empresa_b, con una copia del evento 363 para probar el aislamiento. Las páginas 3 y 4 de la modificación son imágenes y se recuperaron por OCR.
+:::
+
 # Manifiesto: usuario, problema y riesgo
 
 - **Usuario:** analista de una empresa proveedora que prepara una oferta para el IGSS.
@@ -57,6 +69,30 @@ Cuatro carriles, uno por rol. La recuperación es híbrida (vectores y texto) co
 
 ::: notes
 Recorrido de una pregunta. Antes de publicar, un validador determinista comprueba las citas; si falla, permite una regeneración dentro del presupuesto y publica solo afirmaciones válidas o se abstiene. La auditoría no guarda texto de PDF ni datos personales. Puntos: Guardrail, enrutador, herramienta, recuperación, generación. Validador determinista de citas, hasta una regeneración, publicación parcial o abstención. Auditoría sin texto sensible.
+:::
+
+# Ingesta: del PDF a fragmentos
+
+![](../arquitectura/diagramas/ingesta_detallada.png)
+
+::: notes
+Validación del PDF y su hash, extracción con Poppler y OCR cuando no hay texto, tablas por geometría, filtro de ruido e inyección por página, y versionado del paquete que consume la recuperación.
+:::
+
+# Recuperación híbrida
+
+![](../arquitectura/diagramas/recuperacion.png)
+
+::: notes
+Vectores y texto en PostgreSQL, fusión RRF con pesos 0,6 y 0,4, reordenamiento con bge-reranker, umbral de suficiencia y alertas de cobertura y de posible conflicto.
+:::
+
+# Generación con citas
+
+![](../arquitectura/diagramas/generacion.png)
+
+::: notes
+El modelo selecciona literales de la evidencia; un validador determinista comprueba cada cita. Si falla, una regeneración dentro del presupuesto; si no, publicación parcial de lo válido o abstención.
 :::
 
 # Decisiones clave (1): confianza
@@ -99,6 +135,22 @@ Tres variantes del enrutador sobre los mismos conjuntos, con etiquetado a ciegas
 
 ::: notes
 Video grabado de la demo (el curso pide demostración en vivo; se confirma con el docente). Los cortes de espera llevan el rótulo con la latencia real.
+:::
+
+# Caso: bases contra modificación
+
+![](../arquitectura/diagramas/e2e_comparacion.png)
+
+::: notes
+Comparación del evento 222: la fecha de recepción cambia entre las bases y la Modificación 1. Se muestran las dos fuentes y se pide revisión humana; el sistema no decide cuál está vigente.
+:::
+
+# Caso: lista de verificación
+
+![](../arquitectura/diagramas/e2e_lista.png)
+
+::: notes
+La propuesta de lista se arma sin enrutador ni LLM, con fechas verificadas por reglas en filas de tabla. Solo se guarda tras la confirmación explícita del analista; el lector no puede guardarla.
 :::
 
 # Evaluación: recuperación
@@ -168,21 +220,22 @@ Suite de ocho pruebas con amenaza, mitigación y resultado. Todas cumplen, pero 
 Se reportan sin maquillar. La evaluación humana reveló defectos (regla de conflicto, enrutamiento de plazos, enlaces al PDF) que se corrigieron y auditaron; las cifras de los bancos son anteriores. Las metas sin medida se declaran como no medidas.
 :::
 
-# Roles y uso de IA
+# Uso de IA en el desarrollo
 
-- Rol 1 ingesta, rol 2 recuperación, rol 3 consulta, rol 4 plataforma y evaluación: [integrante] en cada uno.
-- Agentes con papeles separados: implementador, adversario, proponente y revisor de otra familia de modelos.
-- Adjudicación humana de los desacuerdos.
+- Implementación asistida por agentes, con auditoría adversarial de cada entrega.
+- Casos de prueba etiquetados a ciegas por dos modelos de familias distintas.
+- Los desacuerdos y las decisiones de diseño los resolvió una persona.
+- Experimentos con la regla de adopción fijada antes de correr.
 
 ::: notes
-Completar los nombres según docs/roles/Asignacion_de_roles.md. La IA se usó con papeles separados y los desacuerdos entre proponente y revisor los adjudicó una persona.
+La IA se usó con papeles separados: quien implementa no audita. Ninguna cifra del informe sale de un modelo sin medición.
 :::
 
 # Conclusiones y cierre
 
 - Trazabilidad: toda cita publicada pasa el validador.
 - Aislamiento por dos barreras; suite de seguridad 8 de 8.
-- Faltan: latencia bajo 15 s y la evaluación con humanos.
+- Faltan: latencia bajo 15 s y una evaluación con usuarios más allá de la exploratoria.
 - Siguiente paso: acortar la evidencia al LLM y reaplicar la regla de adopción de JEV.
 - "El sistema no decide cuál está vigente."
 
